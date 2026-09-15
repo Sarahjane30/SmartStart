@@ -108,7 +108,7 @@ function renderDashboard() {
   document.querySelector("#joiners-table tbody").innerHTML = rows
     .map(
       (r) => `<tr>
-      <td class="joiner-cell"><div class="name">${esc(r.name)}</div><div class="email">${esc(r.email)}</div></td>
+      <td class="joiner-cell"><div class="name"><a class="btn-link" href="/employee?id=${encodeURIComponent(r.id)}">${esc(r.name)}</a></div><div class="email">${esc(r.email)}</div></td>
       <td>${r.role_type}</td>
       <td>${esc(r.department)}</td>
       <td>${stateBadge(r.current_state)}</td>

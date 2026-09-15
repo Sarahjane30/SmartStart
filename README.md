@@ -10,7 +10,7 @@ All data is **100% synthetic** — no real PII, production logs, or live iCIMS /
 |------:|:------:|------|
 | **1** | Done | Synthetic data + 5-stage state engine |
 | **2** | Done | Employer Command Center (HR / IT / Manager) |
-| 3 | Planned | Joiner experience / AI assist |
+| **3** | Done | Employee Experience (Intern / FTE dashboard) |
 
 ### State machine
 
@@ -23,9 +23,20 @@ python -m pip install -e ".[dev]"
 uvicorn backend.main:app --reload --port 8000
 ```
 
-Open the Command Center: http://127.0.0.1:8000/
+- Employer Command Center: http://127.0.0.1:8000/
+- Employee Experience: http://127.0.0.1:8000/employee
+- API docs: http://127.0.0.1:8000/docs
 
-API docs: http://127.0.0.1:8000/docs
+## Layer 3 API
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/employee/{id}` | Detailed synthetic joiner profile |
+| GET | `/api/learningtrack/{id}` | Role-specific learning modules |
+| GET | `/api/notifications/{id}` | Synthetic onboarding notifications |
+| POST | `/api/feedback` | Submit synthetic onboarding-step feedback |
+
+**Role differentiation:** Interns get mentor-focused modules (e.g. Git Basics); FTEs get department + project-readiness tasks.
 
 ## Layer 2 API
 
@@ -42,17 +53,20 @@ Layer 1 endpoints (`/api/joiners`, `/api/metrics/summary`, etc.) remain availabl
 
 ```text
 backend/
-  main.py                 # FastAPI app (L1 + L2)
+  main.py                 # FastAPI app (L1–L3)
   models.py               # Pydantic schemas
   synthetic_engine.py     # Faker cohort generator
   database.py             # In-memory store
   analytics.py            # KPI calculations
   alerts.py               # Synthetic alert generator
   integrations.py         # Mock system connectors
+  employee_experience.py  # Profile / learning / notifications / feedback
 frontend/
   index.html              # Command Center UI
+  employee.html           # Employee Experience UI
   style.css
-  app.js                  # Fetch + charts (vanilla JS)
+  app.js                  # Employer Fetch + charts
+  employee.js             # Employee dashboard Fetch UI
 tests/
 ```
 

@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "smartstart"
-version = "0.2.0"
-description = "SmartStart — synthetic onboarding orchestration (Layer 1)"
+version = "0.3.0"
+description = "SmartStart — synthetic onboarding orchestration (Layers 1–2)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

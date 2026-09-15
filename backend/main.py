@@ -1,4 +1,4 @@
-"""SmartStart Layers 1–3 — FastAPI synthetic onboarding + Command Center + Employee UI."""
+"""SmartStart Layers 1–4 — FastAPI synthetic onboarding + Command Center + Employee UI."""
 
 from __future__ import annotations
 
@@ -12,6 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend.chatbot import build_chatbot
+from backend.predictor import build_predictions
+from backend.recommender import build_recommendations
 from backend.alerts import build_alerts
 from backend.analytics import ANALYTICS_AS_OF, build_analytics
 from backend.database import store
@@ -25,6 +28,9 @@ from backend.employee_experience import (
 )
 from backend.integrations import build_integrations
 from backend.models import (
+    RecommendationsResponse,
+    PredictResponse,
+    ChatbotResponse,
     DashboardJoinerRow,
     DashboardResponse,
     DocumentStatus,
@@ -45,11 +51,10 @@ from backend.synthetic_engine import days_in_pipeline, generate_cohort, infer_bo
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 API_DESCRIPTION = """
-SmartStart Layers 1–3 — Synthetic onboarding data engine, Employer Command Center,
+SmartStart Layers 1–4 — Synthetic onboarding data engine, Employer Command Center,
 and Employee Experience API.
 
-All joiners, documents, IT tickets, alerts, analytics, learning tracks, and
-notifications are **100% synthetic**. No real employee PII, production logs,
+All joiners, documents, IT tickets, alerts, analytics, learning tracks, notifications, and AI prototypes are **100% synthetic**. No real employee PII, production logs,
 or live iCIMS / ServiceNow / Jira data.
 """
 
@@ -64,7 +69,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="SmartStart",
     description=API_DESCRIPTION,
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -79,7 +84,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "layer": "3", "mode": "synthetic"}
+    return {"status": "ok", "layer": "4", "mode": "synthetic"}
 
 
 # --- Layer 1 ---------------------------------------------------------------
@@ -314,6 +319,36 @@ def feedback_list(joiner_id: str | None = Query(default=None)):
     return {"total": len(rows), "feedback": rows, "synthetic": True}
 
 
+# --- Layer 4: Prototype AI Features ------------------------------------
+
+
+@app.get("/api/chatbot/{joiner_id}", response_model=ChatbotResponse)
+def chatbot(joiner_id: str, q: str | None = Query(default=None)) -> ChatbotResponse:
+    """Synthetic rule-based onboarding FAQ guidance for a joiner."""
+    try:
+        return build_chatbot(joiner_id, query=q)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Chatbot context not found") from None
+
+
+@app.get("/api/predict/{joiner_id}", response_model=PredictResponse)
+def predict(joiner_id: str) -> PredictResponse:
+    """Synthetic predictive SLA / onboarding risk scores (seed-stable)."""
+    try:
+        return build_predictions(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Prediction context not found") from None
+
+
+@app.get("/api/recommendations/{joiner_id}", response_model=RecommendationsResponse)
+def recommendations(joiner_id: str) -> RecommendationsResponse:
+    """Adaptive synthetic learning recommendations by role and progress."""
+    try:
+        return build_recommendations(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Recommendations not found") from None
+
+
 # --- Frontend static -------------------------------------------------------
 
 if FRONTEND_DIR.exists():
@@ -324,5 +359,9 @@ if FRONTEND_DIR.exists():
     @app.get("/employee")
     def employee_experience() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "employee.html")
+
+    @app.get("/ai")
+    def ai_features() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "ai.html")
 
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

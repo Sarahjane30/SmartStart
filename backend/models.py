@@ -317,3 +317,85 @@ class FeedbackResponse(BaseModel):
     feedback: FeedbackRecord
     message: str = "Thanks — synthetic feedback recorded for demo."
     synthetic: bool = True
+
+
+# --- Layer 4: Prototype AI Features ---
+
+
+class RiskLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class ChatFAQ(BaseModel):
+    id: str
+    question: str
+    answer: str
+    category: str
+    synthetic: bool = True
+
+
+class ChatTurn(BaseModel):
+    role: str  # user | assistant
+    text: str
+    matched_faq_id: Optional[str] = None
+    synthetic: bool = True
+
+
+class ChatbotResponse(BaseModel):
+    joiner_id: str
+    role_type: RoleType
+    greeting: str
+    faqs: list[ChatFAQ]
+    turns: list[ChatTurn] = Field(default_factory=list)
+    query: Optional[str] = None
+    synthetic: bool = True
+    note: str = "Rule-based synthetic FAQ bot — not a live LLM."
+
+
+class PredictiveAlert(BaseModel):
+    id: str
+    category: str
+    title: str
+    message: str
+    risk_score: float = Field(ge=0, le=100)
+    risk_level: RiskLevel
+    drivers: list[str] = Field(default_factory=list)
+    recommended_action: str
+    synthetic: bool = True
+
+
+class PredictResponse(BaseModel):
+    joiner_id: str
+    overall_risk_score: float
+    overall_risk_level: RiskLevel
+    alerts: list[PredictiveAlert]
+    synthetic: bool = True
+    as_of: datetime
+    note: str = "Seed-stable synthetic risk scores from demo delays only."
+
+
+class RecommendationItem(BaseModel):
+    id: str
+    module_id: str
+    title: str
+    reason: str
+    priority: int = Field(ge=1, le=5)
+    estimated_minutes: int
+    progress_pct: float = Field(ge=0, le=100)
+    status: ModuleStatus
+    category: str
+    synthetic: bool = True
+
+
+class RecommendationsResponse(BaseModel):
+    joiner_id: str
+    role_type: RoleType
+    department_track: DepartmentTrack
+    focus: str
+    recommendations: list[RecommendationItem]
+    track_completion_pct: float
+    synthetic: bool = True
+    note: str = "Adaptive suggestions from synthetic role + progress — demo only."

@@ -1,4 +1,4 @@
-"""SmartStart Layers 1–2 — FastAPI synthetic onboarding + Command Center API."""
+"""SmartStart Layers 1–3 — FastAPI synthetic onboarding + Command Center + Employee UI."""
 
 from __future__ import annotations
 
@@ -15,15 +15,28 @@ from fastapi.staticfiles import StaticFiles
 from backend.alerts import build_alerts
 from backend.analytics import ANALYTICS_AS_OF, build_analytics
 from backend.database import store
+from backend.employee_experience import (
+    build_employee_profile,
+    build_learning_track,
+    build_notifications,
+    clear_feedback,
+    list_feedback,
+    submit_feedback,
+)
 from backend.integrations import build_integrations
 from backend.models import (
     DashboardJoinerRow,
     DashboardResponse,
     DocumentStatus,
     EmployerRole,
+    EmployeeProfile,
+    FeedbackCreate,
+    FeedbackResponse,
     Joiner,
     JoinerDetail,
+    LearningTrackResponse,
     MetricsSummary,
+    NotificationsResponse,
     OnboardingState,
     RoleType,
 )
@@ -32,23 +45,26 @@ from backend.synthetic_engine import days_in_pipeline, generate_cohort, infer_bo
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 API_DESCRIPTION = """
-SmartStart Layers 1–2 — Synthetic onboarding data engine + Employer Command Center API.
+SmartStart Layers 1–3 — Synthetic onboarding data engine, Employer Command Center,
+and Employee Experience API.
 
-All joiners, documents, IT tickets, alerts, and analytics are **100% synthetic**.
-No real employee PII, production logs, or live iCIMS / ServiceNow / Jira data.
+All joiners, documents, IT tickets, alerts, analytics, learning tracks, and
+notifications are **100% synthetic**. No real employee PII, production logs,
+or live iCIMS / ServiceNow / Jira data.
 """
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     generate_cohort(n_interns=15, n_ftes=15, seed=42)
+    clear_feedback()
     yield
 
 
 app = FastAPI(
     title="SmartStart",
     description=API_DESCRIPTION,
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -63,7 +79,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "layer": "2", "mode": "synthetic"}
+    return {"status": "ok", "layer": "3", "mode": "synthetic"}
 
 
 # --- Layer 1 ---------------------------------------------------------------
@@ -157,6 +173,7 @@ def regenerate(
 ) -> dict[str, int | str]:
     """Rebuild the in-memory synthetic cohort (dev/demo only)."""
     generate_cohort(n_interns=n_interns, n_ftes=n_ftes, seed=seed)
+    clear_feedback()
     return {
         "status": "regenerated",
         "total_joiners": len(store.list_joiners()),
@@ -251,11 +268,61 @@ def integrations():
     return build_integrations()
 
 
+# --- Layer 3: Employee Experience ------------------------------------------
+
+
+@app.get("/api/employee/{joiner_id}", response_model=EmployeeProfile)
+def employee_profile(joiner_id: str) -> EmployeeProfile:
+    """Detailed synthetic joiner profile for the employee dashboard."""
+    try:
+        return build_employee_profile(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Employee not found") from None
+
+
+@app.get("/api/learningtrack/{joiner_id}", response_model=LearningTrackResponse)
+def learning_track(joiner_id: str) -> LearningTrackResponse:
+    """Role-specific synthetic learning modules (Intern vs FTE)."""
+    try:
+        return build_learning_track(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Learning track not found") from None
+
+
+@app.get("/api/notifications/{joiner_id}", response_model=NotificationsResponse)
+def notifications(joiner_id: str) -> NotificationsResponse:
+    """Synthetic onboarding notifications for a joiner."""
+    try:
+        return build_notifications(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Notifications not found") from None
+
+
+@app.post("/api/feedback", response_model=FeedbackResponse)
+def feedback(payload: FeedbackCreate) -> FeedbackResponse:
+    """Record synthetic onboarding-step feedback from an employee."""
+    try:
+        return submit_feedback(payload)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Employee not found") from None
+
+
+@app.get("/api/feedback")
+def feedback_list(joiner_id: str | None = Query(default=None)):
+    """List synthetic feedback records (demo/debug)."""
+    rows = list_feedback(joiner_id)
+    return {"total": len(rows), "feedback": rows, "synthetic": True}
+
+
 # --- Frontend static -------------------------------------------------------
 
 if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
-
     @app.get("/")
     def command_center() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "index.html")
+
+    @app.get("/employee")
+    def employee_experience() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "employee.html")
+
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

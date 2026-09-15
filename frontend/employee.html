@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartStart — Employee Experience</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="employee-page">
+  <div class="emp-shell">
+    <header class="emp-top">
+      <div class="brand">
+        <div class="brand-mark">SS</div>
+        <div>
+          <div class="brand-name">SmartStart</div>
+          <div class="brand-sub">Employee Experience</div>
+        </div>
+      </div>
+      <div class="emp-top-actions">
+        <label class="picker">
+          <span class="muted tiny">Demo joiner</span>
+          <select id="employee-select" aria-label="Select synthetic employee"></select>
+        </label>
+        <a class="btn-secondary" href="/">Employer Command Center</a>
+        <button id="refresh-btn" class="btn-secondary" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <p class="banner muted tiny">
+      <span class="pill synthetic">SYNTHETIC DATA ONLY</span>
+      Seed-stable demo · no real PII · Interns show mentor + basic modules · FTEs show department readiness tasks
+    </p>
+
+    <div id="load-error" class="load-error" hidden></div>
+
+    <section class="emp-grid" id="dashboard" hidden>
+      <article class="card profile-card" id="profile-card">
+        <div class="card-head">
+          <h2>Profile</h2>
+          <span class="badge" id="role-badge"></span>
+        </div>
+        <div class="profile-body">
+          <div class="avatar" id="avatar" aria-hidden="true">?</div>
+          <div class="profile-main">
+            <h1 id="emp-name">—</h1>
+            <p class="muted" id="emp-email"></p>
+            <dl class="profile-meta">
+              <div><dt>Department</dt><dd id="emp-dept">—</dd></div>
+              <div><dt>Track</dt><dd id="emp-track">—</dd></div>
+              <div><dt>State</dt><dd id="emp-state">—</dd></div>
+              <div><dt>Join date</dt><dd id="emp-join">—</dd></div>
+              <div id="mentor-row"><dt>Mentor</dt><dd id="emp-mentor">—</dd></div>
+              <div><dt>Days in pipeline</dt><dd id="emp-days">—</dd></div>
+            </dl>
+            <p class="next-action" id="next-action"></p>
+          </div>
+        </div>
+        <div class="task-block" id="tasks-block" hidden>
+          <h3 id="tasks-title">Assigned tasks</h3>
+          <ul id="task-list"></ul>
+        </div>
+      </article>
+
+      <article class="card notifications-card">
+        <div class="card-head">
+          <h2>Notifications</h2>
+          <span class="notif-badge" id="unread-badge">0</span>
+        </div>
+        <div id="notifications-list" class="notifications-list"></div>
+      </article>
+
+      <article class="card learning-card">
+        <div class="card-head">
+          <h2>Learning track</h2>
+          <span class="muted tiny" id="track-summary"></span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span id="progress-label">0% complete</span>
+            <span class="muted tiny" id="progress-counts"></span>
+          </div>
+          <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </div>
+        <div id="modules-list" class="modules-list"></div>
+      </article>
+
+      <article class="card feedback-card">
+        <div class="card-head">
+          <h2>Onboarding feedback</h2>
+          <span class="muted tiny">Synthetic · demo only</span>
+        </div>
+        <form id="feedback-form" class="feedback-form">
+          <label>
+            Step
+            <select id="feedback-step" required>
+              <option value="Offer acceptance">Offer acceptance</option>
+              <option value="Document packet">Document packet</option>
+              <option value="IT provisioning">IT provisioning</option>
+              <option value="Day-1 orientation">Day-1 orientation</option>
+              <option value="Learning modules">Learning modules</option>
+              <option value="Mentor intro">Mentor intro</option>
+              <option value="Project readiness">Project readiness</option>
+            </select>
+          </label>
+          <fieldset class="rating-field">
+            <legend>Rating</legend>
+            <div class="rating-row" id="rating-row">
+              <label><input type="radio" name="rating" value="1" required /> 1</label>
+              <label><input type="radio" name="rating" value="2" /> 2</label>
+              <label><input type="radio" name="rating" value="3" checked /> 3</label>
+              <label><input type="radio" name="rating" value="4" /> 4</label>
+              <label><input type="radio" name="rating" value="5" /> 5</label>
+            </div>
+          </fieldset>
+          <label>
+            Comment
+            <textarea id="feedback-comment" maxlength="500" rows="3" placeholder="What helped or blocked you?"></textarea>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Submit feedback</button>
+            <span class="muted tiny" id="feedback-status" role="status"></span>
+          </div>
+        </form>
+        <div id="feedback-history" class="feedback-history"></div>
+      </article>
+    </section>
+  </div>
+  <script src="/static/employee.js"></script>
+</body>
+</html>

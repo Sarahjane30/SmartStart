@@ -214,3 +214,106 @@ class IntegrationsResponse(BaseModel):
     integrations: list[IntegrationSnapshot]
     synthetic: bool = True
     as_of: datetime
+
+
+# --- Layer 3: Employee Experience ---
+
+
+class ModuleStatus(str, Enum):
+    LOCKED = "locked"
+    AVAILABLE = "available"
+    IN_PROGRESS = "in_progress"
+    COMPLETE = "complete"
+
+
+class LearningModule(BaseModel):
+    id: str
+    title: str
+    description: str
+    duration_minutes: int
+    status: ModuleStatus
+    category: str
+    required: bool = True
+    synthetic: bool = True
+
+
+class LearningTrackResponse(BaseModel):
+    joiner_id: str
+    track_name: str
+    role_type: RoleType
+    department_track: DepartmentTrack
+    modules: list[LearningModule]
+    completion_pct: float
+    completed_count: int
+    total_count: int
+    synthetic: bool = True
+
+
+class NotificationKind(str, Enum):
+    INFO = "info"
+    ACTION = "action"
+    SUCCESS = "success"
+    REMINDER = "reminder"
+
+
+class EmployeeNotification(BaseModel):
+    id: str
+    kind: NotificationKind
+    title: str
+    message: str
+    created_at: datetime
+    read: bool = False
+    synthetic: bool = True
+
+
+class NotificationsResponse(BaseModel):
+    joiner_id: str
+    notifications: list[EmployeeNotification]
+    unread_count: int
+    synthetic: bool = True
+
+
+class EmployeeProfile(BaseModel):
+    """Employee-facing profile assembled from Layer 1 synthetic records."""
+
+    id: str
+    name: str
+    email: EmailStr
+    role_type: RoleType
+    department: str
+    department_track: DepartmentTrack
+    joining_date: date
+    current_state: OnboardingState
+    mentor_name: str
+    learning_track: str
+    assigned_tasks: list[str]
+    days_in_pipeline: int
+    docs_status: DocumentStatus
+    hardware_status: HardwareStatus
+    software_access: list[str]
+    bottleneck: Optional[str] = None
+    next_action: str
+    synthetic: bool = True
+
+
+class FeedbackCreate(BaseModel):
+    joiner_id: str
+    step: str = Field(min_length=1, max_length=80)
+    rating: int = Field(ge=1, le=5)
+    comment: str = Field(default="", max_length=500)
+
+
+class FeedbackRecord(BaseModel):
+    id: str
+    joiner_id: str
+    step: str
+    rating: int
+    comment: str
+    submitted_at: datetime
+    synthetic: bool = True
+
+
+class FeedbackResponse(BaseModel):
+    feedback: FeedbackRecord
+    message: str = "Thanks — synthetic feedback recorded for demo."
+    synthetic: bool = True

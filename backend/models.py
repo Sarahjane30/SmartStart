@@ -113,3 +113,104 @@ class MetricsSummary(BaseModel):
     dataset_note: str = (
         "All records are 100% synthetic. No real employee PII or production logs."
     )
+
+
+# --- Layer 2: Employer Command Center ---
+
+
+class EmployerRole(str, Enum):
+    ALL = "All"
+    HR = "HR"
+    IT = "IT"
+    MANAGER = "Manager"
+
+
+class AlertSeverity(str, Enum):
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class DashboardJoinerRow(BaseModel):
+    id: str
+    name: str
+    email: EmailStr
+    role_type: RoleType
+    department: str
+    department_track: DepartmentTrack
+    current_state: OnboardingState
+    mentor_name: str
+    learning_track: str
+    joining_date: date
+    days_in_pipeline: int
+    bottleneck: Optional[str] = None
+    docs_status: DocumentStatus
+    hardware_status: HardwareStatus
+    it_sla_breached: bool
+    assigned_tasks: list[str] = Field(default_factory=list)
+    synthetic: bool = True
+
+
+class DashboardResponse(BaseModel):
+    total_joiners: int
+    rows: list[DashboardJoinerRow]
+    by_state: dict[str, int]
+    synthetic: bool = True
+    dataset_note: str = "Synthetic dashboard rows only — no real employee PII."
+
+
+class Alert(BaseModel):
+    id: str
+    severity: AlertSeverity
+    category: str
+    title: str
+    message: str
+    joiner_id: Optional[str] = None
+    joiner_name: Optional[str] = None
+    role_view: str = "All"
+    created_at: datetime
+    synthetic: bool = True
+
+
+class AlertsResponse(BaseModel):
+    total: int
+    alerts: list[Alert]
+    synthetic: bool = True
+    as_of: datetime
+
+
+class TimeSeriesPoint(BaseModel):
+    label: str
+    value: float
+
+
+class AnalyticsResponse(BaseModel):
+    avg_onboarding_days: float
+    avg_it_lead_time_days: float
+    completion_rate_pct: float
+    active_joiners: int
+    project_ready_count: int
+    docs_pending: int = 0
+    bottleneck_counts: dict[str, int]
+    avg_days_by_state: dict[str, float]
+    onboarding_trend: list[TimeSeriesPoint]
+    synthetic: bool = True
+    as_of: Optional[datetime] = None
+
+
+class IntegrationSnapshot(BaseModel):
+    system: str
+    domain: str
+    status: str
+    record_count: int
+    open_items: int
+    last_synced_at: datetime
+    sample_payload: dict
+    synthetic: bool = True
+
+
+class IntegrationsResponse(BaseModel):
+    integrations: list[IntegrationSnapshot]
+    synthetic: bool = True
+    as_of: datetime

@@ -1,61 +1,63 @@
 # SmartStart
 
-Sandboxed **employee onboarding orchestration** app for Interns and FTEs.
+Sandboxed **employee onboarding orchestration** for Interns and FTEs.
 
-> Layer 1 generates **100% synthetic** records so HR/IT/Manager UIs and AI features can be built without real PII or production logs.
+All data is **100% synthetic** — no real PII, production logs, or live iCIMS / ServiceNow / Jira calls.
 
-## Layer 1 — Synthetic Data & State Engine
+## Layers
 
-Simulates:
-- **iCIMS (HR):** joiner metadata, offer acceptance, document packet status
-- **ServiceNow (IT):** laptop ticket, software access, SLA lead times
-- **Jira (Management):** mentor, learning track, assigned tasks
+| Layer | Status | Role |
+|------:|:------:|------|
+| **1** | Done | Synthetic data + 5-stage state engine |
+| **2** | Done | Employer Command Center (HR / IT / Manager) |
+| 3 | Planned | Joiner experience / AI assist |
 
 ### State machine
 
 `OFFER_ACCEPTED` → `DOCS_SUBMITTED` → `IT_PROVISIONED` → `DAY1_ORIENTED` → `PROJECT_READY`
 
-### Layout
-
-```text
-backend/
-  main.py                # FastAPI app
-  models.py              # Pydantic schemas
-  synthetic_engine.py    # Faker cohort generator (30 joiners by default)
-  database.py            # In-memory store
-tests/
-docs/architecture.md
-```
-
-### Quick start
+## Quick start
 
 ```bash
 python -m pip install -e ".[dev]"
 uvicorn backend.main:app --reload --port 8000
 ```
 
+Open the Command Center: http://127.0.0.1:8000/
+
 API docs: http://127.0.0.1:8000/docs
 
-### API
+## Layer 2 API
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/health` | liveness |
-| GET | `/api/joiners` | list joiners (`?role_type=INTERN\|FTE`, `?state=...`) |
-| GET | `/api/joiners/{id}` | joiner + docs + IT ticket + bottleneck |
-| GET | `/api/metrics/summary` | pipeline / SLA / bottleneck rollups |
-| POST | `/api/admin/regenerate` | rebuild cohort (`?seed=&n_interns=&n_ftes=`) |
+| GET | `/api/dashboard` | Joiner table + states (`?role_view=All\|HR\|IT\|Manager`) |
+| GET | `/api/alerts` | Synthetic SLA / pending-task alerts |
+| GET | `/api/analytics` | KPIs, bottlenecks, onboarding trend |
+| GET | `/api/integrations` | Mock iCIMS / ServiceNow / Jira snapshots |
 
-### Tests
+Layer 1 endpoints (`/api/joiners`, `/api/metrics/summary`, etc.) remain available.
+
+## Project layout
+
+```text
+backend/
+  main.py                 # FastAPI app (L1 + L2)
+  models.py               # Pydantic schemas
+  synthetic_engine.py     # Faker cohort generator
+  database.py             # In-memory store
+  analytics.py            # KPI calculations
+  alerts.py               # Synthetic alert generator
+  integrations.py         # Mock system connectors
+frontend/
+  index.html              # Command Center UI
+  style.css
+  app.js                  # Fetch + charts (vanilla JS)
+tests/
+```
+
+## Tests
 
 ```bash
 pytest
 ```
-
-## Roadmap
-
-| Layer | Status | Role |
-|------:|:------:|------|
-| **1** | **Now** | Synthetic data + state engine |
-| 2 | Next | Employer Command Center (HR/IT/Manager UI) |
-| 3 | Planned | Joiner experience / AI assist |

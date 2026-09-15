@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartStart — Employer Command Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">SS</div>
+        <div>
+          <div class="brand-name">SmartStart</div>
+          <div class="brand-sub">Employer Command Center</div>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <button class="nav-btn active" data-section="dashboard">Dashboard</button>
+        <button class="nav-btn" data-section="alerts">Alerts</button>
+        <button class="nav-btn" data-section="analytics">Analytics</button>
+        <button class="nav-btn" data-section="roles">Role Views</button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="pill synthetic">SYNTHETIC DATA ONLY</div>
+        <p class="muted tiny">No real PII · Seed 42 demo cohort · Mock iCIMS / ServiceNow / Jira</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="page-title">Dashboard</h1>
+          <p class="muted" id="page-subtitle">Pipeline status across all synthetic joiners</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="role-filters" role="group" aria-label="Role filter">
+            <button class="role-btn active" data-role="All">All</button>
+            <button class="role-btn" data-role="HR">HR</button>
+            <button class="role-btn" data-role="IT">IT</button>
+            <button class="role-btn" data-role="Manager">Manager</button>
+          </div>
+          <button id="refresh-btn" class="btn-secondary">Refresh</button>
+        </div>
+      </header>
+
+      <section id="section-dashboard" class="section active">
+        <div class="kpi-row" id="dashboard-kpis"></div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Joiner pipeline</h2>
+            <span class="muted tiny" id="dashboard-count"></span>
+          </div>
+          <div class="table-wrap">
+            <table id="joiners-table">
+              <thead>
+                <tr>
+                  <th>Joiner</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>State</th>
+                  <th>Days</th>
+                  <th>Docs</th>
+                  <th>IT</th>
+                  <th>Bottleneck</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-alerts" class="section">
+        <div class="card">
+          <div class="card-head">
+            <h2>Active alerts</h2>
+            <span class="muted tiny" id="alerts-count"></span>
+          </div>
+          <div id="alerts-list" class="alerts-list"></div>
+        </div>
+      </section>
+
+      <section id="section-analytics" class="section">
+        <div class="kpi-row" id="analytics-kpis"></div>
+        <div class="charts-grid">
+          <div class="card">
+            <div class="card-head"><h2>Bottlenecks</h2></div>
+            <canvas id="bottleneck-chart" width="640" height="320" aria-label="Bottleneck bar chart"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Avg onboarding time trend</h2></div>
+            <canvas id="trend-chart" width="640" height="320" aria-label="Onboarding trend line chart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Average days by state</h2></div>
+          <div id="state-days" class="state-days"></div>
+        </div>
+      </section>
+
+      <section id="section-roles" class="section">
+        <div class="integrations" id="integrations"></div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Role-focused queue</h2>
+            <span class="muted tiny" id="role-focus-label">All roles</span>
+          </div>
+          <div id="role-focus" class="role-focus"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

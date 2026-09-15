@@ -1,17 +1,26 @@
-"""SmartStart Layer 1 — FastAPI synthetic onboarding backend."""
+"""SmartStart Layers 1–2 — FastAPI synthetic onboarding + Command Center API."""
 
 from __future__ import annotations
 
 from collections import Counter
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
+from backend.alerts import build_alerts
+from backend.analytics import ANALYTICS_AS_OF, build_analytics
 from backend.database import store
+from backend.integrations import build_integrations
 from backend.models import (
+    DashboardJoinerRow,
+    DashboardResponse,
     DocumentStatus,
+    EmployerRole,
     Joiner,
     JoinerDetail,
     MetricsSummary,
@@ -20,10 +29,12 @@ from backend.models import (
 )
 from backend.synthetic_engine import days_in_pipeline, generate_cohort, infer_bottleneck
 
-API_DESCRIPTION = """
-SmartStart Layer 1 — Synthetic Data & State Engine.
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
-All joiners, documents, and IT tickets are **100% synthetic**.
+API_DESCRIPTION = """
+SmartStart Layers 1–2 — Synthetic onboarding data engine + Employer Command Center API.
+
+All joiners, documents, IT tickets, alerts, and analytics are **100% synthetic**.
 No real employee PII, production logs, or live iCIMS / ServiceNow / Jira data.
 """
 
@@ -35,9 +46,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="SmartStart Layer 1",
+    title="SmartStart",
     description=API_DESCRIPTION,
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -52,7 +63,10 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "layer": "1", "mode": "synthetic"}
+    return {"status": "ok", "layer": "2", "mode": "synthetic"}
+
+
+# --- Layer 1 ---------------------------------------------------------------
 
 
 @app.get("/api/joiners", response_model=list[Joiner])
@@ -81,7 +95,7 @@ def get_joiner(joiner_id: str) -> JoinerDetail:
         joiner=joiner,
         documents=documents,
         it_ticket=ticket,
-        days_in_pipeline=days_in_pipeline(joiner),
+        days_in_pipeline=days_in_pipeline(joiner, now=ANALYTICS_AS_OF),
         bottleneck=infer_bottleneck(joiner.current_state, documents, ticket),
     )
 
@@ -103,7 +117,7 @@ def metrics_summary() -> MetricsSummary:
             bottleneck_counts={},
         )
 
-    pipeline_days = [days_in_pipeline(j) for j in joiners]
+    pipeline_days = [days_in_pipeline(j, now=ANALYTICS_AS_OF) for j in joiners]
     tickets = [store.get_ticket_for_joiner(j.id) for j in joiners]
     docs = [store.get_documents(j.id) for j in joiners]
 
@@ -148,3 +162,100 @@ def regenerate(
         "total_joiners": len(store.list_joiners()),
         "seed": seed,
     }
+
+
+# --- Layer 2 ---------------------------------------------------------------
+
+
+@app.get("/api/dashboard", response_model=DashboardResponse)
+def dashboard(
+    role_view: EmployerRole = Query(default=EmployerRole.ALL),
+    role_type: RoleType | None = Query(default=None),
+    state: OnboardingState | None = Query(default=None),
+) -> DashboardResponse:
+    """Employer Command Center table: joiners + states (synthetic only)."""
+    rows: list[DashboardJoinerRow] = []
+    for joiner in store.list_joiners():
+        if role_type is not None and joiner.role_type != role_type:
+            continue
+        if state is not None and joiner.current_state != state:
+            continue
+        docs = store.get_documents(joiner.id)
+        ticket = store.get_ticket_for_joiner(joiner.id)
+        if docs is None or ticket is None:
+            continue
+
+        bottleneck = infer_bottleneck(joiner.current_state, docs, ticket)
+        # Role views emphasize different columns via frontend; light server filter:
+        if role_view == EmployerRole.HR and docs.status == DocumentStatus.COMPLETE:
+            # Still include everyone for HR overview; no hard filter.
+            pass
+        if role_view == EmployerRole.IT and ticket.sla_breached is False:
+            pass
+        if role_view == EmployerRole.MANAGER and not joiner.assigned_tasks:
+            pass
+
+        rows.append(
+            DashboardJoinerRow(
+                id=joiner.id,
+                name=joiner.name,
+                email=joiner.email,
+                role_type=joiner.role_type,
+                department=joiner.department,
+                department_track=joiner.department_track,
+                current_state=joiner.current_state,
+                mentor_name=joiner.mentor_name,
+                learning_track=joiner.learning_track,
+                joining_date=joiner.joining_date,
+                days_in_pipeline=days_in_pipeline(joiner, now=ANALYTICS_AS_OF),
+                bottleneck=bottleneck,
+                docs_status=docs.status,
+                hardware_status=ticket.hardware_status,
+                it_sla_breached=ticket.sla_breached,
+                assigned_tasks=joiner.assigned_tasks,
+                synthetic=True,
+            )
+        )
+
+    return DashboardResponse(
+        total_joiners=len(rows),
+        rows=rows,
+        by_state=dict(Counter(r.current_state.value for r in rows)),
+        synthetic=True,
+    )
+
+
+@app.get("/api/alerts")
+def alerts(role_view: EmployerRole = Query(default=EmployerRole.ALL)):
+    """Synthetic SLA breaches + pending-task alerts."""
+    payload = build_alerts()
+    if role_view != EmployerRole.ALL:
+        filtered = [
+            a
+            for a in payload.alerts
+            if a.role_view in {role_view.value, EmployerRole.ALL.value, "Ops"}
+        ]
+        return payload.model_copy(update={"alerts": filtered, "total": len(filtered)})
+    return payload
+
+
+@app.get("/api/analytics")
+def analytics():
+    """KPIs from synthetic timestamps (avg time, bottlenecks, trend)."""
+    return build_analytics()
+
+
+@app.get("/api/integrations")
+def integrations():
+    """Mock iCIMS / ServiceNow / Jira connector snapshots (synthetic)."""
+    return build_integrations()
+
+
+# --- Frontend static -------------------------------------------------------
+
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+    @app.get("/")
+    def command_center() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "index.html")

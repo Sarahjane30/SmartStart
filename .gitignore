@@ -9,8 +9,9 @@ build/
 htmlcov/
 .venv/
 venv/
-artifacts/
-*.npz
 .DS_Store
 .ruff_cache/
 .mypy_cache/
+frontend/node_modules/
+frontend/.next/
+*.npz

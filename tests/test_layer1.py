@@ -1,84 +1,92 @@
-"""Tests for SmartStart Layer 1 synthetic data engine."""
+"""Layer 1 onboarding synthetic engine tests."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from fastapi.testclient import TestClient
 
-import numpy as np
-import pytest
-
-from smartstart.layer1 import GenerationConfig, SyntheticDataEngine
-from smartstart.layer1.schemas import HIESeverity, NeuroOutcome
+from backend.database import DataStore
+from backend.main import app
+from backend.models import OnboardingState, RoleType
+from backend.synthetic_engine import generate_cohort
 
 
-def test_generate_cohort_shape_and_flags():
-    engine = SyntheticDataEngine(GenerationConfig(n_subjects=12, seed=7, eeg_duration_sec=2.0))
-    bundle = engine.generate()
-
-    assert bundle.synthetic is True
-    assert bundle.n_subjects == 12
-    assert bundle.seed == 7
-    assert all(s.synthetic for s in bundle.subjects)
-
-    subject = bundle.subjects[0]
-    assert subject.subject_id.startswith("SYN-0007-")
-    assert len(subject.eeg.channels) == 8
-    assert len(subject.eeg.samples) == 8
-    assert len(subject.eeg.samples[0]) == engine.config.eeg_n_samples
-    assert len(subject.mri.values) == len(subject.mri.feature_names)
-    assert isinstance(subject.severity, HIESeverity)
-    assert isinstance(subject.outcome, NeuroOutcome)
-
-
-def test_reproducibility_same_seed():
-    cfg = GenerationConfig(n_subjects=8, seed=123, eeg_duration_sec=1.0)
-    a = SyntheticDataEngine(cfg).generate()
-    b = SyntheticDataEngine(cfg).generate()
-
-    assert a.model_dump()["subjects"] == b.model_dump()["subjects"]
+def test_generate_cohort_counts_and_flags():
+    db = DataStore()
+    generate_cohort(n_interns=15, n_ftes=15, seed=7, target_store=db)
+    joiners = db.list_joiners()
+    assert len(joiners) == 30
+    assert sum(1 for j in joiners if j.role_type == RoleType.INTERN) == 15
+    assert sum(1 for j in joiners if j.role_type == RoleType.FTE) == 15
+    assert all(j.synthetic for j in joiners)
+    assert all(j.email.endswith("@synthetic.smartstart.example") for j in joiners)
+    assert all(j.id.startswith("SYN-J-") for j in joiners)
+    for j in joiners:
+        assert db.get_documents(j.id) is not None
+        assert db.get_ticket_for_joiner(j.id) is not None
+        docs = db.get_documents(j.id)
+        assert docs is not None
+        assert docs.form_count == 30
 
 
-def test_different_seeds_diverge():
-    a = SyntheticDataEngine(GenerationConfig(n_subjects=5, seed=1, eeg_duration_sec=1.0)).generate()
-    b = SyntheticDataEngine(GenerationConfig(n_subjects=5, seed=2, eeg_duration_sec=1.0)).generate()
-    assert a.subjects[0].latent_risk != b.subjects[0].latent_risk or (
-        a.subjects[0].eeg.samples[0][:10] != b.subjects[0].eeg.samples[0][:10]
-    )
+def test_generate_cohort_reproducible():
+    a = DataStore()
+    b = DataStore()
+    generate_cohort(seed=99, target_store=a)
+    generate_cohort(seed=99, target_store=b)
+    assert [j.model_dump() for j in a.list_joiners()] == [
+        j.model_dump() for j in b.list_joiners()
+    ]
 
 
-def test_export_artifacts(tmp_path: Path):
-    engine = SyntheticDataEngine(GenerationConfig(n_subjects=6, seed=9, eeg_duration_sec=1.0))
-    paths = engine.generate_and_export(tmp_path)
+def test_api_joiners_and_metrics():
+    with TestClient(app) as client:
+        health = client.get("/health")
+        assert health.status_code == 200
+        assert health.json()["mode"] == "synthetic"
 
-    assert paths["cohort_json"].exists()
-    assert paths["cohort_jsonl"].exists()
-    assert paths["manifest"].exists()
-    assert paths["arrays"].exists()
+        listing = client.get("/api/joiners")
+        assert listing.status_code == 200
+        rows = listing.json()
+        assert len(rows) == 30
 
-    payload = json.loads(paths["cohort_json"].read_text(encoding="utf-8"))
-    assert payload["synthetic"] is True
-    assert len(payload["subjects"]) == 6
+        interns = client.get("/api/joiners", params={"role_type": "INTERN"})
+        assert len(interns.json()) == 15
 
-    lines = paths["cohort_jsonl"].read_text(encoding="utf-8").strip().splitlines()
-    assert len(lines) == 6
+        detail = client.get(f"/api/joiners/{rows[0]['id']}")
+        assert detail.status_code == 200
+        body = detail.json()
+        assert body["joiner"]["synthetic"] is True
+        assert "it_ticket" in body
+        assert "documents" in body
+        assert body["documents"]["form_count"] == 30
 
-    arrays = np.load(paths["arrays"], allow_pickle=True)
-    assert arrays["eeg"].shape[0] == 6
-    assert arrays["mri"].shape[0] == 6
-    assert bool(arrays["synthetic"]) is True
-
-
-def test_risk_correlates_with_mri_injury():
-    bundle = SyntheticDataEngine(
-        GenerationConfig(n_subjects=80, seed=3, eeg_duration_sec=1.0, severity_noise=0.1)
-    ).generate()
-    risks = np.array([s.latent_risk for s in bundle.subjects])
-    injury = np.array([s.mri.injury_burden_score for s in bundle.subjects])
-    corr = np.corrcoef(risks, injury)[0, 1]
-    assert corr > 0.7
+        metrics = client.get("/api/metrics/summary")
+        assert metrics.status_code == 200
+        summary = metrics.json()
+        assert summary["total_joiners"] == 30
+        assert summary["synthetic"] is True
+        assert summary["by_role_type"]["INTERN"] == 15
+        assert summary["by_role_type"]["FTE"] == 15
 
 
-def test_config_rejects_empty_channels():
-    with pytest.raises(Exception):
-        GenerationConfig(eeg_channels=())
+def test_api_regenerate_and_404():
+    with TestClient(app) as client:
+        regen = client.post(
+            "/api/admin/regenerate",
+            params={"seed": 1, "n_interns": 2, "n_ftes": 2},
+        )
+        assert regen.status_code == 200
+        assert regen.json()["total_joiners"] == 4
+
+        missing = client.get("/api/joiners/does-not-exist")
+        assert missing.status_code == 404
+
+
+def test_state_machine_values():
+    assert [s.value for s in OnboardingState] == [
+        "OFFER_ACCEPTED",
+        "DOCS_SUBMITTED",
+        "IT_PROVISIONED",
+        "DAY1_ORIENTED",
+        "PROJECT_READY",
+    ]

@@ -6,196 +6,209 @@
   <title>SmartStart — Employee Experience</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=3" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=5" />
 </head>
 <body class="employee-page">
-  <div id="workspace" class="emp-shell">
-    <header class="emp-top">
+  <div id="workspace" class="wx">
+    <aside class="wx-rail" aria-label="Employee navigation">
       <div class="brand">
         <div class="brand-mark">SS</div>
         <div>
           <div class="brand-name">SmartStart</div>
-          <div class="brand-sub" id="workspace-sub">Employee workspace</div>
+          <div class="brand-sub">Employee</div>
         </div>
       </div>
-      <div class="emp-top-actions">
-        <div class="role-login header-role" role="group" aria-label="Role">
-          <button type="button" class="role-login-btn active" data-role="INTERN">Intern</button>
-          <button type="button" class="role-login-btn" data-role="FTE">FTE</button>
-        </div>
-        <label class="picker">
-          <span class="muted tiny">Signed in as</span>
-          <select id="login-select" aria-label="Select synthetic joiner"></select>
-        </label>
-        <a class="btn-secondary" href="/">Command Center</a>
-        <a class="btn-secondary" href="/ai">AI Features</a>
+
+      <nav class="wx-nav" aria-label="Workspace sections">
+        <button type="button" class="wx-nav-btn active" data-tab="home">Home</button>
+        <button type="button" class="wx-nav-btn" data-tab="learning">Learning</button>
+        <button type="button" class="wx-nav-btn" data-tab="ask">Ask</button>
+        <button type="button" class="wx-nav-btn" data-tab="people">People</button>
+        <button type="button" class="wx-nav-btn" data-tab="team">Team</button>
+        <button type="button" class="wx-nav-btn" data-tab="feedback">Feedback</button>
+      </nav>
+
+      <div class="wx-rail-foot">
+        <span class="pill synthetic">SYNTHETIC ONLY</span>
+        <a class="btn-link" href="/">Employer Command Center</a>
+        <a class="btn-link" href="/ai">AI Features</a>
       </div>
-    </header>
+    </aside>
 
-    <p class="banner muted tiny">
-      <span class="pill synthetic">SYNTHETIC DATA ONLY</span>
-      Pick <strong>Intern</strong> or <strong>FTE</strong>, then choose a profile — learning, Q&amp;A, people, and team load for that joiner.
-    </p>
-
-    <nav class="emp-nav" aria-label="Workspace sections">
-      <button type="button" class="emp-nav-btn active" data-tab="home">Home</button>
-      <button type="button" class="emp-nav-btn" data-tab="learning">Learning</button>
-      <button type="button" class="emp-nav-btn" data-tab="ask">Ask questions</button>
-      <button type="button" class="emp-nav-btn" data-tab="people">People to consult</button>
-      <button type="button" class="emp-nav-btn" data-tab="team">My team</button>
-      <button type="button" class="emp-nav-btn" data-tab="feedback">Feedback</button>
-    </nav>
-
-    <div id="load-error" class="load-error" hidden></div>
-
-    <section class="emp-tab active" id="tab-home">
-      <div class="emp-grid home-grid">
-        <article class="card profile-card" id="profile-card">
-          <div class="card-head">
-            <h2>Your profile</h2>
-            <span class="badge" id="role-badge"></span>
+    <div class="wx-main">
+      <header class="wx-top">
+        <div class="wx-identity">
+          <div class="avatar avatar-sm" id="avatar" aria-hidden="true">?</div>
+          <div>
+            <div class="wx-hello" id="wx-hello">Welcome</div>
+            <div class="muted tiny" id="workspace-sub">Loading workspace…</div>
           </div>
-          <div class="profile-body">
-            <div class="avatar" id="avatar" aria-hidden="true">?</div>
-            <div class="profile-main">
-              <h1 id="emp-name">—</h1>
-              <p class="muted" id="emp-email"></p>
-              <dl class="profile-meta">
-                <div><dt>Department</dt><dd id="emp-dept">—</dd></div>
-                <div><dt>Track</dt><dd id="emp-track">—</dd></div>
-                <div><dt>State</dt><dd id="emp-state">—</dd></div>
-                <div><dt>Join date</dt><dd id="emp-join">—</dd></div>
-                <div id="mentor-row"><dt>Mentor</dt><dd id="emp-mentor">—</dd></div>
-                <div><dt>Days in pipeline</dt><dd id="emp-days">—</dd></div>
-              </dl>
-              <p class="next-action" id="next-action"></p>
+        </div>
+        <div class="wx-controls">
+          <div class="role-login header-role" role="group" aria-label="Role">
+            <button type="button" class="role-login-btn active" data-role="INTERN">Intern</button>
+            <button type="button" class="role-login-btn" data-role="FTE">FTE</button>
+          </div>
+          <label class="picker">
+            <span class="muted tiny">Profile</span>
+            <select id="login-select" aria-label="Select synthetic joiner"></select>
+          </label>
+        </div>
+      </header>
+
+      <div id="load-error" class="load-error" hidden></div>
+
+      <section class="emp-tab active" id="tab-home">
+        <div class="wx-hero" id="profile-card">
+          <div class="wx-hero-copy">
+            <p class="wx-kicker"><span class="badge" id="role-badge">—</span> Onboarding home</p>
+            <h1 id="emp-name">—</h1>
+            <p class="muted" id="emp-email"></p>
+            <p class="wx-next" id="next-action">Your next step will appear here.</p>
+            <div class="wx-hero-actions">
+              <button type="button" class="btn-primary" data-goto="learning">Continue learning</button>
+              <button type="button" class="btn-secondary" data-goto="ask">Ask a question</button>
             </div>
           </div>
-          <div class="task-block" id="tasks-block" hidden>
-            <h3 id="tasks-title">Assigned tasks</h3>
-            <ul id="task-list"></ul>
-          </div>
-        </article>
-
-        <article class="card notifications-card">
-          <div class="card-head">
-            <h2>Notifications</h2>
-            <span class="notif-badge" id="unread-badge">0</span>
-          </div>
-          <div id="notifications-list" class="notifications-list"></div>
-        </article>
-
-        <article class="card home-quick">
-          <div class="card-head"><h2>Quick links</h2></div>
-          <div class="quick-row">
-            <button type="button" class="quick-btn" data-goto="learning">Learning modules</button>
-            <button type="button" class="quick-btn" data-goto="ask">Ask the FAQ bot</button>
-            <button type="button" class="quick-btn" data-goto="people">People to consult</button>
-            <button type="button" class="quick-btn" data-goto="team">Team overview</button>
-          </div>
-          <p class="muted tiny" id="home-recs"></p>
-        </article>
-      </div>
-    </section>
-
-    <section class="emp-tab" id="tab-learning">
-      <article class="card learning-card">
-        <div class="card-head">
-          <h2>Learning modules</h2>
-          <span class="muted tiny" id="track-summary"></span>
+          <dl class="wx-facts">
+            <div><dt>Department</dt><dd id="emp-dept">—</dd></div>
+            <div><dt>Track</dt><dd id="emp-track">—</dd></div>
+            <div><dt>State</dt><dd id="emp-state">—</dd></div>
+            <div><dt>Join date</dt><dd id="emp-join">—</dd></div>
+            <div id="mentor-row"><dt>Mentor</dt><dd id="emp-mentor">—</dd></div>
+            <div><dt>Days in pipeline</dt><dd id="emp-days">—</dd></div>
+          </dl>
         </div>
-        <div class="progress-wrap">
-          <div class="progress-label">
-            <span id="progress-label">0% complete</span>
-            <span class="muted tiny" id="progress-counts"></span>
+
+        <div class="wx-split">
+          <section class="wx-panel">
+            <div class="wx-panel-head">
+              <h2>Notifications</h2>
+              <span class="notif-badge" id="unread-badge">0</span>
+            </div>
+            <div id="notifications-list" class="notifications-list"></div>
+          </section>
+
+          <section class="wx-panel">
+            <div class="wx-panel-head">
+              <h2 id="tasks-title">Focus tasks</h2>
+            </div>
+            <div id="tasks-block">
+              <ul id="task-list" class="wx-task-list"></ul>
+            </div>
+            <p class="muted tiny" id="home-recs"></p>
+            <div class="wx-jump">
+              <button type="button" class="jump-link" data-goto="people">People →</button>
+              <button type="button" class="jump-link" data-goto="team">Team →</button>
+              <button type="button" class="jump-link" data-goto="feedback">Feedback →</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="emp-tab" id="tab-learning">
+        <header class="wx-section-head">
+          <div>
+            <h1>Learning</h1>
+            <p class="muted" id="track-summary">Your role-specific modules</p>
           </div>
+          <div class="wx-progress-stat">
+            <strong id="progress-label">0%</strong>
+            <span class="muted tiny" id="progress-counts">0 / 0</span>
+          </div>
+        </header>
+        <div class="progress-wrap wx-progress">
           <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar">
             <div class="progress-fill" id="progress-fill"></div>
           </div>
         </div>
         <div id="modules-list" class="modules-list"></div>
-      </article>
-    </section>
+      </section>
 
-    <section class="emp-tab" id="tab-ask">
-      <article class="card chat-card">
-        <div class="card-head">
-          <h2>Ask onboarding questions</h2>
-          <span class="muted tiny">Synthetic FAQ chatbot</span>
-        </div>
-        <div id="chat-log" class="chat-log" aria-live="polite"></div>
-        <div class="faq-chips" id="faq-chips"></div>
-        <form id="chat-form" class="chat-form">
-          <input id="chat-input" type="text" maxlength="240" placeholder="Ask about docs, laptop, mentor, Git Basics…" autocomplete="off" />
-          <button class="btn-primary" type="submit">Ask</button>
-        </form>
-      </article>
-    </section>
-
-    <section class="emp-tab" id="tab-people">
-      <article class="card">
-        <div class="card-head">
-          <h2>People you can consult</h2>
-          <span class="muted tiny">Synthetic contacts · not real employees</span>
-        </div>
-        <div id="consult-list" class="consult-grid"></div>
-      </article>
-    </section>
-
-    <section class="emp-tab" id="tab-team">
-      <article class="card">
-        <div class="card-head">
-          <h2 id="team-title">My team</h2>
-          <span class="muted tiny" id="team-count"></span>
-        </div>
-        <p class="muted" id="team-blurb"></p>
-        <div id="team-list" class="team-list"></div>
-      </article>
-    </section>
-
-    <section class="emp-tab" id="tab-feedback">
-      <article class="card feedback-card">
-        <div class="card-head">
-          <h2>Onboarding feedback</h2>
-          <span class="muted tiny">Synthetic · demo only</span>
-        </div>
-        <form id="feedback-form" class="feedback-form">
-          <label>
-            Step
-            <select id="feedback-step" required>
-              <option value="Offer acceptance">Offer acceptance</option>
-              <option value="Document packet">Document packet</option>
-              <option value="IT provisioning">IT provisioning</option>
-              <option value="Day-1 orientation">Day-1 orientation</option>
-              <option value="Learning modules">Learning modules</option>
-              <option value="Mentor intro">Mentor intro</option>
-              <option value="Project readiness">Project readiness</option>
-            </select>
-          </label>
-          <fieldset class="rating-field">
-            <legend>Rating</legend>
-            <div class="rating-row" id="rating-row">
-              <label><input type="radio" name="rating" value="1" required /> 1</label>
-              <label><input type="radio" name="rating" value="2" /> 2</label>
-              <label><input type="radio" name="rating" value="3" checked /> 3</label>
-              <label><input type="radio" name="rating" value="4" /> 4</label>
-              <label><input type="radio" name="rating" value="5" /> 5</label>
-            </div>
-          </fieldset>
-          <label>
-            Comment
-            <textarea id="feedback-comment" maxlength="500" rows="3" placeholder="What helped or blocked you?"></textarea>
-          </label>
-          <div class="form-actions">
-            <button type="submit" class="btn-primary">Submit feedback</button>
-            <span class="muted tiny" id="feedback-status" role="status"></span>
+      <section class="emp-tab" id="tab-ask">
+        <header class="wx-section-head">
+          <div>
+            <h1>Ask</h1>
+            <p class="muted">Synthetic FAQ guide for onboarding</p>
           </div>
-        </form>
-        <div id="feedback-history" class="feedback-history"></div>
-      </article>
-    </section>
+        </header>
+        <div class="wx-ask">
+          <div id="chat-log" class="chat-log" aria-live="polite"></div>
+          <div class="faq-chips" id="faq-chips"></div>
+          <form id="chat-form" class="chat-form">
+            <input id="chat-input" type="text" maxlength="240" placeholder="Ask about docs, laptop, mentor, Git Basics…" autocomplete="off" />
+            <button class="btn-primary" type="submit">Ask</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="emp-tab" id="tab-people">
+        <header class="wx-section-head">
+          <div>
+            <h1>People</h1>
+            <p class="muted">Who to contact for docs, IT, and mentoring</p>
+          </div>
+        </header>
+        <div id="consult-list" class="consult-grid"></div>
+      </section>
+
+      <section class="emp-tab" id="tab-team">
+        <header class="wx-section-head">
+          <div>
+            <h1 id="team-title">Team</h1>
+            <p class="muted" id="team-blurb">Department onboarding pod</p>
+          </div>
+          <span class="muted tiny" id="team-count"></span>
+        </header>
+        <div id="team-list" class="team-list"></div>
+      </section>
+
+      <section class="emp-tab" id="tab-feedback">
+        <header class="wx-section-head">
+          <div>
+            <h1>Feedback</h1>
+            <p class="muted">Rate an onboarding step — demo only</p>
+          </div>
+        </header>
+        <div class="wx-feedback">
+          <form id="feedback-form" class="feedback-form">
+            <label>
+              Step
+              <select id="feedback-step" required>
+                <option value="Offer acceptance">Offer acceptance</option>
+                <option value="Document packet">Document packet</option>
+                <option value="IT provisioning">IT provisioning</option>
+                <option value="Day-1 orientation">Day-1 orientation</option>
+                <option value="Learning modules">Learning modules</option>
+                <option value="Mentor intro">Mentor intro</option>
+                <option value="Project readiness">Project readiness</option>
+              </select>
+            </label>
+            <fieldset class="rating-field">
+              <legend>Rating</legend>
+              <div class="rating-row" id="rating-row">
+                <label><input type="radio" name="rating" value="1" required /> 1</label>
+                <label><input type="radio" name="rating" value="2" /> 2</label>
+                <label><input type="radio" name="rating" value="3" checked /> 3</label>
+                <label><input type="radio" name="rating" value="4" /> 4</label>
+                <label><input type="radio" name="rating" value="5" /> 5</label>
+              </div>
+            </fieldset>
+            <label>
+              Comment
+              <textarea id="feedback-comment" maxlength="500" rows="3" placeholder="What helped or blocked you?"></textarea>
+            </label>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Submit feedback</button>
+              <span class="muted tiny" id="feedback-status" role="status"></span>
+            </div>
+          </form>
+          <div id="feedback-history" class="feedback-history"></div>
+        </div>
+      </section>
+    </div>
   </div>
-  <script src="/static/employee.js?v=3"></script>
+  <script src="/static/employee.js?v=5"></script>
 </body>
 </html>

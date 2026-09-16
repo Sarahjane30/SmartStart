@@ -103,7 +103,7 @@ async function loadWorkspace() {
 function setTab(name) {
   state.tab = name;
   document.querySelectorAll(".emp-tab").forEach((el) => el.classList.remove("active"));
-  document.querySelectorAll(".emp-nav-btn").forEach((btn) => {
+  document.querySelectorAll(".wx-nav-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tab === name);
   });
   const tab = document.getElementById(`tab-${name}`);
@@ -142,7 +142,10 @@ function renderProfile() {
   const p = state.profile;
   if (!p) return;
   const isIntern = String(p.role_type).toUpperCase() === "INTERN";
+  const first = String(p.name || "there").split(/\s+/)[0];
 
+  const hello = document.getElementById("wx-hello");
+  if (hello) hello.textContent = `Hi, ${first}`;
   document.getElementById("emp-name").textContent = p.name || "—";
   document.getElementById("emp-email").textContent = p.email || "";
   document.getElementById("emp-dept").textContent = p.department || "—";
@@ -162,6 +165,8 @@ function renderProfile() {
   document.getElementById("avatar").textContent = initials(p.name);
   document.getElementById("next-action").textContent = p.next_action || "";
   document.getElementById("profile-card").dataset.role = p.role_type;
+  const shell = document.getElementById("workspace");
+  if (shell) shell.dataset.role = p.role_type;
 
   const tasksBlock = document.getElementById("tasks-block");
   const taskList = document.getElementById("task-list");
@@ -212,8 +217,7 @@ function renderLearning() {
   if (!t) return;
   document.getElementById("track-summary").textContent =
     `${t.track_name} · ${t.role_type} · ${t.department_track}`;
-  document.getElementById("progress-label").textContent =
-    `${t.completion_pct}% complete`;
+  document.getElementById("progress-label").textContent = `${t.completion_pct}%`;
   document.getElementById("progress-counts").textContent =
     `${t.completed_count} / ${t.total_count} modules`;
   const bar = document.getElementById("progress-bar");
@@ -458,10 +462,10 @@ function wireUI() {
     }
   });
 
-  document.querySelectorAll(".emp-nav-btn").forEach((btn) => {
+  document.querySelectorAll(".wx-nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => setTab(btn.dataset.tab));
   });
-  document.querySelectorAll(".quick-btn").forEach((btn) => {
+  document.querySelectorAll("[data-goto]").forEach((btn) => {
     btn.addEventListener("click", () => setTab(btn.dataset.goto));
   });
 

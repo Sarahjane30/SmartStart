@@ -399,3 +399,42 @@ class RecommendationsResponse(BaseModel):
     track_completion_pct: float
     synthetic: bool = True
     note: str = "Adaptive suggestions from synthetic role + progress — demo only."
+
+
+class ConsultContact(BaseModel):
+    """Synthetic person the joiner can ask for help."""
+
+    id: str
+    name: str
+    role_label: str
+    channel: str
+    availability: str
+    focus: str
+    synthetic: bool = True
+
+
+class TeamMember(BaseModel):
+    """Synthetic teammate / peer joiner in the same department."""
+
+    id: str
+    name: str
+    role_type: RoleType
+    current_state: OnboardingState
+    mentor_name: str
+    days_in_pipeline: int
+    is_self: bool = False
+    synthetic: bool = True
+
+
+class TeamWorkspaceResponse(BaseModel):
+    """Employee workspace helpers: consult network + department team."""
+
+    joiner_id: str
+    role_type: RoleType
+    department: str
+    team_name: str
+    consult: list[ConsultContact]
+    team: list[TeamMember]
+    suggested_questions: list[str]
+    synthetic: bool = True
+    note: str = "Synthetic consult network and team roster — demo only."

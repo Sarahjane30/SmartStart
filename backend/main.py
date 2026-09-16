@@ -22,6 +22,7 @@ from backend.employee_experience import (
     build_employee_profile,
     build_learning_track,
     build_notifications,
+    build_team_workspace,
     clear_feedback,
     list_feedback,
     submit_feedback,
@@ -45,6 +46,7 @@ from backend.models import (
     NotificationsResponse,
     OnboardingState,
     RoleType,
+    TeamWorkspaceResponse,
 )
 from backend.synthetic_engine import days_in_pipeline, generate_cohort, infer_bottleneck
 
@@ -319,8 +321,16 @@ def feedback_list(joiner_id: str | None = Query(default=None)):
     return {"total": len(rows), "feedback": rows, "synthetic": True}
 
 
-# --- Layer 4: Prototype AI Features ------------------------------------
+@app.get("/api/employee/{joiner_id}/workspace", response_model=TeamWorkspaceResponse)
+def employee_workspace(joiner_id: str) -> TeamWorkspaceResponse:
+    """Synthetic consult network, team roster, and suggested questions."""
+    try:
+        return build_team_workspace(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Workspace not found") from None
 
+
+# --- Layer 4: Prototype AI Features ------------------------------------
 
 @app.get("/api/chatbot/{joiner_id}", response_model=ChatbotResponse)
 def chatbot(joiner_id: str, q: str | None = Query(default=None)) -> ChatbotResponse:

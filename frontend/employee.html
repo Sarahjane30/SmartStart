@@ -10,72 +10,122 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body class="employee-page">
-  <div class="emp-shell">
+  <!-- Demo login: pick Intern or FTE, then a synthetic identity -->
+  <section id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="brand login-brand">
+        <div class="brand-mark">SS</div>
+        <div>
+          <div class="brand-name">SmartStart</div>
+          <div class="brand-sub">Employee login · synthetic demo</div>
+        </div>
+      </div>
+      <h1>Sign in as a joiner</h1>
+      <p class="muted">Choose Intern or FTE, then pick your synthetic profile. No real credentials — seed 42 demo only.</p>
+
+      <div class="role-login" role="group" aria-label="Role">
+        <button type="button" class="role-login-btn active" data-role="INTERN">Intern</button>
+        <button type="button" class="role-login-btn" data-role="FTE">FTE</button>
+      </div>
+
+      <label class="login-field">
+        <span>Your synthetic identity</span>
+        <select id="login-select" aria-label="Select synthetic joiner"></select>
+      </label>
+
+      <button type="button" id="login-btn" class="btn-primary login-submit">Enter workspace</button>
+      <p class="muted tiny login-links">
+        <a class="btn-link" href="/">Employer Command Center</a>
+        ·
+        <a class="btn-link" href="/ai">AI Features</a>
+      </p>
+      <div class="pill synthetic">SYNTHETIC DATA ONLY</div>
+    </div>
+  </section>
+
+  <div id="workspace" class="emp-shell" hidden>
     <header class="emp-top">
       <div class="brand">
         <div class="brand-mark">SS</div>
         <div>
           <div class="brand-name">SmartStart</div>
-          <div class="brand-sub">Employee Experience</div>
+          <div class="brand-sub" id="workspace-sub">Employee workspace</div>
         </div>
       </div>
       <div class="emp-top-actions">
-        <label class="picker">
-          <span class="muted tiny">Demo joiner</span>
-          <select id="employee-select" aria-label="Select synthetic employee"></select>
-        </label>
+        <span class="session-pill" id="session-pill"></span>
         <a class="btn-secondary" href="/">Command Center</a>
         <a class="btn-secondary" href="/ai">AI Features</a>
-        <button id="refresh-btn" class="btn-secondary" type="button">Refresh</button>
+        <button id="switch-btn" class="btn-secondary" type="button">Switch user</button>
+        <button id="logout-btn" class="btn-secondary" type="button">Log out</button>
       </div>
     </header>
 
-    <p class="banner muted tiny">
-      <span class="pill synthetic">SYNTHETIC DATA ONLY</span>
-      Seed-stable demo · no real PII · Interns show mentor + basic modules · FTEs show department readiness tasks
-    </p>
+    <nav class="emp-nav" aria-label="Workspace sections">
+      <button type="button" class="emp-nav-btn active" data-tab="home">Home</button>
+      <button type="button" class="emp-nav-btn" data-tab="learning">Learning</button>
+      <button type="button" class="emp-nav-btn" data-tab="ask">Ask questions</button>
+      <button type="button" class="emp-nav-btn" data-tab="people">People to consult</button>
+      <button type="button" class="emp-nav-btn" data-tab="team">My team</button>
+      <button type="button" class="emp-nav-btn" data-tab="feedback">Feedback</button>
+    </nav>
 
     <div id="load-error" class="load-error" hidden></div>
 
-    <section class="emp-grid" id="dashboard" hidden>
-      <article class="card profile-card" id="profile-card">
-        <div class="card-head">
-          <h2>Profile</h2>
-          <span class="badge" id="role-badge"></span>
-        </div>
-        <div class="profile-body">
-          <div class="avatar" id="avatar" aria-hidden="true">?</div>
-          <div class="profile-main">
-            <h1 id="emp-name">—</h1>
-            <p class="muted" id="emp-email"></p>
-            <dl class="profile-meta">
-              <div><dt>Department</dt><dd id="emp-dept">—</dd></div>
-              <div><dt>Track</dt><dd id="emp-track">—</dd></div>
-              <div><dt>State</dt><dd id="emp-state">—</dd></div>
-              <div><dt>Join date</dt><dd id="emp-join">—</dd></div>
-              <div id="mentor-row"><dt>Mentor</dt><dd id="emp-mentor">—</dd></div>
-              <div><dt>Days in pipeline</dt><dd id="emp-days">—</dd></div>
-            </dl>
-            <p class="next-action" id="next-action"></p>
+    <section class="emp-tab active" id="tab-home">
+      <div class="emp-grid home-grid">
+        <article class="card profile-card" id="profile-card">
+          <div class="card-head">
+            <h2>Your profile</h2>
+            <span class="badge" id="role-badge"></span>
           </div>
-        </div>
-        <div class="task-block" id="tasks-block" hidden>
-          <h3 id="tasks-title">Assigned tasks</h3>
-          <ul id="task-list"></ul>
-        </div>
-      </article>
+          <div class="profile-body">
+            <div class="avatar" id="avatar" aria-hidden="true">?</div>
+            <div class="profile-main">
+              <h1 id="emp-name">—</h1>
+              <p class="muted" id="emp-email"></p>
+              <dl class="profile-meta">
+                <div><dt>Department</dt><dd id="emp-dept">—</dd></div>
+                <div><dt>Track</dt><dd id="emp-track">—</dd></div>
+                <div><dt>State</dt><dd id="emp-state">—</dd></div>
+                <div><dt>Join date</dt><dd id="emp-join">—</dd></div>
+                <div id="mentor-row"><dt>Mentor</dt><dd id="emp-mentor">—</dd></div>
+                <div><dt>Days in pipeline</dt><dd id="emp-days">—</dd></div>
+              </dl>
+              <p class="next-action" id="next-action"></p>
+            </div>
+          </div>
+          <div class="task-block" id="tasks-block" hidden>
+            <h3 id="tasks-title">Assigned tasks</h3>
+            <ul id="task-list"></ul>
+          </div>
+        </article>
 
-      <article class="card notifications-card">
-        <div class="card-head">
-          <h2>Notifications</h2>
-          <span class="notif-badge" id="unread-badge">0</span>
-        </div>
-        <div id="notifications-list" class="notifications-list"></div>
-      </article>
+        <article class="card notifications-card">
+          <div class="card-head">
+            <h2>Notifications</h2>
+            <span class="notif-badge" id="unread-badge">0</span>
+          </div>
+          <div id="notifications-list" class="notifications-list"></div>
+        </article>
 
+        <article class="card home-quick">
+          <div class="card-head"><h2>Quick links</h2></div>
+          <div class="quick-row">
+            <button type="button" class="quick-btn" data-goto="learning">Learning modules</button>
+            <button type="button" class="quick-btn" data-goto="ask">Ask the FAQ bot</button>
+            <button type="button" class="quick-btn" data-goto="people">People to consult</button>
+            <button type="button" class="quick-btn" data-goto="team">Team overview</button>
+          </div>
+          <p class="muted tiny" id="home-recs"></p>
+        </article>
+      </div>
+    </section>
+
+    <section class="emp-tab" id="tab-learning">
       <article class="card learning-card">
         <div class="card-head">
-          <h2>Learning track</h2>
+          <h2>Learning modules</h2>
           <span class="muted tiny" id="track-summary"></span>
         </div>
         <div class="progress-wrap">
@@ -89,7 +139,45 @@
         </div>
         <div id="modules-list" class="modules-list"></div>
       </article>
+    </section>
 
+    <section class="emp-tab" id="tab-ask">
+      <article class="card chat-card">
+        <div class="card-head">
+          <h2>Ask onboarding questions</h2>
+          <span class="muted tiny">Synthetic FAQ chatbot</span>
+        </div>
+        <div id="chat-log" class="chat-log" aria-live="polite"></div>
+        <div class="faq-chips" id="faq-chips"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" type="text" maxlength="240" placeholder="Ask about docs, laptop, mentor, Git Basics…" autocomplete="off" />
+          <button class="btn-primary" type="submit">Ask</button>
+        </form>
+      </article>
+    </section>
+
+    <section class="emp-tab" id="tab-people">
+      <article class="card">
+        <div class="card-head">
+          <h2>People you can consult</h2>
+          <span class="muted tiny">Synthetic contacts · not real employees</span>
+        </div>
+        <div id="consult-list" class="consult-grid"></div>
+      </article>
+    </section>
+
+    <section class="emp-tab" id="tab-team">
+      <article class="card">
+        <div class="card-head">
+          <h2 id="team-title">My team</h2>
+          <span class="muted tiny" id="team-count"></span>
+        </div>
+        <p class="muted" id="team-blurb"></p>
+        <div id="team-list" class="team-list"></div>
+      </article>
+    </section>
+
+    <section class="emp-tab" id="tab-feedback">
       <article class="card feedback-card">
         <div class="card-head">
           <h2>Onboarding feedback</h2>

@@ -1,13 +1,18 @@
-/* SmartStart Layer 3 — Employee Experience */
+/* SmartStart — Employee Experience (login + workspace) */
 
-const DEFAULT_ID = "SYN-J-0042-023";
-
+const params = new URLSearchParams(window.location.search);
 const state = {
-  employeeId: new URLSearchParams(window.location.search).get("id") || DEFAULT_ID,
+  roleFilter: params.get("role") === "FTE" ? "FTE" : "INTERN",
+  employeeId: params.get("id") || "",
+  loggedIn: false,
+  joiners: [],
   profile: null,
   track: null,
   notifications: null,
   feedback: [],
+  workspace: null,
+  chatbot: null,
+  tab: "home",
 };
 
 async function fetchJSON(path, options) {
@@ -19,45 +24,99 @@ async function fetchJSON(path, options) {
   return res.json();
 }
 
+function filteredJoiners() {
+  return state.joiners.filter((j) => j.role_type === state.roleFilter);
+}
+
 async function loadJoiners() {
-  const joiners = await fetchJSON("/api/joiners");
-  const select = document.getElementById("employee-select");
-  select.innerHTML = joiners
+  state.joiners = await fetchJSON("/api/joiners");
+  populateLoginSelect();
+}
+
+function populateLoginSelect() {
+  const select = document.getElementById("login-select");
+  const rows = filteredJoiners();
+  select.innerHTML = rows
     .map(
       (j) =>
-        `<option value="${esc(j.id)}" ${j.id === state.employeeId ? "selected" : ""}>${esc(
-          j.name
-        )} · ${j.role_type}</option>`
+        `<option value="${esc(j.id)}">${esc(j.name)} · ${esc(j.department)}</option>`
     )
     .join("");
-  if (!joiners.some((j) => j.id === state.employeeId) && joiners.length) {
-    state.employeeId = joiners[0].id;
+  if (state.employeeId && rows.some((j) => j.id === state.employeeId)) {
+    select.value = state.employeeId;
+  } else if (rows.length) {
+    state.employeeId = rows[0].id;
     select.value = state.employeeId;
   }
 }
 
-async function loadEmployee() {
+async function loadWorkspace() {
   const id = encodeURIComponent(state.employeeId);
-  const [profile, track, notifications, feedback] = await Promise.all([
-    fetchJSON(`/api/employee/${id}`),
-    fetchJSON(`/api/learningtrack/${id}`),
-    fetchJSON(`/api/notifications/${id}`),
-    fetchJSON(`/api/feedback?joiner_id=${id}`),
-  ]);
+  const [profile, track, notifications, feedback, workspace, chatbot] =
+    await Promise.all([
+      fetchJSON(`/api/employee/${id}`),
+      fetchJSON(`/api/learningtrack/${id}`),
+      fetchJSON(`/api/notifications/${id}`),
+      fetchJSON(`/api/feedback?joiner_id=${id}`),
+      fetchJSON(`/api/employee/${id}/workspace`),
+      fetchJSON(`/api/chatbot/${id}`),
+    ]);
   state.profile = profile;
   state.track = track;
   state.notifications = notifications;
   state.feedback = feedback.feedback || [];
-  render();
+  state.workspace = workspace;
+  state.chatbot = chatbot;
+  renderAll();
 }
 
-function render() {
-  document.getElementById("dashboard").hidden = false;
+function showLogin() {
+  state.loggedIn = false;
+  document.getElementById("login-screen").hidden = false;
+  document.getElementById("workspace").hidden = true;
+  populateLoginSelect();
+}
+
+function showWorkspace() {
+  state.loggedIn = true;
+  document.getElementById("login-screen").hidden = true;
+  document.getElementById("workspace").hidden = false;
+}
+
+function setTab(name) {
+  state.tab = name;
+  document.querySelectorAll(".emp-tab").forEach((el) => el.classList.remove("active"));
+  document.querySelectorAll(".emp-nav-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === name);
+  });
+  const tab = document.getElementById(`tab-${name}`);
+  if (tab) tab.classList.add("active");
+}
+
+function renderAll() {
   document.getElementById("load-error").hidden = true;
+  showWorkspace();
+  const p = state.profile;
+  document.getElementById("session-pill").textContent =
+    `${p.name} · ${p.role_type}`;
+  document.getElementById("workspace-sub").textContent =
+    `${p.role_type} workspace · ${p.department}`;
   renderProfile();
-  renderLearning();
   renderNotifications();
+  renderLearning();
+  renderChat();
+  renderConsult();
+  renderTeam();
   renderFeedbackHistory();
+  renderHomeExtras();
+  setTab(state.tab || "home");
+}
+
+function renderHomeExtras() {
+  const recs = state.workspace?.suggested_questions || [];
+  document.getElementById("home-recs").textContent = recs.length
+    ? `Try asking: “${recs[0]}”`
+    : "";
 }
 
 function renderProfile() {
@@ -68,17 +127,15 @@ function renderProfile() {
   document.getElementById("emp-name").textContent = p.name;
   document.getElementById("emp-email").textContent = p.email;
   document.getElementById("emp-dept").textContent = p.department;
-  document.getElementById("emp-track").textContent = `${p.department_track} · ${p.learning_track}`;
+  document.getElementById("emp-track").textContent =
+    `${p.department_track} · ${p.learning_track}`;
   document.getElementById("emp-state").innerHTML = stateBadge(p.current_state);
   document.getElementById("emp-join").textContent = p.joining_date;
   document.getElementById("emp-days").textContent = String(p.days_in_pipeline);
   document.getElementById("emp-mentor").textContent = p.mentor_name;
-  document.getElementById("mentor-row").hidden = !isIntern && !p.mentor_name;
-  if (!isIntern) {
-    document.querySelector("#mentor-row dt").textContent = "Buddy / mentor";
-  } else {
-    document.querySelector("#mentor-row dt").textContent = "Mentor";
-  }
+  document.querySelector("#mentor-row dt").textContent = isIntern
+    ? "Mentor"
+    : "Buddy / mentor";
 
   const badge = document.getElementById("role-badge");
   badge.textContent = p.role_type;
@@ -91,31 +148,51 @@ function renderProfile() {
     .join("")
     .toUpperCase();
   document.getElementById("avatar").textContent = initials || "?";
-
   document.getElementById("next-action").textContent = p.next_action;
+  document.getElementById("profile-card").dataset.role = p.role_type;
 
   const tasksBlock = document.getElementById("tasks-block");
   const taskList = document.getElementById("task-list");
   const tasksTitle = document.getElementById("tasks-title");
-  if (isIntern) {
-    tasksTitle.textContent = "Mentor check-ins & basics";
-  } else {
-    tasksTitle.textContent = "Project readiness tasks";
-  }
+  tasksTitle.textContent = isIntern
+    ? "Mentor check-ins & basics"
+    : "Project readiness tasks";
   if (p.assigned_tasks && p.assigned_tasks.length) {
     tasksBlock.hidden = false;
     taskList.innerHTML = p.assigned_tasks.map((t) => `<li>${esc(t)}</li>`).join("");
   } else if (!isIntern) {
     tasksBlock.hidden = false;
     taskList.innerHTML =
-      "<li class=\"muted\">Complete department readiness modules to unlock project tasks.</li>";
+      '<li class="muted">Complete department readiness modules to unlock project tasks.</li>';
   } else {
     tasksBlock.hidden = true;
     taskList.innerHTML = "";
   }
+}
 
-  // Highlight Intern vs FTE layout cues
-  document.getElementById("profile-card").dataset.role = p.role_type;
+function renderNotifications() {
+  const data = state.notifications;
+  if (!data) return;
+  const badge = document.getElementById("unread-badge");
+  badge.textContent = String(data.unread_count);
+  badge.hidden = data.unread_count === 0;
+  const list = document.getElementById("notifications-list");
+  if (!data.notifications.length) {
+    list.innerHTML = `<p class="muted">No notifications.</p>`;
+    return;
+  }
+  list.innerHTML = data.notifications
+    .map(
+      (n) => `<article class="note kind-${n.kind} ${n.read ? "read" : "unread"}">
+      <div class="note-top">
+        <strong>${esc(n.title)}</strong>
+        <time datetime="${esc(n.created_at)}">${fmt(n.created_at)}</time>
+      </div>
+      <p>${esc(n.message)}</p>
+      <span class="note-kind">${esc(n.kind)}</span>
+    </article>`
+    )
+    .join("");
 }
 
 function renderLearning() {
@@ -123,7 +200,8 @@ function renderLearning() {
   if (!t) return;
   document.getElementById("track-summary").textContent =
     `${t.track_name} · ${t.role_type} · ${t.department_track}`;
-  document.getElementById("progress-label").textContent = `${t.completion_pct}% complete`;
+  document.getElementById("progress-label").textContent =
+    `${t.completion_pct}% complete`;
   document.getElementById("progress-counts").textContent =
     `${t.completed_count} / ${t.total_count} modules`;
   const bar = document.getElementById("progress-bar");
@@ -158,28 +236,90 @@ function renderLearning() {
     .join("");
 }
 
-function renderNotifications() {
-  const data = state.notifications;
+function renderChat() {
+  const data = state.chatbot;
   if (!data) return;
-  const badge = document.getElementById("unread-badge");
-  badge.textContent = String(data.unread_count);
-  badge.hidden = data.unread_count === 0;
+  document.getElementById("chat-log").innerHTML = (data.turns || [])
+    .map(
+      (t) =>
+        `<div class="bubble ${t.role}"><div class="bubble-meta">${t.role}</div><p>${esc(
+          t.text
+        )}</p></div>`
+    )
+    .join("");
 
-  const list = document.getElementById("notifications-list");
-  if (!data.notifications.length) {
-    list.innerHTML = `<p class="muted">No notifications.</p>`;
+  const suggested =
+    state.workspace?.suggested_questions ||
+    (data.faqs || []).slice(0, 6).map((f) => f.question);
+  document.getElementById("faq-chips").innerHTML = suggested
+    .map(
+      (q) =>
+        `<button type="button" class="chip" data-q="${esc(q)}">${esc(q)}</button>`
+    )
+    .join("");
+  document.querySelectorAll("#faq-chips .chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById("chat-input").value = btn.dataset.q;
+      askChat(btn.dataset.q);
+    });
+  });
+  const log = document.getElementById("chat-log");
+  log.scrollTop = log.scrollHeight;
+}
+
+async function askChat(query) {
+  const id = encodeURIComponent(state.employeeId);
+  state.chatbot = await fetchJSON(
+    `/api/chatbot/${id}?q=${encodeURIComponent(query)}`
+  );
+  renderChat();
+}
+
+function renderConsult() {
+  const list = document.getElementById("consult-list");
+  const rows = state.workspace?.consult || [];
+  if (!rows.length) {
+    list.innerHTML = `<p class="muted">No consult contacts.</p>`;
     return;
   }
-  list.innerHTML = data.notifications
+  list.innerHTML = rows
     .map(
-      (n) => `<article class="note kind-${n.kind} ${n.read ? "read" : "unread"}">
-      <div class="note-top">
-        <strong>${esc(n.title)}</strong>
-        <time datetime="${esc(n.created_at)}">${fmt(n.created_at)}</time>
+      (c) => `<article class="consult-card">
+      <div class="consult-avatar" aria-hidden="true">${initials(c.name)}</div>
+      <div>
+        <strong>${esc(c.name)}</strong>
+        <div class="muted tiny">${esc(c.role_label)}</div>
+        <p>${esc(c.focus)}</p>
+        <dl class="consult-meta">
+          <div><dt>Channel</dt><dd>${esc(c.channel)}</dd></div>
+          <div><dt>Availability</dt><dd>${esc(c.availability)}</dd></div>
+        </dl>
       </div>
-      <p>${esc(n.message)}</p>
-      <span class="note-kind">${esc(n.kind)}</span>
     </article>`
+    )
+    .join("");
+}
+
+function renderTeam() {
+  const ws = state.workspace;
+  if (!ws) return;
+  document.getElementById("team-title").textContent = ws.team_name;
+  document.getElementById("team-count").textContent =
+    `${ws.team.length} people in ${ws.department}`;
+  document.getElementById("team-blurb").textContent =
+    state.profile?.role_type === "INTERN"
+      ? "Fellow joiners in your department pod — ask peers about Day-1 and mentor tips."
+      : "Department cohort overview — see who is project-ready vs still provisioning.";
+  document.getElementById("team-list").innerHTML = (ws.team || [])
+    .map(
+      (m) => `<div class="team-row ${m.is_self ? "is-self" : ""}">
+      <div>
+        <strong>${esc(m.name)}${m.is_self ? " (you)" : ""}</strong>
+        <div class="muted tiny">${m.role_type} · mentor ${esc(m.mentor_name)}</div>
+      </div>
+      <div>${stateBadge(m.current_state)}</div>
+      <div class="muted tiny">${m.days_in_pipeline}d in pipeline</div>
+    </div>`
     )
     .join("");
 }
@@ -238,11 +378,17 @@ async function submitFeedback(event) {
 function stateBadge(s) {
   return `<span class="badge state-${s}">${String(s).replaceAll("_", " ")}</span>`;
 }
-
 function labelStatus(s) {
   return String(s).replaceAll("_", " ");
 }
-
+function initials(name) {
+  return String(name)
+    .split(/\s+/)
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 function esc(v) {
   return String(v)
     .replaceAll("&", "&amp;")
@@ -250,7 +396,6 @@ function esc(v) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 }
-
 function fmt(iso) {
   try {
     return new Date(iso).toLocaleString(undefined, {
@@ -264,32 +409,103 @@ function fmt(iso) {
 
 function syncUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("id", state.employeeId);
+  if (state.loggedIn && state.employeeId) {
+    url.searchParams.set("id", state.employeeId);
+    url.searchParams.set("role", state.roleFilter);
+  } else {
+    url.searchParams.delete("id");
+    url.searchParams.set("role", state.roleFilter);
+  }
   window.history.replaceState({}, "", url);
 }
 
 function wireUI() {
-  document.getElementById("employee-select").addEventListener("change", async (e) => {
-    state.employeeId = e.target.value;
-    syncUrl();
-    await loadEmployee();
+  document.querySelectorAll(".role-login-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.roleFilter = btn.dataset.role;
+      document
+        .querySelectorAll(".role-login-btn")
+        .forEach((b) => b.classList.toggle("active", b.dataset.role === state.roleFilter));
+      populateLoginSelect();
+      syncUrl();
+    });
   });
-  document.getElementById("refresh-btn").addEventListener("click", () => loadEmployee());
+
+  document.getElementById("login-select").addEventListener("change", (e) => {
+    state.employeeId = e.target.value;
+  });
+
+  document.getElementById("login-btn").addEventListener("click", async () => {
+    state.employeeId = document.getElementById("login-select").value;
+    if (!state.employeeId) return;
+    state.tab = "home";
+    syncUrl();
+    try {
+      await loadWorkspace();
+    } catch (err) {
+      console.error(err);
+      document.getElementById("load-error").hidden = false;
+      document.getElementById("load-error").textContent =
+        `Failed to open workspace: ${err.message}`;
+    }
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    showLogin();
+    syncUrl();
+  });
+  document.getElementById("switch-btn").addEventListener("click", () => {
+    showLogin();
+    syncUrl();
+  });
+
+  document.querySelectorAll(".emp-nav-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setTab(btn.dataset.tab));
+  });
+  document.querySelectorAll(".quick-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setTab(btn.dataset.goto));
+  });
+
+  document.getElementById("chat-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("chat-input");
+    const q = input.value.trim();
+    if (!q) return;
+    await askChat(q);
+    input.value = "";
+  });
+
   document.getElementById("feedback-form").addEventListener("submit", submitFeedback);
 }
 
 async function boot() {
   wireUI();
+  document
+    .querySelectorAll(".role-login-btn")
+    .forEach((b) => b.classList.toggle("active", b.dataset.role === state.roleFilter));
   try {
     await loadJoiners();
-    syncUrl();
-    await loadEmployee();
+    if (params.get("id") && state.joiners.some((j) => j.id === params.get("id"))) {
+      const j = state.joiners.find((x) => x.id === params.get("id"));
+      state.employeeId = j.id;
+      state.roleFilter = j.role_type;
+      document
+        .querySelectorAll(".role-login-btn")
+        .forEach((b) =>
+          b.classList.toggle("active", b.dataset.role === state.roleFilter)
+        );
+      populateLoginSelect();
+      await loadWorkspace();
+    } else {
+      showLogin();
+      syncUrl();
+    }
   } catch (err) {
     console.error(err);
-    document.getElementById("dashboard").hidden = true;
+    document.getElementById("login-screen").hidden = false;
     const box = document.getElementById("load-error");
     box.hidden = false;
-    box.textContent = `Failed to load synthetic employee API: ${err.message}`;
+    box.textContent = `Failed to load joiners: ${err.message}`;
   }
 }
 

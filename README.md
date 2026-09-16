@@ -25,7 +25,7 @@ uvicorn backend.main:app --reload --port 8000
 ```
 
 - Employer Command Center: http://127.0.0.1:8000/
-- Employee Experience: http://127.0.0.1:8000/employee
+- Employee Experience (Intern/FTE login): http://127.0.0.1:8000/employee
 - AI Features: http://127.0.0.1:8000/ai
 - API docs: http://127.0.0.1:8000/docs
 
@@ -48,6 +48,7 @@ Open AI Features UI: http://127.0.0.1:8000/ai
 | GET | `/api/learningtrack/{id}` | Role-specific learning modules |
 | GET | `/api/notifications/{id}` | Synthetic onboarding notifications |
 | POST | `/api/feedback` | Submit synthetic onboarding-step feedback |
+| GET | `/api/employee/{id}/workspace` | Consult network + department team roster |
 
 **Role differentiation:** Interns get mentor-focused modules (e.g. Git Basics); FTEs get department + project-readiness tasks.
 

@@ -100,7 +100,7 @@ def test_layer3_seed_stable_and_frontend():
         page = client.get("/employee")
         assert page.status_code == 200
         assert "Employee Experience" in page.text
-        assert "Learning track" in page.text
+        assert "Learning" in page.text
         assert "Notifications" in page.text
         assert "feedback-form" in page.text
 

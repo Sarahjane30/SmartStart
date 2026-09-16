@@ -262,6 +262,11 @@ canvas {
 .profile-body {
   display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: start;
 }
+.profile-main { min-width: 0; }
+.profile-main h1 { display: block; }
+@media (max-width: 640px) {
+  .profile-body { grid-template-columns: 1fr; }
+}
 .avatar {
   width: 72px; height: 72px; border-radius: 18px;
   display: grid; place-items: center;

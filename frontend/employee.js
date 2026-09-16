@@ -14,6 +14,16 @@ const state = {
   tab: "home",
 };
 
+function showError(msg) {
+  const box = document.getElementById("load-error");
+  if (!box) {
+    console.error(msg);
+    return;
+  }
+  box.hidden = false;
+  box.textContent = msg;
+}
+
 async function fetchJSON(path, options) {
   const res = await fetch(path, options);
   if (!res.ok) {
@@ -24,17 +34,24 @@ async function fetchJSON(path, options) {
 }
 
 function filteredJoiners() {
-  return state.joiners.filter((j) => j.role_type === state.roleFilter);
-}
-
-async function loadJoiners() {
-  state.joiners = await fetchJSON("/api/joiners");
-  populateSelect();
+  return state.joiners.filter((j) => String(j.role_type).toUpperCase() === state.roleFilter);
 }
 
 function populateSelect() {
   const select = document.getElementById("login-select");
-  const rows = filteredJoiners();
+  if (!select) return;
+  let rows = filteredJoiners();
+  if (!rows.length && state.joiners.length) {
+    // Fall back to all joiners if role filter matched nothing
+    rows = state.joiners;
+    state.roleFilter = String(state.joiners[0].role_type).toUpperCase();
+    syncRoleButtons();
+  }
+  if (!rows.length) {
+    select.innerHTML = `<option value="">No joiners loaded</option>`;
+    state.employeeId = "";
+    return;
+  }
   select.innerHTML = rows
     .map(
       (j) =>
@@ -43,14 +60,27 @@ function populateSelect() {
     .join("");
   if (state.employeeId && rows.some((j) => j.id === state.employeeId)) {
     select.value = state.employeeId;
-  } else if (rows.length) {
+  } else {
     state.employeeId = rows[0].id;
     select.value = state.employeeId;
   }
 }
 
+async function loadJoiners() {
+  state.joiners = await fetchJSON("/api/joiners");
+  if (!Array.isArray(state.joiners) || !state.joiners.length) {
+    throw new Error("No synthetic joiners returned from /api/joiners");
+  }
+  populateSelect();
+}
+
 async function loadWorkspace() {
-  if (!state.employeeId) return;
+  if (!state.employeeId) {
+    populateSelect();
+  }
+  if (!state.employeeId) {
+    throw new Error("Pick Intern or FTE — no synthetic profile selected.");
+  }
   const id = encodeURIComponent(state.employeeId);
   const [profile, track, notifications, feedback, workspace, chatbot] =
     await Promise.all([
@@ -81,8 +111,13 @@ function setTab(name) {
 }
 
 function renderAll() {
-  document.getElementById("load-error").hidden = true;
+  const err = document.getElementById("load-error");
+  if (err) err.hidden = true;
   const p = state.profile;
+  if (!p) {
+    showError("Profile failed to load.");
+    return;
+  }
   document.getElementById("workspace-sub").textContent =
     `${p.role_type} workspace · ${p.department}`;
   renderProfile();
@@ -97,36 +132,35 @@ function renderAll() {
 }
 
 function renderHomeExtras() {
+  const el = document.getElementById("home-recs");
+  if (!el) return;
   const recs = state.workspace?.suggested_questions || [];
-  document.getElementById("home-recs").textContent = recs.length
-    ? `Try asking: “${recs[0]}”`
-    : "";
+  el.textContent = recs.length ? `Try asking: “${recs[0]}”` : "";
 }
 
 function renderProfile() {
   const p = state.profile;
   if (!p) return;
-  const isIntern = p.role_type === "INTERN";
+  const isIntern = String(p.role_type).toUpperCase() === "INTERN";
 
-  document.getElementById("emp-name").textContent = p.name;
-  document.getElementById("emp-email").textContent = p.email;
-  document.getElementById("emp-dept").textContent = p.department;
+  document.getElementById("emp-name").textContent = p.name || "—";
+  document.getElementById("emp-email").textContent = p.email || "";
+  document.getElementById("emp-dept").textContent = p.department || "—";
   document.getElementById("emp-track").textContent =
-    `${p.department_track} · ${p.learning_track}`;
+    `${p.department_track || ""} · ${p.learning_track || ""}`;
   document.getElementById("emp-state").innerHTML = stateBadge(p.current_state);
-  document.getElementById("emp-join").textContent = p.joining_date;
-  document.getElementById("emp-days").textContent = String(p.days_in_pipeline);
-  document.getElementById("emp-mentor").textContent = p.mentor_name;
-  document.querySelector("#mentor-row dt").textContent = isIntern
-    ? "Mentor"
-    : "Buddy / mentor";
+  document.getElementById("emp-join").textContent = p.joining_date || "—";
+  document.getElementById("emp-days").textContent = String(p.days_in_pipeline ?? "—");
+  document.getElementById("emp-mentor").textContent = p.mentor_name || "—";
+  const mentorDt = document.querySelector("#mentor-row dt");
+  if (mentorDt) mentorDt.textContent = isIntern ? "Mentor" : "Buddy / mentor";
 
   const badge = document.getElementById("role-badge");
   badge.textContent = p.role_type;
-  badge.className = `badge role-${p.role_type.toLowerCase()}`;
+  badge.className = `badge role-${String(p.role_type).toLowerCase()}`;
 
   document.getElementById("avatar").textContent = initials(p.name);
-  document.getElementById("next-action").textContent = p.next_action;
+  document.getElementById("next-action").textContent = p.next_action || "";
   document.getElementById("profile-card").dataset.role = p.role_type;
 
   const tasksBlock = document.getElementById("tasks-block");
@@ -152,10 +186,10 @@ function renderNotifications() {
   const data = state.notifications;
   if (!data) return;
   const badge = document.getElementById("unread-badge");
-  badge.textContent = String(data.unread_count);
-  badge.hidden = data.unread_count === 0;
+  badge.textContent = String(data.unread_count || 0);
+  badge.hidden = !data.unread_count;
   const list = document.getElementById("notifications-list");
-  if (!data.notifications.length) {
+  if (!data.notifications || !data.notifications.length) {
     list.innerHTML = `<p class="muted">No notifications.</p>`;
     return;
   }
@@ -187,7 +221,7 @@ function renderLearning() {
   bar.setAttribute("aria-valuenow", String(t.completion_pct));
   fill.style.width = `${t.completion_pct}%`;
 
-  document.getElementById("modules-list").innerHTML = t.modules
+  document.getElementById("modules-list").innerHTML = (t.modules || [])
     .map((m) => {
       const pct =
         m.status === "complete"
@@ -255,6 +289,7 @@ async function askChat(query) {
 
 function renderConsult() {
   const list = document.getElementById("consult-list");
+  if (!list) return;
   const rows = state.workspace?.consult || [];
   if (!rows.length) {
     list.innerHTML = `<p class="muted">No consult contacts.</p>`;
@@ -285,7 +320,7 @@ function renderTeam() {
   document.getElementById("team-count").textContent =
     `${ws.team.length} people in ${ws.department}`;
   document.getElementById("team-blurb").textContent =
-    state.profile?.role_type === "INTERN"
+    String(state.profile?.role_type).toUpperCase() === "INTERN"
       ? "Fellow joiners in your department pod — ask peers about Day-1 and mentor tips."
       : "Department cohort overview — see who is project-ready vs still provisioning.";
   document.getElementById("team-list").innerHTML = (ws.team || [])
@@ -304,6 +339,7 @@ function renderTeam() {
 
 function renderFeedbackHistory() {
   const box = document.getElementById("feedback-history");
+  if (!box) return;
   if (!state.feedback.length) {
     box.innerHTML = `<p class="muted tiny">No feedback submitted yet for this joiner.</p>`;
     return;
@@ -359,7 +395,7 @@ function labelStatus(s) {
   return String(s).replaceAll("_", " ");
 }
 function initials(name) {
-  return String(name)
+  return String(name || "?")
     .split(/\s+/)
     .map((w) => w[0])
     .slice(0, 2)
@@ -367,7 +403,7 @@ function initials(name) {
     .toUpperCase();
 }
 function esc(v) {
-  return String(v)
+  return String(v ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -386,7 +422,7 @@ function fmt(iso) {
 
 function syncUrl() {
   const url = new URL(window.location.href);
-  url.searchParams.set("id", state.employeeId);
+  if (state.employeeId) url.searchParams.set("id", state.employeeId);
   url.searchParams.set("role", state.roleFilter);
   window.history.replaceState({}, "", url);
 }
@@ -400,18 +436,26 @@ function syncRoleButtons() {
 function wireUI() {
   document.querySelectorAll(".role-login-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      state.roleFilter = btn.dataset.role;
-      syncRoleButtons();
-      populateSelect();
-      syncUrl();
-      await loadWorkspace();
+      try {
+        state.roleFilter = btn.dataset.role;
+        syncRoleButtons();
+        populateSelect();
+        syncUrl();
+        await loadWorkspace();
+      } catch (err) {
+        showError(`Failed to switch role: ${err.message}`);
+      }
     });
   });
 
   document.getElementById("login-select").addEventListener("change", async (e) => {
-    state.employeeId = e.target.value;
-    syncUrl();
-    await loadWorkspace();
+    try {
+      state.employeeId = e.target.value;
+      syncUrl();
+      await loadWorkspace();
+    } catch (err) {
+      showError(`Failed to load profile: ${err.message}`);
+    }
   });
 
   document.querySelectorAll(".emp-nav-btn").forEach((btn) => {
@@ -426,32 +470,44 @@ function wireUI() {
     const input = document.getElementById("chat-input");
     const q = input.value.trim();
     if (!q) return;
-    await askChat(q);
-    input.value = "";
+    try {
+      await askChat(q);
+      input.value = "";
+    } catch (err) {
+      showError(`Chat failed: ${err.message}`);
+    }
   });
 
   document.getElementById("feedback-form").addEventListener("submit", submitFeedback);
 }
 
 async function boot() {
-  wireUI();
-  syncRoleButtons();
   try {
+    wireUI();
+    syncRoleButtons();
     await loadJoiners();
-    if (params.get("id") && state.joiners.some((j) => j.id === params.get("id"))) {
-      const j = state.joiners.find((x) => x.id === params.get("id"));
+
+    const requestedId = params.get("id");
+    if (requestedId && state.joiners.some((j) => j.id === requestedId)) {
+      const j = state.joiners.find((x) => x.id === requestedId);
       state.employeeId = j.id;
-      state.roleFilter = j.role_type;
+      state.roleFilter = String(j.role_type).toUpperCase();
       syncRoleButtons();
       populateSelect();
     }
+
+    if (!state.employeeId) {
+      populateSelect();
+    }
+    if (!state.employeeId) {
+      throw new Error("Could not select a synthetic joiner. Check /api/joiners.");
+    }
+
     syncUrl();
     await loadWorkspace();
   } catch (err) {
     console.error(err);
-    const box = document.getElementById("load-error");
-    box.hidden = false;
-    box.textContent = `Failed to load employee workspace: ${err.message}`;
+    showError(`Failed to load employee workspace: ${err.message}`);
   }
 }
 

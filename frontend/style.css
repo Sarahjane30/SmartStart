@@ -525,7 +525,19 @@ canvas {
   padding: 0.55rem 0.7rem; background: #fff;
 }
 .login-submit { width: 100%; margin-bottom: 0.8rem; }
-.login-links { margin: 0 0 0.8rem; }
+.header-role {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  margin: 0;
+  min-width: 160px;
+}
+.header-role .role-login-btn {
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
 
 .session-pill {
   display: inline-block; padding: 0.35rem 0.7rem; border-radius: 999px;

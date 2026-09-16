@@ -1,10 +1,9 @@
-/* SmartStart — Employee Experience (login + workspace) */
+/* SmartStart — Employee Experience (Intern / FTE workspace) */
 
 const params = new URLSearchParams(window.location.search);
 const state = {
   roleFilter: params.get("role") === "FTE" ? "FTE" : "INTERN",
   employeeId: params.get("id") || "",
-  loggedIn: false,
   joiners: [],
   profile: null,
   track: null,
@@ -30,10 +29,10 @@ function filteredJoiners() {
 
 async function loadJoiners() {
   state.joiners = await fetchJSON("/api/joiners");
-  populateLoginSelect();
+  populateSelect();
 }
 
-function populateLoginSelect() {
+function populateSelect() {
   const select = document.getElementById("login-select");
   const rows = filteredJoiners();
   select.innerHTML = rows
@@ -51,6 +50,7 @@ function populateLoginSelect() {
 }
 
 async function loadWorkspace() {
+  if (!state.employeeId) return;
   const id = encodeURIComponent(state.employeeId);
   const [profile, track, notifications, feedback, workspace, chatbot] =
     await Promise.all([
@@ -70,19 +70,6 @@ async function loadWorkspace() {
   renderAll();
 }
 
-function showLogin() {
-  state.loggedIn = false;
-  document.getElementById("login-screen").hidden = false;
-  document.getElementById("workspace").hidden = true;
-  populateLoginSelect();
-}
-
-function showWorkspace() {
-  state.loggedIn = true;
-  document.getElementById("login-screen").hidden = true;
-  document.getElementById("workspace").hidden = false;
-}
-
 function setTab(name) {
   state.tab = name;
   document.querySelectorAll(".emp-tab").forEach((el) => el.classList.remove("active"));
@@ -95,10 +82,7 @@ function setTab(name) {
 
 function renderAll() {
   document.getElementById("load-error").hidden = true;
-  showWorkspace();
   const p = state.profile;
-  document.getElementById("session-pill").textContent =
-    `${p.name} · ${p.role_type}`;
   document.getElementById("workspace-sub").textContent =
     `${p.role_type} workspace · ${p.department}`;
   renderProfile();
@@ -141,13 +125,7 @@ function renderProfile() {
   badge.textContent = p.role_type;
   badge.className = `badge role-${p.role_type.toLowerCase()}`;
 
-  const initials = p.name
-    .split(/\s+/)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-  document.getElementById("avatar").textContent = initials || "?";
+  document.getElementById("avatar").textContent = initials(p.name);
   document.getElementById("next-action").textContent = p.next_action;
   document.getElementById("profile-card").dataset.role = p.role_type;
 
@@ -351,17 +329,16 @@ async function submitFeedback(event) {
   const rating = Number(
     document.querySelector('input[name="rating"]:checked')?.value || 3
   );
-  const payload = {
-    joiner_id: state.employeeId,
-    step: document.getElementById("feedback-step").value,
-    rating,
-    comment: document.getElementById("feedback-comment").value.trim(),
-  };
   try {
     const res = await fetchJSON("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        joiner_id: state.employeeId,
+        step: document.getElementById("feedback-step").value,
+        rating,
+        comment: document.getElementById("feedback-comment").value.trim(),
+      }),
     });
     status.textContent = res.message || "Feedback recorded.";
     document.getElementById("feedback-comment").value = "";
@@ -409,54 +386,32 @@ function fmt(iso) {
 
 function syncUrl() {
   const url = new URL(window.location.href);
-  if (state.loggedIn && state.employeeId) {
-    url.searchParams.set("id", state.employeeId);
-    url.searchParams.set("role", state.roleFilter);
-  } else {
-    url.searchParams.delete("id");
-    url.searchParams.set("role", state.roleFilter);
-  }
+  url.searchParams.set("id", state.employeeId);
+  url.searchParams.set("role", state.roleFilter);
   window.history.replaceState({}, "", url);
+}
+
+function syncRoleButtons() {
+  document.querySelectorAll(".role-login-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.role === state.roleFilter);
+  });
 }
 
 function wireUI() {
   document.querySelectorAll(".role-login-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       state.roleFilter = btn.dataset.role;
-      document
-        .querySelectorAll(".role-login-btn")
-        .forEach((b) => b.classList.toggle("active", b.dataset.role === state.roleFilter));
-      populateLoginSelect();
+      syncRoleButtons();
+      populateSelect();
       syncUrl();
+      await loadWorkspace();
     });
   });
 
-  document.getElementById("login-select").addEventListener("change", (e) => {
+  document.getElementById("login-select").addEventListener("change", async (e) => {
     state.employeeId = e.target.value;
-  });
-
-  document.getElementById("login-btn").addEventListener("click", async () => {
-    state.employeeId = document.getElementById("login-select").value;
-    if (!state.employeeId) return;
-    state.tab = "home";
     syncUrl();
-    try {
-      await loadWorkspace();
-    } catch (err) {
-      console.error(err);
-      document.getElementById("load-error").hidden = false;
-      document.getElementById("load-error").textContent =
-        `Failed to open workspace: ${err.message}`;
-    }
-  });
-
-  document.getElementById("logout-btn").addEventListener("click", () => {
-    showLogin();
-    syncUrl();
-  });
-  document.getElementById("switch-btn").addEventListener("click", () => {
-    showLogin();
-    syncUrl();
+    await loadWorkspace();
   });
 
   document.querySelectorAll(".emp-nav-btn").forEach((btn) => {
@@ -480,32 +435,23 @@ function wireUI() {
 
 async function boot() {
   wireUI();
-  document
-    .querySelectorAll(".role-login-btn")
-    .forEach((b) => b.classList.toggle("active", b.dataset.role === state.roleFilter));
+  syncRoleButtons();
   try {
     await loadJoiners();
     if (params.get("id") && state.joiners.some((j) => j.id === params.get("id"))) {
       const j = state.joiners.find((x) => x.id === params.get("id"));
       state.employeeId = j.id;
       state.roleFilter = j.role_type;
-      document
-        .querySelectorAll(".role-login-btn")
-        .forEach((b) =>
-          b.classList.toggle("active", b.dataset.role === state.roleFilter)
-        );
-      populateLoginSelect();
-      await loadWorkspace();
-    } else {
-      showLogin();
-      syncUrl();
+      syncRoleButtons();
+      populateSelect();
     }
+    syncUrl();
+    await loadWorkspace();
   } catch (err) {
     console.error(err);
-    document.getElementById("login-screen").hidden = false;
     const box = document.getElementById("load-error");
     box.hidden = false;
-    box.textContent = `Failed to load joiners: ${err.message}`;
+    box.textContent = `Failed to load employee workspace: ${err.message}`;
   }
 }
 

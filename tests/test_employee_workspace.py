@@ -43,7 +43,7 @@ def test_employee_frontend_has_login_and_sections():
     with TestClient(app) as client:
         page = client.get("/employee")
         assert page.status_code == 200
-        assert "Sign in as a joiner" in page.text
+        assert "Employee workspace" in page.text or "Employee Experience" in page.text
         assert "Intern" in page.text and "FTE" in page.text
         assert "Learning" in page.text
         assert "Ask questions" in page.text
@@ -58,3 +58,4 @@ def test_employee_frontend_has_login_and_sections():
         assert "/api/chatbot/" in js.text
         assert "/api/learningtrack/" in js.text
         assert "roleFilter" in js.text
+        assert "loadWorkspace" in js.text

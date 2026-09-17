@@ -192,9 +192,13 @@ class AnalyticsResponse(BaseModel):
     active_joiners: int
     project_ready_count: int
     docs_pending: int = 0
+    sla_breaches: int = 0
     bottleneck_counts: dict[str, int]
     avg_days_by_state: dict[str, float]
     onboarding_trend: list[TimeSeriesPoint]
+    role_view: str = "All"
+    cohort_size: int = 0
+    focus_note: str = ""
     synthetic: bool = True
     as_of: Optional[datetime] = None
 

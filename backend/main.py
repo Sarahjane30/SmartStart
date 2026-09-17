@@ -16,7 +16,7 @@ from backend.chatbot import build_chatbot
 from backend.predictor import build_predictions
 from backend.recommender import build_recommendations
 from backend.alerts import build_alerts
-from backend.analytics import ANALYTICS_AS_OF, build_analytics
+from backend.analytics import ANALYTICS_AS_OF, build_analytics, joiner_in_role_view
 from backend.database import store
 from backend.employee_experience import (
     build_employee_profile,
@@ -208,17 +208,12 @@ def dashboard(
         ticket = store.get_ticket_for_joiner(joiner.id)
         if docs is None or ticket is None:
             continue
+        if not joiner_in_role_view(
+            joiner, docs.status, ticket.hardware_status, ticket.sla_breached, role_view
+        ):
+            continue
 
         bottleneck = infer_bottleneck(joiner.current_state, docs, ticket)
-        # Role views emphasize different columns via frontend; light server filter:
-        if role_view == EmployerRole.HR and docs.status == DocumentStatus.COMPLETE:
-            # Still include everyone for HR overview; no hard filter.
-            pass
-        if role_view == EmployerRole.IT and ticket.sla_breached is False:
-            pass
-        if role_view == EmployerRole.MANAGER and not joiner.assigned_tasks:
-            pass
-
         rows.append(
             DashboardJoinerRow(
                 id=joiner.id,
@@ -264,9 +259,9 @@ def alerts(role_view: EmployerRole = Query(default=EmployerRole.ALL)):
 
 
 @app.get("/api/analytics")
-def analytics():
-    """KPIs from synthetic timestamps (avg time, bottlenecks, trend)."""
-    return build_analytics()
+def analytics(role_view: EmployerRole = Query(default=EmployerRole.ALL)):
+    """KPIs from synthetic timestamps, scoped to an employer persona lens."""
+    return build_analytics(role_view=role_view)
 
 
 @app.get("/api/integrations")

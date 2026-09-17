@@ -1190,3 +1190,13 @@ canvas {
 @media (max-width: 640px) {
   .portal-cards { grid-template-columns: 1fr; }
 }
+
+.analytics-banner {
+  margin: 0 0 0.85rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: #eef6f2;
+  border: 1px solid #c9ddd2;
+  font-size: 0.9rem;
+}
+.analytics-banner .mono { font-family: var(--mono); font-size: 0.82rem; }

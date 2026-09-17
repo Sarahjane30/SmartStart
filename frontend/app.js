@@ -33,10 +33,16 @@ const state = {
 };
 
 const TITLES = {
-  dashboard: ["Dashboard", "Pipeline status across all synthetic joiners"],
-  alerts: ["Alerts", "Synthetic SLA breaches and pending onboarding tasks"],
-  analytics: ["Analytics", "KPIs from synthetic timestamps — seed-stable demo"],
-  roles: ["Role Views", "Mock iCIMS / ServiceNow / Jira connectors + role queues"],
+  dashboard: [
+    "Dashboard",
+    "Employer persona queues — All / HR / IT / Manager filter the cohort (not one shared people-manager)",
+  ],
+  alerts: ["Alerts", "SLA breaches and pending work for the selected employer lens"],
+  analytics: [
+    "Analytics",
+    "KPIs for the filtered cohort — switch HR / IT / Manager and the numbers change",
+  ],
+  roles: ["Role Views", "Mock iCIMS / ServiceNow / Jira connectors + queue for this lens"],
 };
 
 async function fetchJSON(path) {
@@ -50,7 +56,7 @@ async function loadAll() {
   const [dashboard, alerts, analytics, integrations] = await Promise.all([
     fetchJSON(`/api/dashboard?role_view=${roleQ}`),
     fetchJSON(`/api/alerts?role_view=${roleQ}`),
-    fetchJSON(`/api/analytics`),
+    fetchJSON(`/api/analytics?role_view=${roleQ}`),
     fetchJSON(`/api/integrations`),
   ]);
   state.dashboard = dashboard;
@@ -81,28 +87,8 @@ function stateBadge(s) {
 }
 
 function filterRows(rows) {
-  if (state.role === "All") return rows;
-  if (state.role === "HR") {
-    return rows.filter(
-      (r) =>
-        r.docs_status !== "Complete" ||
-        ["OFFER_ACCEPTED", "DOCS_SUBMITTED", "IT_PROVISIONED"].includes(r.current_state)
-    );
-  }
-  if (state.role === "IT") {
-    return rows.filter(
-      (r) =>
-        r.it_sla_breached ||
-        r.hardware_status !== "Delivered" ||
-        r.current_state === "DOCS_SUBMITTED"
-    );
-  }
-  return rows.filter(
-    (r) =>
-      r.current_state === "DAY1_ORIENTED" ||
-      r.current_state === "PROJECT_READY" ||
-      (r.assigned_tasks && r.assigned_tasks.length)
-  );
+  // Server already scopes by role_view; keep identity for callers.
+  return rows || [];
 }
 
 function stageIndex(s) {
@@ -164,13 +150,13 @@ function renderDashboard() {
   const rows = filterRows(data.rows);
   const by = data.by_state || {};
   document.getElementById("dashboard-kpis").innerHTML = [
-    kpi("Joiners", data.total_joiners, "Full synthetic cohort", "tone-all"),
-    kpi("Offer accepted", by.OFFER_ACCEPTED || 0, "HR · early pipeline", "tone-hr"),
-    kpi("IT provisioned", by.IT_PROVISIONED || 0, "IT · hardware ready", "tone-it"),
-    kpi("Project ready", by.PROJECT_READY || 0, "Manager · ship-ready", "tone-mgr"),
+    kpi("In this view", data.total_joiners, `${state.role} employer lens`, "tone-all"),
+    kpi("Offer accepted", by.OFFER_ACCEPTED || 0, "Early pipeline", "tone-hr"),
+    kpi("IT provisioned", by.IT_PROVISIONED || 0, "Hardware stage", "tone-it"),
+    kpi("Project ready", by.PROJECT_READY || 0, "Manager handoff done", "tone-mgr"),
   ].join("");
   document.getElementById("dashboard-count").textContent =
-    `${rows.length} shown · role filter: ${state.role}`;
+    `${rows.length} joiners · each has their own mentor (not one shared manager)`;
   document.querySelector("#joiners-table tbody").innerHTML = rows
     .map(
       (r) => `<tr class="joiner-row ${state.selectedId === r.id ? "selected" : ""}" data-id="${esc(r.id)}" tabindex="0">
@@ -222,12 +208,44 @@ function renderAlerts() {
 function renderAnalytics() {
   const a = state.analytics;
   if (!a) return;
-  document.getElementById("analytics-kpis").innerHTML = [
-    kpi("Avg onboarding days", a.avg_onboarding_days, "Synthetic timestamps", "tone-all"),
-    kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to hardware", "tone-it"),
-    kpi("Completion rate", `${a.completion_rate_pct}%`, "PROJECT_READY", "tone-mgr"),
-    kpi("Active joiners", a.active_joiners, `${a.docs_pending} docs pending`, "tone-hr"),
-  ].join("");
+  const focus = document.getElementById("analytics-focus");
+  if (focus) {
+    focus.innerHTML = `<strong>${esc(a.role_view || state.role)} view</strong> · ${esc(
+      a.focus_note || ""
+    )} · <span class="mono">${a.cohort_size || 0} joiners in cohort</span>`;
+  }
+  const bnSub = document.getElementById("bn-chart-sub");
+  if (bnSub) bnSub.textContent = `${a.cohort_size || 0} joiners`;
+
+  const kpis =
+    state.role === "HR"
+      ? [
+          kpi("In HR queue", a.cohort_size, a.focus_note, "tone-hr"),
+          kpi("Docs pending", a.docs_pending, "iCIMS packet still open", "tone-hr"),
+          kpi("Avg days in view", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
+          kpi("Project ready", a.project_ready_count, "Already past HR gates", "tone-mgr"),
+        ]
+      : state.role === "IT"
+        ? [
+            kpi("In IT queue", a.cohort_size, a.focus_note, "tone-it"),
+            kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to hardware", "tone-it"),
+            kpi("SLA breaches", a.sla_breaches || 0, "ServiceNow synthetic", "tone-it"),
+            kpi("Active in view", a.active_joiners, "Not project-ready yet", "tone-all"),
+          ]
+        : state.role === "Manager"
+          ? [
+              kpi("Manager queue", a.cohort_size, "Day-1 / project readiness", "tone-mgr"),
+              kpi("Project ready", a.project_ready_count, "Ready for Jira assignment", "tone-mgr"),
+              kpi("Completion rate", `${a.completion_rate_pct}%`, "Of this queue", "tone-mgr"),
+              kpi("Avg days in view", a.avg_onboarding_days, "Not one shared mentor", "tone-all"),
+            ]
+          : [
+              kpi("Cohort size", a.cohort_size, "Full synthetic cohort", "tone-all"),
+              kpi("Avg onboarding days", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
+              kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to hardware", "tone-it"),
+              kpi("Completion rate", `${a.completion_rate_pct}%`, `${a.docs_pending} docs pending`, "tone-mgr"),
+            ];
+  document.getElementById("analytics-kpis").innerHTML = kpis.join("");
 
   drawBars(
     document.getElementById("bottleneck-chart"),
@@ -235,7 +253,7 @@ function renderAnalytics() {
     Object.values(a.bottleneck_counts || {}),
     "#0f6a56"
   );
-  drawLine(
+  drawBars(
     document.getElementById("trend-chart"),
     (a.onboarding_trend || []).map((p) => p.label),
     (a.onboarding_trend || []).map((p) => p.value),
@@ -246,7 +264,7 @@ function renderAnalytics() {
       ([s, v]) =>
         `<div class="state-day"><div class="s">${s.replaceAll("_", " ")}</div><div class="v">${v}d</div></div>`
     )
-    .join("");
+    .join("") || `<p class="muted">No joiners in this view.</p>`;
 }
 
 function renderRoles() {

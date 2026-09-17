@@ -363,6 +363,10 @@ def recommendations(joiner_id: str) -> RecommendationsResponse:
 
 if FRONTEND_DIR.exists():
     @app.get("/")
+    def portal() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "portal.html")
+
+    @app.get("/employer")
     def command_center() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "index.html")
 

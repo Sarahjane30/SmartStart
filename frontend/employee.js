@@ -1,10 +1,14 @@
-/* SmartStart — Employee Experience (Intern / FTE workspace) */
+/* SmartStart — Employee Experience (locked to signed-in joiner) */
 
 const params = new URLSearchParams(window.location.search);
+const session = requireEmployeeSession();
+if (!session) {
+  /* redirect in progress */
+}
+
 const state = {
-  roleFilter: params.get("role") === "FTE" ? "FTE" : "INTERN",
-  employeeId: params.get("id") || "",
-  joiners: [],
+  employeeId: session?.employeeId || "",
+  roleFilter: session?.role || "INTERN",
   profile: null,
   track: null,
   notifications: null,
@@ -33,53 +37,14 @@ async function fetchJSON(path, options) {
   return res.json();
 }
 
-function filteredJoiners() {
-  return state.joiners.filter((j) => String(j.role_type).toUpperCase() === state.roleFilter);
-}
-
-function populateSelect() {
-  const select = document.getElementById("login-select");
-  if (!select) return;
-  let rows = filteredJoiners();
-  if (!rows.length && state.joiners.length) {
-    // Fall back to all joiners if role filter matched nothing
-    rows = state.joiners;
-    state.roleFilter = String(state.joiners[0].role_type).toUpperCase();
-    syncRoleButtons();
-  }
-  if (!rows.length) {
-    select.innerHTML = `<option value="">No joiners loaded</option>`;
-    state.employeeId = "";
-    return;
-  }
-  select.innerHTML = rows
-    .map(
-      (j) =>
-        `<option value="${esc(j.id)}">${esc(j.name)} · ${esc(j.department)}</option>`
-    )
-    .join("");
-  if (state.employeeId && rows.some((j) => j.id === state.employeeId)) {
-    select.value = state.employeeId;
-  } else {
-    state.employeeId = rows[0].id;
-    select.value = state.employeeId;
-  }
-}
-
-async function loadJoiners() {
-  state.joiners = await fetchJSON("/api/joiners");
-  if (!Array.isArray(state.joiners) || !state.joiners.length) {
-    throw new Error("No synthetic joiners returned from /api/joiners");
-  }
-  populateSelect();
-}
-
 async function loadWorkspace() {
   if (!state.employeeId) {
-    populateSelect();
+    throw new Error("No employee session. Sign in from the portal.");
   }
-  if (!state.employeeId) {
-    throw new Error("Pick Intern or FTE — no synthetic profile selected.");
+  // URL id must match signed-in identity — ignore attempts to browse others
+  const urlId = params.get("id");
+  if (urlId && urlId !== state.employeeId) {
+    window.history.replaceState({}, "", `/employee?id=${encodeURIComponent(state.employeeId)}`);
   }
   const id = encodeURIComponent(state.employeeId);
   const [profile, track, notifications, feedback, workspace, chatbot] =
@@ -120,6 +85,8 @@ function renderAll() {
   }
   document.getElementById("workspace-sub").textContent =
     `${p.role_type} workspace · ${p.department}`;
+  const locked = document.getElementById("session-name");
+  if (locked) locked.textContent = `${p.name} · ${p.role_type}`;
   renderProfile();
   renderNotifications();
   renderLearning();
@@ -322,11 +289,11 @@ function renderTeam() {
   if (!ws) return;
   document.getElementById("team-title").textContent = ws.team_name;
   document.getElementById("team-count").textContent =
-    `${ws.team.length} people in ${ws.department}`;
+    `${ws.team.length} people in your department pod`;
   document.getElementById("team-blurb").textContent =
     String(state.profile?.role_type).toUpperCase() === "INTERN"
-      ? "Fellow joiners in your department pod — ask peers about Day-1 and mentor tips."
-      : "Department cohort overview — see who is project-ready vs still provisioning.";
+      ? "Your department pod only — not the full company roster."
+      : "Your department cohort only — not the full company roster.";
   document.getElementById("team-list").innerHTML = (ws.team || [])
     .map(
       (m) => `<div class="team-row ${m.is_self ? "is-self" : ""}">
@@ -424,43 +391,8 @@ function fmt(iso) {
   }
 }
 
-function syncUrl() {
-  const url = new URL(window.location.href);
-  if (state.employeeId) url.searchParams.set("id", state.employeeId);
-  url.searchParams.set("role", state.roleFilter);
-  window.history.replaceState({}, "", url);
-}
-
-function syncRoleButtons() {
-  document.querySelectorAll(".role-login-btn").forEach((b) => {
-    b.classList.toggle("active", b.dataset.role === state.roleFilter);
-  });
-}
-
 function wireUI() {
-  document.querySelectorAll(".role-login-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      try {
-        state.roleFilter = btn.dataset.role;
-        syncRoleButtons();
-        populateSelect();
-        syncUrl();
-        await loadWorkspace();
-      } catch (err) {
-        showError(`Failed to switch role: ${err.message}`);
-      }
-    });
-  });
-
-  document.getElementById("login-select").addEventListener("change", async (e) => {
-    try {
-      state.employeeId = e.target.value;
-      syncUrl();
-      await loadWorkspace();
-    } catch (err) {
-      showError(`Failed to load profile: ${err.message}`);
-    }
-  });
+  document.getElementById("sign-out-btn")?.addEventListener("click", exitToPortal);
 
   document.querySelectorAll(".wx-nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => setTab(btn.dataset.tab));
@@ -486,28 +418,14 @@ function wireUI() {
 }
 
 async function boot() {
+  if (!session) return;
   try {
     wireUI();
-    syncRoleButtons();
-    await loadJoiners();
-
-    const requestedId = params.get("id");
-    if (requestedId && state.joiners.some((j) => j.id === requestedId)) {
-      const j = state.joiners.find((x) => x.id === requestedId);
-      state.employeeId = j.id;
-      state.roleFilter = String(j.role_type).toUpperCase();
-      syncRoleButtons();
-      populateSelect();
-    }
-
-    if (!state.employeeId) {
-      populateSelect();
-    }
-    if (!state.employeeId) {
-      throw new Error("Could not select a synthetic joiner. Check /api/joiners.");
-    }
-
-    syncUrl();
+    window.history.replaceState(
+      {},
+      "",
+      `/employee?id=${encodeURIComponent(state.employeeId)}`
+    );
     await loadWorkspace();
   } catch (err) {
     console.error(err);

@@ -86,7 +86,11 @@ def test_layer4_frontend_and_health():
         assert css.status_code == 200
         assert ".chat-log" in css.text or ".bubble" in css.text
 
-        home = client.get("/")
+        home = client.get("/employer")
         assert "/ai" in home.text
         emp = client.get("/employee")
-        assert "/ai" in emp.text
+        assert "Employer Command Center" not in emp.text
+        assert "session.js" in emp.text
+        portal = client.get("/")
+        assert "pick-employer" in portal.text
+        assert "pick-employee" in portal.text

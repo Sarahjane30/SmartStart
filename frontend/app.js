@@ -1,5 +1,10 @@
 /* SmartStart Employer Command Center */
 
+const employerSession = requireEmployerSession();
+if (!employerSession) {
+  /* redirect in progress */
+}
+
 const PIPELINE_STAGES = [
   "OFFER_ACCEPTED",
   "DOCS_SUBMITTED",
@@ -345,7 +350,7 @@ async function openJoinerDrawer(id) {
                 ? `<span class="bn-tag ok">Resolved (demo)</span>`
                 : ""
           }
-          <a class="btn-link" href="/employee?id=${encodeURIComponent(id)}">Open employee view →</a>
+          <a class="btn-link" href="/?need=employee">View as this joiner (portal) →</a>
         </div>
       </section>
       <section class="drawer-section">
@@ -505,6 +510,7 @@ function fmt(iso) {
 }
 
 function wireUI() {
+  document.getElementById("sign-out-btn")?.addEventListener("click", exitToPortal);
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => setSection(btn.dataset.section));
   });
@@ -540,9 +546,11 @@ function wireUI() {
   });
 }
 
-wireUI();
-loadAll().catch((err) => {
-  console.error(err);
-  document.getElementById("page-subtitle").textContent =
-    `Failed to load synthetic API: ${err.message}`;
-});
+if (employerSession) {
+  wireUI();
+  loadAll().catch((err) => {
+    console.error(err);
+    document.getElementById("page-subtitle").textContent =
+      `Failed to load synthetic API: ${err.message}`;
+  });
+}

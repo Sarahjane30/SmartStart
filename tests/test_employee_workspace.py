@@ -41,16 +41,24 @@ def test_employee_workspace_consult_and_team():
 
 def test_employee_frontend_has_login_and_sections():
     with TestClient(app) as client:
+        portal = client.get("/")
+        assert portal.status_code == 200
+        assert "Employee" in portal.text
+        assert "Employer" in portal.text
+        assert "employee-select" in portal.text
+
         page = client.get("/employee")
         assert page.status_code == 200
         assert "Employee workspace" in page.text or "Employee Experience" in page.text
-        assert "Intern" in page.text and "FTE" in page.text
         assert "Learning" in page.text
         assert 'data-tab="ask"' in page.text
         assert 'data-tab="people"' in page.text
         assert 'data-tab="team"' in page.text
         assert "wx-nav" in page.text
         assert "chat-form" in page.text
+        assert "Employer Command Center" not in page.text
+        assert "login-select" not in page.text
+        assert "sign-out-btn" in page.text
 
         js = client.get("/static/employee.js")
         assert js.status_code == 200
@@ -58,6 +66,7 @@ def test_employee_frontend_has_login_and_sections():
         assert "/workspace" in js.text
         assert "/api/chatbot/" in js.text
         assert "/api/learningtrack/" in js.text
-        assert "roleFilter" in js.text
+        assert "requireEmployeeSession" in js.text
         assert "loadWorkspace" in js.text
         assert "wx-nav-btn" in js.text
+        assert "/api/joiners" not in js.text  # no cohort browsing from employee UI

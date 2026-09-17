@@ -156,6 +156,7 @@ function syncUrl() {
 }
 
 function wireUI() {
+  document.getElementById("sign-out-btn")?.addEventListener("click", exitToPortal);
   document.getElementById("joiner-select").addEventListener("change", async (e) => {
     state.joinerId = e.target.value;
     syncUrl();
@@ -173,6 +174,8 @@ function wireUI() {
 }
 
 async function boot() {
+  const session = requireEmployerSession();
+  if (!session) return;
   wireUI();
   try {
     await loadJoiners();

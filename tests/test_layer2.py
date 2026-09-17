@@ -65,12 +65,18 @@ def test_layer2_role_filters_and_frontend():
             assert a.status_code == 200
             assert a.json()["synthetic"] is True
 
-        home = client.get("/")
+        portal = client.get("/")
+        assert portal.status_code == 200
+        assert "choose who you are" in portal.text.lower() or "Who are you" in portal.text
+        assert "Employer" in portal.text and "Employee" in portal.text
+
+        home = client.get("/employer")
         assert home.status_code == 200
         assert "Employer Command Center" in home.text
         assert "joiner-drawer" in home.text
         assert "th-tip" in home.text
         assert 'data-role="HR"' in home.text
+        assert 'href="/employee"' not in home.text or "Open Employee Experience" not in home.text
 
         css = client.get("/static/style.css")
         assert css.status_code == 200
@@ -82,6 +88,10 @@ def test_layer2_role_filters_and_frontend():
         assert js.status_code == 200
         assert "/api/dashboard" in js.text
         assert "openJoinerDrawer" in js.text
-        assert "bottleneckTag" in js.text
+        assert "requireEmployerSession" in js.text
         assert "pipelineProgress" in js.text
-        assert "handleAction" in js.text
+
+        session_js = client.get("/static/session.js")
+        assert session_js.status_code == 200
+        assert "requireEmployeeSession" in session_js.text
+        assert "requireEmployerSession" in session_js.text

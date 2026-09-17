@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=5" />
+  <link rel="stylesheet" href="/static/style.css?v=8" />
 </head>
 <body class="employee-page">
   <div id="workspace" class="wx">
@@ -31,8 +31,8 @@
 
       <div class="wx-rail-foot">
         <span class="pill synthetic">SYNTHETIC ONLY</span>
-        <a class="btn-link" href="/">Employer Command Center</a>
-        <a class="btn-link" href="/ai">AI Features</a>
+        <p class="muted tiny wx-access-note">Your workspace only — employer dashboard is not available here.</p>
+        <button type="button" class="btn-link" id="sign-out-btn">Switch account / sign out</button>
       </div>
     </aside>
 
@@ -46,14 +46,10 @@
           </div>
         </div>
         <div class="wx-controls">
-          <div class="role-login header-role" role="group" aria-label="Role">
-            <button type="button" class="role-login-btn active" data-role="INTERN">Intern</button>
-            <button type="button" class="role-login-btn" data-role="FTE">FTE</button>
+          <div class="session-locked" id="session-locked">
+            <span class="muted tiny">Signed in as</span>
+            <strong id="session-name">—</strong>
           </div>
-          <label class="picker">
-            <span class="muted tiny">Profile</span>
-            <select id="login-select" aria-label="Select synthetic joiner"></select>
-          </label>
         </div>
       </header>
 
@@ -209,6 +205,7 @@
       </section>
     </div>
   </div>
-  <script src="/static/employee.js?v=5"></script>
+  <script src="/static/session.js?v=8"></script>
+  <script src="/static/employee.js?v=8"></script>
 </body>
 </html>

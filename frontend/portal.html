@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartStart — Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=8" />
+</head>
+<body class="portal-page">
+  <main class="portal">
+    <header class="portal-brand">
+      <div class="brand-mark">SS</div>
+      <div>
+        <h1>SmartStart</h1>
+        <p class="muted">Synthetic onboarding demo — choose who you are</p>
+      </div>
+    </header>
+
+    <p class="pill synthetic">SYNTHETIC ONLY · No real auth · Session stays in this browser</p>
+
+    <div id="portal-error" class="load-error" hidden></div>
+
+    <section id="persona-step" class="portal-step">
+      <h2>Who are you signing in as?</h2>
+      <div class="portal-cards">
+        <button type="button" class="portal-card" id="pick-employer">
+          <span class="portal-card-kicker">Employer</span>
+          <strong>HR · IT · Manager</strong>
+          <p>Command Center — full cohort pipeline, alerts, analytics</p>
+        </button>
+        <button type="button" class="portal-card" id="pick-employee">
+          <span class="portal-card-kicker">Employee</span>
+          <strong>Intern or FTE</strong>
+          <p>Your own onboarding workspace only — not the employer dashboard</p>
+        </button>
+      </div>
+    </section>
+
+    <section id="employee-step" class="portal-step" hidden>
+      <button type="button" class="btn-link" id="back-persona">← Back</button>
+      <h2>Sign in as one joiner</h2>
+      <p class="muted">You will only see this profile’s learning, Q&amp;A, people, and team pod — not every employee record.</p>
+
+      <div class="role-login portal-role" role="group" aria-label="Employee role">
+        <button type="button" class="role-login-btn active" data-role="INTERN">Intern</button>
+        <button type="button" class="role-login-btn" data-role="FTE">FTE</button>
+      </div>
+
+      <label class="login-field">
+        Your synthetic profile
+        <select id="employee-select" required></select>
+      </label>
+
+      <button type="button" class="btn-primary login-submit" id="employee-enter">Enter my workspace</button>
+    </section>
+  </main>
+  <script src="/static/session.js?v=8"></script>
+  <script src="/static/portal.js?v=8"></script>
+</body>
+</html>

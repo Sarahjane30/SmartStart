@@ -24,10 +24,13 @@ python -m pip install -e ".[dev]"
 uvicorn backend.main:app --reload --port 8000
 ```
 
-- Employer Command Center: http://127.0.0.1:8000/
-- Employee Experience (Intern/FTE login): http://127.0.0.1:8000/employee
-- AI Features: http://127.0.0.1:8000/ai
+- **Portal (start here):** http://127.0.0.1:8000/ — choose Employer or Employee
+- **Employer Command Center:** http://127.0.0.1:8000/employer (after Employer sign-in)
+- **Employee Experience:** http://127.0.0.1:8000/employee (after picking one Intern/FTE)
+- **AI Features (employer):** http://127.0.0.1:8000/ai
 - API docs: http://127.0.0.1:8000/docs
+
+Employees cannot open the Command Center. Each joiner has their own mentor; **Manager** is an employer queue filter, not one shared people-manager.
 
 
 ## Layer 4 API

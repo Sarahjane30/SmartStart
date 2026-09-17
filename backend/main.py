@@ -51,6 +51,7 @@ from backend.models import (
 from backend.synthetic_engine import days_in_pipeline, generate_cohort, infer_bottleneck
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+NO_CACHE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
 
 API_DESCRIPTION = """
 SmartStart Layers 1–4 — Synthetic onboarding data engine, Employer Command Center,
@@ -63,6 +64,9 @@ or live iCIMS / ServiceNow / Jira data.
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    print(f"[SmartStart] backend file: {Path(__file__).resolve()}")
+    print(f"[SmartStart] frontend dir: {FRONTEND_DIR.resolve()}")
+    print(f"[SmartStart] portal exists: {(FRONTEND_DIR / 'portal.html').exists()}")
     generate_cohort(n_interns=15, n_ftes=15, seed=42)
     clear_feedback()
     yield
@@ -71,7 +75,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="SmartStart",
     description=API_DESCRIPTION,
-    version="0.5.0",
+    version="0.5.1",
     lifespan=lifespan,
 )
 
@@ -85,8 +89,16 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "layer": "4", "mode": "synthetic"}
+def health() -> dict[str, str | bool]:
+    return {
+        "status": "ok",
+        "layer": "4",
+        "mode": "synthetic",
+        "version": "0.5.1",
+        "frontend_dir": str(FRONTEND_DIR.resolve()),
+        "portal_html": (FRONTEND_DIR / "portal.html").exists(),
+        "backend_file": str(Path(__file__).resolve()),
+    }
 
 
 # --- Layer 1 ---------------------------------------------------------------
@@ -359,18 +371,18 @@ def recommendations(joiner_id: str) -> RecommendationsResponse:
 if FRONTEND_DIR.exists():
     @app.get("/")
     def portal() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "portal.html")
+        return FileResponse(FRONTEND_DIR / "portal.html", headers=NO_CACHE)
 
     @app.get("/employer")
     def command_center() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "index.html")
+        return FileResponse(FRONTEND_DIR / "index.html", headers=NO_CACHE)
 
     @app.get("/employee")
     def employee_experience() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "employee.html")
+        return FileResponse(FRONTEND_DIR / "employee.html", headers=NO_CACHE)
 
     @app.get("/ai")
     def ai_features() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "ai.html")
+        return FileResponse(FRONTEND_DIR / "ai.html", headers=NO_CACHE)
 
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

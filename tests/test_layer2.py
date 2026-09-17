@@ -91,10 +91,9 @@ def test_layer2_role_filters_and_frontend():
 
         portal = client.get("/")
         assert portal.status_code == 200
-        assert "pick-employer" in portal.text
-        assert "pick-employee" in portal.text
-        assert "Command Center" in portal.text
-        assert "Joiner workspace" in portal.text
+        assert "Open Command Center" in portal.text
+        assert "Open Workspace" in portal.text
+        assert "Choose your view" in portal.text
 
         home = client.get("/employer")
         assert home.status_code == 200

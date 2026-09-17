@@ -7,15 +7,14 @@
   <title>SmartStart — Choose your path</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=13" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=14" />
 </head>
 <body class="portal-page">
   <div class="portal-shell" id="portal-shell">
     <div class="portal-atmosphere" aria-hidden="true">
-      <span class="orb orb-a"></span>
-      <span class="orb orb-b"></span>
-      <span class="orb orb-c"></span>
+      <span class="wash wash-a"></span>
+      <span class="wash wash-b"></span>
     </div>
 
     <header class="portal-top">
@@ -26,27 +25,33 @@
       <span class="portal-chip">Synthetic demo</span>
     </header>
 
-    <main class="portal-hero" id="persona-step">
-      <p class="portal-eyebrow">Intern &amp; FTE onboarding</p>
-      <h1 class="portal-title">SmartStart</h1>
-      <p class="portal-lede">Pick how you enter the demo — run the employer command center, or step into one joiner’s workspace.</p>
+    <main class="portal-stage" id="persona-step">
+      <div class="portal-intro">
+        <p class="portal-eyebrow">Intern &amp; FTE onboarding</p>
+        <h1 class="portal-title">SmartStart</h1>
+        <p class="portal-lede">Choose your view — manage onboarding or step into a joiner’s workspace.</p>
+      </div>
 
       <div id="portal-error" class="load-error" hidden></div>
 
       <div class="portal-paths" role="group" aria-label="Choose a path">
-        <button type="button" class="portal-path path-employer" id="pick-employer">
-          <span class="path-label">Employer side</span>
-          <span class="path-title">Command Center</span>
-          <span class="path-copy">Pipeline, alerts, and analytics for HR, IT, and hiring managers.</span>
-          <span class="path-cta">Enter as employer <span aria-hidden="true">→</span></span>
-        </button>
+        <article class="portal-path path-employer">
+          <div class="path-body">
+            <span class="path-label">Employer</span>
+            <h2 class="path-title">Command Center</h2>
+            <p class="path-copy">Pipeline, alerts, and analytics for HR, IT, and hiring managers.</p>
+          </div>
+          <button type="button" class="path-btn" id="pick-employer">Open Command Center</button>
+        </article>
 
-        <button type="button" class="portal-path path-employee" id="pick-employee">
-          <span class="path-label">Employee side</span>
-          <span class="path-title">Joiner workspace</span>
-          <span class="path-copy">Your learning, Q&amp;A, people, and team — one Intern or FTE profile only.</span>
-          <span class="path-cta">Enter as joiner <span aria-hidden="true">→</span></span>
-        </button>
+        <article class="portal-path path-employee">
+          <div class="path-body">
+            <span class="path-label">Employee</span>
+            <h2 class="path-title">Joiner workspace</h2>
+            <p class="path-copy">Learning, Q&amp;A, people, and team — one Intern or FTE profile only.</p>
+          </div>
+          <button type="button" class="path-btn" id="pick-employee">Open Workspace</button>
+        </article>
       </div>
     </main>
 
@@ -73,7 +78,7 @@
     </footer>
   </div>
 
-  <script src="/static/session.js?v=13"></script>
-  <script src="/static/portal.js?v=13"></script>
+  <script src="/static/session.js?v=14"></script>
+  <script src="/static/portal.js?v=14"></script>
 </body>
 </html>

@@ -94,3 +94,5 @@ def test_layer4_frontend_and_health():
         portal = client.get("/")
         assert "pick-employer" in portal.text
         assert "pick-employee" in portal.text
+        assert "Open Command Center" in portal.text
+        assert "Open Workspace" in portal.text

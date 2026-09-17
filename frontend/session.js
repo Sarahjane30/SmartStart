@@ -18,7 +18,7 @@ function writeSession(data) {
   try {
     sessionStorage.setItem(SS_SESSION_KEY, JSON.stringify(data));
   } catch {
-    // sessionStorage may be blocked in some IDE browsers — URL persona still works
+    // sessionStorage may be blocked in some IDE browsers
   }
 }
 
@@ -30,20 +30,18 @@ function clearSession() {
   }
 }
 
-function requireEmployerSession() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("persona") === "employer" || params.get("demo") === "1") {
-    const session = {
-      persona: "employer",
-      role: "employer",
-      employeeId: null,
-      at: new Date().toISOString(),
-    };
-    writeSession(session);
-    return session;
-  }
+function employerAuthHeaders() {
   const s = readSession();
-  if (!s || s.persona !== "employer") {
+  if (!s?.token) return {};
+  return {
+    Authorization: `Bearer ${s.token}`,
+    "X-SmartStart-Token": s.token,
+  };
+}
+
+function requireEmployerSession() {
+  const s = readSession();
+  if (!s || s.persona !== "employer" || !s.token) {
     window.location.replace("/?need=employer");
     return null;
   }

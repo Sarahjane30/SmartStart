@@ -54,6 +54,8 @@ class Joiner(BaseModel):
     offer_accepted_at: datetime
     current_state: OnboardingState
     mentor_name: str
+    manager_id: str = "MGR-CHEN"
+    manager_name: str = "Ava Chen"
     learning_track: str
     assigned_tasks: list[str] = Field(default_factory=list)
     synthetic: bool = True
@@ -125,6 +127,38 @@ class EmployerRole(str, Enum):
     MANAGER = "Manager"
 
 
+class EmployerPersona(str, Enum):
+    HR = "HR"
+    IT = "IT"
+    MANAGER = "Manager"
+    OPS = "Ops"
+
+
+class EmployerAccount(BaseModel):
+    username: str
+    password: str
+    display_name: str
+    persona: EmployerPersona
+    title: str
+    manager_id: Optional[str] = None
+
+
+class EmployerLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class EmployerLoginResponse(BaseModel):
+    token: str
+    username: str
+    display_name: str
+    persona: str
+    title: str
+    manager_id: Optional[str] = None
+    synthetic: bool = True
+    message: str = "Synthetic employer session — not real authentication."
+
+
 class AlertSeverity(str, Enum):
     CRITICAL = "critical"
     HIGH = "high"
@@ -141,6 +175,8 @@ class DashboardJoinerRow(BaseModel):
     department_track: DepartmentTrack
     current_state: OnboardingState
     mentor_name: str
+    manager_id: str
+    manager_name: str
     learning_track: str
     joining_date: date
     days_in_pipeline: int

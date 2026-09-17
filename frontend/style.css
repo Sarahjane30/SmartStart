@@ -1374,7 +1374,8 @@ canvas {
   font-weight: 600;
   margin-bottom: 1rem;
 }
-.portal-join .login-field select {
+.portal-join .login-field select,
+.portal-join .login-field input {
   font: inherit;
   border: 1px solid var(--portal-line);
   border-radius: 12px;
@@ -1382,6 +1383,77 @@ canvas {
   background: #fff;
 }
 .portal-join .login-submit { width: 100%; }
+
+.portal-employer-login {
+  width: min(560px, 100%);
+}
+.demo-creds {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--portal-line, #d5ddd6);
+}
+.demo-creds h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5d6b63;
+}
+.demo-creds-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #d5ddd6;
+  background: #fff;
+}
+.demo-creds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.demo-creds-table th,
+.demo-creds-table td {
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  border-bottom: 1px solid #e8eee9;
+  vertical-align: top;
+}
+.demo-creds-table th {
+  background: #eef4f1;
+  font-weight: 650;
+  color: #3d4a43;
+}
+.demo-creds-table code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.74rem;
+  background: #eef6f2;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
+.demo-cred-row {
+  cursor: pointer;
+}
+.demo-cred-row:hover,
+.demo-cred-row:focus {
+  background: #f3faf7;
+  outline: none;
+}
+
+.signed-in {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0.85rem 0.9rem 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line, #d5ddd6);
+  font-size: 0.88rem;
+}
+.mgr-chip {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #245b7a;
+}
 
 .portal-shell.joining .portal-stage { display: none; }
 .portal-shell.joining { align-content: center; }

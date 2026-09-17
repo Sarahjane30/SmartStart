@@ -24,7 +24,7 @@ ROLE_FOCUS = {
     EmployerRole.ALL: "Full cohort — every synthetic joiner",
     EmployerRole.HR: "HR lens — docs pending / early pipeline handoff",
     EmployerRole.IT: "IT lens — hardware not delivered or SLA pressure",
-    EmployerRole.MANAGER: "Manager lens — Day-1 / project readiness (not one shared people-manager)",
+    EmployerRole.MANAGER: "Manager lens — Day-1 / project readiness (hiring managers split the cohort)",
 }
 
 
@@ -57,13 +57,22 @@ def joiner_in_role_view(
     }
 
 
+def focus_note_for(role_view: EmployerRole, manager_id: str | None = None) -> str:
+    base = ROLE_FOCUS[role_view]
+    if manager_id:
+        return f"{base} · scoped to hiring manager {manager_id}"
+    return base
+
+
 def build_analytics(
     db: DataStore | None = None,
     role_view: EmployerRole = EmployerRole.ALL,
+    manager_id: str | None = None,
 ) -> AnalyticsResponse:
-    """Compute employer KPIs for the selected role lens."""
+    """Compute employer KPIs for the selected role lens (optionally one hiring manager)."""
     db = db or store
     all_joiners = db.list_joiners()
+    note = focus_note_for(role_view, manager_id)
     if not all_joiners:
         return AnalyticsResponse(
             avg_onboarding_days=0.0,
@@ -76,12 +85,14 @@ def build_analytics(
             onboarding_trend=[],
             role_view=role_view.value,
             cohort_size=0,
-            focus_note=ROLE_FOCUS[role_view],
+            focus_note=note,
             synthetic=True,
         )
 
     joiners: list[Joiner] = []
     for j in all_joiners:
+        if manager_id and j.manager_id != manager_id:
+            continue
         docs = db.get_documents(j.id)
         ticket = db.get_ticket_for_joiner(j.id)
         if docs is None or ticket is None:
@@ -104,7 +115,7 @@ def build_analytics(
             onboarding_trend=[],
             role_view=role_view.value,
             cohort_size=0,
-            focus_note=ROLE_FOCUS[role_view] + " — no joiners match this lens right now.",
+            focus_note=note + " — no joiners match this lens right now.",
             synthetic=True,
             as_of=ANALYTICS_AS_OF,
         )
@@ -164,7 +175,7 @@ def build_analytics(
         onboarding_trend=trend,
         role_view=role_view.value,
         cohort_size=len(joiners),
-        focus_note=ROLE_FOCUS[role_view],
+        focus_note=note,
         synthetic=True,
         as_of=ANALYTICS_AS_OF,
     )

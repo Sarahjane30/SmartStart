@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SmartStart — Employer Command Center (build 11)</title>
+  <title>SmartStart — Employer Command Center (build 15)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=12" />
+  <link rel="stylesheet" href="/static/style.css?v=15" />
 </head>
 <body class="employer-page">
   <div class="app-shell" id="employer-shell">
@@ -16,8 +16,12 @@
         <div class="brand-mark">SS</div>
         <div>
           <div class="brand-name">SmartStart</div>
-          <div class="brand-sub">Employer Command Center · build 11</div>
+          <div class="brand-sub">Employer Command Center · build 15</div>
         </div>
+      </div>
+
+      <div class="signed-in" id="signed-in-user">
+        <span class="muted tiny">Signed in…</span>
       </div>
 
       <nav class="nav" aria-label="Primary">
@@ -31,7 +35,7 @@
         <a class="btn-link" href="/ai">Open AI Features →</a>
         <button type="button" class="btn-link" id="sign-out-btn">Exit to portal / sign out</button>
         <div class="pill synthetic">SYNTHETIC DATA ONLY</div>
-        <p class="muted tiny">Employer access only · No real PII · Seed 42 demo cohort</p>
+        <p class="muted tiny">Sample login required · No real PII · Seed 42 demo cohort</p>
       </div>
     </aside>
 
@@ -74,6 +78,11 @@
                   <th>Joiner</th>
                   <th>Role</th>
                   <th>Department</th>
+                  <th>
+                    <span class="th-tip" tabindex="0" data-tip="Hiring manager for this joiner — cohort is split across Ava Chen, Leo Park, Priya Singh, and Jordan Cole">
+                      Manager <span class="tip-mark" aria-hidden="true">?</span>
+                    </span>
+                  </th>
                   <th>
                     <span class="th-tip" tabindex="0" data-tip="Current onboarding stage: Offer → Docs → IT → Day-1 → Project ready">
                       State <span class="tip-mark" aria-hidden="true">?</span>
@@ -154,7 +163,7 @@
   </aside>
 
   <div id="toast" class="toast" hidden role="status"></div>
-  <script src="/static/session.js?v=12"></script>
-  <script src="/static/app.js?v=12"></script>
+  <script src="/static/session.js?v=15"></script>
+  <script src="/static/app.js?v=15"></script>
 </body>
 </html>

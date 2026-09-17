@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=14" />
+  <link rel="stylesheet" href="/static/style.css?v=15" />
 </head>
 <body class="portal-page">
   <div class="portal-shell" id="portal-shell">
@@ -39,9 +39,9 @@
           <div class="path-body">
             <span class="path-label">Employer</span>
             <h2 class="path-title">Command Center</h2>
-            <p class="path-copy">Pipeline, alerts, and analytics for HR, IT, and hiring managers.</p>
+            <p class="path-copy">Sign in with a demo ID — HR, IT, Ops, or one of four hiring managers.</p>
           </div>
-          <button type="button" class="path-btn" id="pick-employer">Open Command Center</button>
+          <button type="button" class="path-btn" id="pick-employer">Sign in to Command Center</button>
         </article>
 
         <article class="portal-path path-employee">
@@ -54,6 +54,42 @@
         </article>
       </div>
     </main>
+
+    <section class="portal-join portal-employer-login" id="employer-step" hidden>
+      <button type="button" class="portal-back" id="back-from-employer">← Back to paths</button>
+      <h2>Command Center login</h2>
+      <p class="muted">Sample IDs below — not real accounts. Hiring managers only see their own joiners.</p>
+
+      <label class="login-field">
+        Username
+        <input type="text" id="employer-user" autocomplete="username" placeholder="hr.jordan" />
+      </label>
+      <label class="login-field">
+        Password
+        <input type="password" id="employer-pass" autocomplete="current-password" placeholder="••••••••" />
+      </label>
+      <p id="employer-login-error" class="load-error" hidden></p>
+      <button type="button" class="btn-primary login-submit" id="employer-enter">Open Command Center</button>
+
+      <div class="demo-creds">
+        <h3>Sample IDs</h3>
+        <div class="demo-creds-table-wrap">
+          <table class="demo-creds-table" id="demo-accounts-table">
+            <thead>
+              <tr>
+                <th>Role</th>
+                <th>Username</th>
+                <th>Password</th>
+                <th>Scope</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="4" class="muted">Loading sample accounts…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
     <section class="portal-join" id="employee-step" hidden>
       <button type="button" class="portal-back" id="back-persona">← Back to paths</button>
@@ -78,7 +114,7 @@
     </footer>
   </div>
 
-  <script src="/static/session.js?v=14"></script>
-  <script src="/static/portal.js?v=14"></script>
+  <script src="/static/session.js?v=15"></script>
+  <script src="/static/portal.js?v=15"></script>
 </body>
 </html>

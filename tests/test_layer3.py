@@ -123,7 +123,16 @@ def test_layer3_seed_stable_and_frontend():
         )
         before = client.get("/api/feedback", params={"joiner_id": "SYN-J-0042-023"}).json()
         assert before["total"] >= 1
-        regen = client.post("/api/admin/regenerate", params={"seed": 42})
+        login = client.post(
+            "/api/auth/login",
+            json={"username": "ops.admin", "password": "ops-demo-2026"},
+        )
+        assert login.status_code == 200
+        regen = client.post(
+            "/api/admin/regenerate",
+            params={"seed": 42},
+            headers={"Authorization": f"Bearer {login.json()['token']}"},
+        )
         assert regen.status_code == 200
         after = client.get("/api/feedback", params={"joiner_id": "SYN-J-0042-023"}).json()
         assert after["total"] == 0

@@ -35,7 +35,7 @@ const state = {
 const TITLES = {
   dashboard: [
     "Dashboard",
-    "Employer persona queues — All / HR / IT / Manager filter the cohort (not one shared people-manager)",
+    "Employer persona queues — All / HR / IT / Manager filter the cohort (four hiring managers split the 30 joiners)",
   ],
   alerts: ["Alerts", "SLA breaches and pending work for the selected employer lens"],
   analytics: [
@@ -45,9 +45,26 @@ const TITLES = {
   roles: ["Role Views", "Mock iCIMS / ServiceNow / Jira connectors + queue for this lens"],
 };
 
+function paintSignedIn() {
+  const el = document.getElementById("signed-in-user");
+  if (!el || !employerSession) return;
+  const scope = employerSession.managerId
+    ? `Team · ${employerSession.managerId}`
+    : "Full cohort";
+  el.innerHTML = `<strong>${esc(employerSession.displayName || employerSession.username)}</strong>
+    <span class="muted tiny">${esc(employerSession.title || employerSession.employerPersona)} · ${esc(scope)}</span>`;
+}
+
 async function fetchJSON(path) {
-  const res = await fetch(path);
-  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  const res = await fetch(path, { headers: { ...employerAuthHeaders() } });
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearSession();
+      window.location.replace("/?need=employer");
+      throw new Error("Employer login required");
+    }
+    throw new Error(`${path} → ${res.status}`);
+  }
   return res.json();
 }
 
@@ -155,8 +172,11 @@ function renderDashboard() {
     kpi("IT provisioned", by.IT_PROVISIONED || 0, "Hardware stage", "tone-it"),
     kpi("Project ready", by.PROJECT_READY || 0, "Manager handoff done", "tone-mgr"),
   ].join("");
+  const mgrNote = employerSession?.managerId
+    ? `your team (${employerSession.displayName})`
+    : "split across 4 hiring managers";
   document.getElementById("dashboard-count").textContent =
-    `${rows.length} joiners · each has their own mentor (not one shared manager)`;
+    `${rows.length} joiners · ${mgrNote} · each has their own mentor`;
   document.querySelector("#joiners-table tbody").innerHTML = rows
     .map(
       (r) => `<tr class="joiner-row ${state.selectedId === r.id ? "selected" : ""}" data-id="${esc(r.id)}" tabindex="0">
@@ -168,6 +188,7 @@ function renderDashboard() {
       </td>
       <td>${r.role_type}</td>
       <td>${esc(r.department)}</td>
+      <td><span class="mgr-chip" title="${esc(r.manager_id)}">${esc(r.manager_name)}</span></td>
       <td>${stateBadge(r.current_state)}</td>
       <td>${pipelineProgress(r.current_state, r.days_in_pipeline)}</td>
       <td>${bottleneckTag(r.bottleneck)}</td>
@@ -237,7 +258,7 @@ function renderAnalytics() {
               kpi("Manager queue", a.cohort_size, "Day-1 / project readiness", "tone-mgr"),
               kpi("Project ready", a.project_ready_count, "Ready for Jira assignment", "tone-mgr"),
               kpi("Completion rate", `${a.completion_rate_pct}%`, "Of this queue", "tone-mgr"),
-              kpi("Avg days in view", a.avg_onboarding_days, "Not one shared mentor", "tone-all"),
+              kpi("Avg days in view", a.avg_onboarding_days, "Hiring managers split the cohort", "tone-all"),
             ]
           : [
               kpi("Cohort size", a.cohort_size, "Full synthetic cohort", "tone-all"),
@@ -350,6 +371,7 @@ async function openJoinerDrawer(id) {
     body.innerHTML = `
       <dl class="drawer-meta">
         <div><dt>State</dt><dd>${stateBadge(j.current_state)}</dd></div>
+        <div><dt>Hiring manager</dt><dd>${esc(j.manager_name)} <span class="muted tiny">(${esc(j.manager_id)})</span></dd></div>
         <div><dt>Mentor</dt><dd>${esc(j.mentor_name)}</dd></div>
         <div><dt>Docs</dt><dd>${esc(detail.documents.status)}</dd></div>
         <div><dt>Hardware</dt><dd>${esc(detail.it_ticket.hardware_status)}${
@@ -565,6 +587,21 @@ function wireUI() {
 }
 
 if (employerSession) {
+  paintSignedIn();
+  // Hiring-manager accounts land on their team; default lens stays All within that team.
+  if (employerSession.employerPersona === "Manager") {
+    state.role = "All";
+  } else if (employerSession.employerPersona === "HR") {
+    state.role = "HR";
+    document.querySelectorAll(".role-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.role === "HR");
+    });
+  } else if (employerSession.employerPersona === "IT") {
+    state.role = "IT";
+    document.querySelectorAll(".role-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.role === "IT");
+    });
+  }
   wireUI();
   loadAll().catch((err) => {
     console.error(err);

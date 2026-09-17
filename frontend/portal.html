@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <title>SmartStart — Choose your path</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=15" />
+</head>
+<body class="portal-page">
+  <div class="portal-shell" id="portal-shell">
+    <div class="portal-atmosphere" aria-hidden="true">
+      <span class="wash wash-a"></span>
+      <span class="wash wash-b"></span>
+    </div>
+
+    <header class="portal-top">
+      <div class="portal-logo">
+        <span class="brand-mark">SS</span>
+        <span class="portal-logo-name">SmartStart</span>
+      </div>
+      <span class="portal-chip">Synthetic demo</span>
+    </header>
+
+    <main class="portal-stage" id="persona-step">
+      <div class="portal-intro">
+        <p class="portal-eyebrow">Intern &amp; FTE onboarding</p>
+        <h1 class="portal-title">SmartStart</h1>
+        <p class="portal-lede">Choose your view — manage onboarding or step into a joiner’s workspace.</p>
+      </div>
+
+      <div id="portal-error" class="load-error" hidden></div>
+
+      <div class="portal-paths" role="group" aria-label="Choose a path">
+        <article class="portal-path path-employer">
+          <div class="path-body">
+            <span class="path-label">Employer</span>
+            <h2 class="path-title">Command Center</h2>
+            <p class="path-copy">Sign in with a demo ID — HR, IT, Ops, or one of four hiring managers.</p>
+          </div>
+          <button type="button" class="path-btn" id="pick-employer">Sign in to Command Center</button>
+        </article>
+
+        <article class="portal-path path-employee">
+          <div class="path-body">
+            <span class="path-label">Employee</span>
+            <h2 class="path-title">Joiner workspace</h2>
+            <p class="path-copy">Learning, Q&amp;A, people, and team — one Intern or FTE profile only.</p>
+          </div>
+          <button type="button" class="path-btn" id="pick-employee">Open Workspace</button>
+        </article>
+      </div>
+    </main>
+
+    <section class="portal-join portal-employer-login" id="employer-step" hidden>
+      <button type="button" class="portal-back" id="back-from-employer">← Back to paths</button>
+      <h2>Command Center login</h2>
+      <p class="muted">Sample IDs below — not real accounts. Hiring managers only see their own joiners.</p>
+
+      <label class="login-field">
+        Username
+        <input type="text" id="employer-user" autocomplete="username" placeholder="hr.jordan" />
+      </label>
+      <label class="login-field">
+        Password
+        <input type="password" id="employer-pass" autocomplete="current-password" placeholder="••••••••" />
+      </label>
+      <p id="employer-login-error" class="load-error" hidden></p>
+      <button type="button" class="btn-primary login-submit" id="employer-enter">Open Command Center</button>
+
+      <div class="demo-creds">
+        <h3>Sample IDs</h3>
+        <div class="demo-creds-table-wrap">
+          <table class="demo-creds-table" id="demo-accounts-table">
+            <thead>
+              <tr>
+                <th>Role</th>
+                <th>Username</th>
+                <th>Password</th>
+                <th>Scope</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="4" class="muted">Loading sample accounts…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="portal-join" id="employee-step" hidden>
+      <button type="button" class="portal-back" id="back-persona">← Back to paths</button>
+      <h2>Choose your joiner</h2>
+      <p class="muted">You’ll only see this person’s onboarding — not the full company roster.</p>
+
+      <div class="role-login portal-role" role="group" aria-label="Employee role">
+        <button type="button" class="role-login-btn active" data-role="INTERN">Intern</button>
+        <button type="button" class="role-login-btn" data-role="FTE">FTE</button>
+      </div>
+
+      <label class="login-field">
+        Synthetic profile
+        <select id="employee-select" required></select>
+      </label>
+
+      <button type="button" class="btn-primary login-submit" id="employee-enter">Open my workspace</button>
+    </section>
+
+    <footer class="portal-foot">
+      <span>No real PII · Seed 42 · Mock iCIMS / ServiceNow / Jira</span>
+    </footer>
+  </div>
+
+  <script src="/static/session.js?v=15"></script>
+  <script src="/static/portal.js?v=15"></script>
+</body>
+</html>

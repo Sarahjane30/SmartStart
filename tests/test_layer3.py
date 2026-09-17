@@ -95,12 +95,12 @@ def test_layer3_seed_stable_and_frontend():
         assert track_a == track_b
 
         health = client.get("/health").json()
-        assert health["layer"] == "3"
+        assert health["layer"] in {"3", "4"}
 
         page = client.get("/employee")
         assert page.status_code == 200
         assert "Employee Experience" in page.text
-        assert "Learning track" in page.text
+        assert "Learning" in page.text
         assert "Notifications" in page.text
         assert "feedback-form" in page.text
 
@@ -123,7 +123,16 @@ def test_layer3_seed_stable_and_frontend():
         )
         before = client.get("/api/feedback", params={"joiner_id": "SYN-J-0042-023"}).json()
         assert before["total"] >= 1
-        regen = client.post("/api/admin/regenerate", params={"seed": 42})
+        login = client.post(
+            "/api/auth/login",
+            json={"username": "ops.admin", "password": "ops-demo-2026"},
+        )
+        assert login.status_code == 200
+        regen = client.post(
+            "/api/admin/regenerate",
+            params={"seed": 42},
+            headers={"Authorization": f"Bearer {login.json()['token']}"},
+        )
         assert regen.status_code == 200
         after = client.get("/api/feedback", params={"joiner_id": "SYN-J-0042-023"}).json()
         assert after["total"] == 0

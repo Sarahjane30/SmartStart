@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from backend.database import DataStore, store
 from backend.models import (
     ONBOARDING_STAGES,
+    ConsultContact,
     DepartmentTrack,
     EmployeeNotification,
     EmployeeProfile,
@@ -21,6 +22,8 @@ from backend.models import (
     NotificationsResponse,
     OnboardingState,
     RoleType,
+    TeamMember,
+    TeamWorkspaceResponse,
 )
 from backend.synthetic_engine import days_in_pipeline, infer_bottleneck
 
@@ -352,3 +355,111 @@ def submit_feedback(payload: FeedbackCreate) -> FeedbackResponse:
     )
     _FEEDBACK.append(record)
     return FeedbackResponse(feedback=record, synthetic=True)
+
+
+def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWorkspaceResponse:
+    """Synthetic consult network + department team roster for the employee UI."""
+    db = db or store
+    joiner = db.get_joiner(joiner_id)
+    if joiner is None:
+        raise KeyError(joiner_id)
+
+    is_intern = joiner.role_type == RoleType.INTERN
+    hr_names = ("Avery Quinn", "Jordan Blake", "Riley Chen")
+    it_names = ("Sam Ortiz", "Casey Nguyen", "Morgan Ellis")
+    mgr_names = ("Taylor Brooks", "Jamie Patel", "Alex Rivera")
+
+    hr = hr_names[_stable_int(joiner_id + ":hr", len(hr_names))]
+    it = it_names[_stable_int(joiner_id + ":it", len(it_names))]
+    mgr = mgr_names[_stable_int(joiner_id + ":mgr", len(mgr_names))]
+
+    consult = [
+        ConsultContact(
+            id=f"{joiner_id}-C-mentor",
+            name=joiner.mentor_name,
+            role_label="Mentor" if is_intern else "Onboarding buddy",
+            channel="Slack DM · weekly 1:1",
+            availability="Office hours Tue/Thu 2–3pm (synthetic)",
+            focus=(
+                "Learning modules, Git Basics, asking for help"
+                if is_intern
+                else "Department norms, project readiness, stakeholders"
+            ),
+            synthetic=True,
+        ),
+        ConsultContact(
+            id=f"{joiner_id}-C-hr",
+            name=hr,
+            role_label="HR onboarding partner",
+            channel="iCIMS / email",
+            availability="Same-day reply on docs questions",
+            focus="Document packet, compliance forms, Day-1 checklist",
+            synthetic=True,
+        ),
+        ConsultContact(
+            id=f"{joiner_id}-C-it",
+            name=it,
+            role_label="IT provisioning",
+            channel="ServiceNow ticket",
+            availability="SLA target 3 business days",
+            focus="Laptop, VPN, Okta, software access",
+            synthetic=True,
+        ),
+        ConsultContact(
+            id=f"{joiner_id}-C-mgr",
+            name=mgr,
+            role_label="Hiring manager",
+            channel="Calendar / Slack",
+            availability="Kickoff after Day-1 orientation",
+            focus=(
+                "Intern goals and mentor pairing"
+                if is_intern
+                else "Project assignment and readiness sign-off"
+            ),
+            synthetic=True,
+        ),
+    ]
+
+    peers = [j for j in db.list_joiners() if j.department == joiner.department]
+    peers.sort(key=lambda j: (j.id != joiner_id, j.name))
+    team = [
+        TeamMember(
+            id=j.id,
+            name=j.name,
+            role_type=j.role_type,
+            current_state=j.current_state,
+            mentor_name=j.mentor_name,
+            days_in_pipeline=days_in_pipeline(j, now=AS_OF),
+            is_self=j.id == joiner_id,
+            synthetic=True,
+        )
+        for j in peers
+    ]
+
+    if is_intern:
+        suggested = [
+            "How do I submit documents?",
+            "Who is my mentor?",
+            "How do I finish Git Basics?",
+            "How often should I meet my mentor?",
+            "What happens on Day 1?",
+        ]
+    else:
+        suggested = [
+            "What is project readiness?",
+            "Where do I find department processes?",
+            "When will my laptop arrive?",
+            "How do I get VPN access?",
+            "How do I give onboarding feedback?",
+        ]
+
+    return TeamWorkspaceResponse(
+        joiner_id=joiner_id,
+        role_type=joiner.role_type,
+        department=joiner.department,
+        team_name=f"{joiner.department} onboarding pod",
+        consult=consult,
+        team=team,
+        suggested_questions=suggested,
+        synthetic=True,
+    )

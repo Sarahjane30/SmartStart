@@ -1,33 +1,43 @@
-"""SmartStart Layers 1–3 — FastAPI synthetic onboarding + Command Center + Employee UI."""
+"""SmartStart Layers 1–4 — FastAPI synthetic onboarding + Command Center + Employee UI."""
 
 from __future__ import annotations
 
 from collections import Counter
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator
+from typing import Annotated, AsyncIterator, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend.auth import list_demo_accounts, login, require_employer
+from backend.chatbot import build_chatbot
+from backend.predictor import build_predictions
+from backend.recommender import build_recommendations
 from backend.alerts import build_alerts
-from backend.analytics import ANALYTICS_AS_OF, build_analytics
+from backend.analytics import ANALYTICS_AS_OF, build_analytics, joiner_in_role_view
 from backend.database import store
 from backend.employee_experience import (
     build_employee_profile,
     build_learning_track,
     build_notifications,
+    build_team_workspace,
     clear_feedback,
     list_feedback,
     submit_feedback,
 )
 from backend.integrations import build_integrations
 from backend.models import (
+    RecommendationsResponse,
+    PredictResponse,
+    ChatbotResponse,
     DashboardJoinerRow,
     DashboardResponse,
     DocumentStatus,
+    EmployerLoginRequest,
+    EmployerLoginResponse,
     EmployerRole,
     EmployeeProfile,
     FeedbackCreate,
@@ -39,23 +49,30 @@ from backend.models import (
     NotificationsResponse,
     OnboardingState,
     RoleType,
+    TeamWorkspaceResponse,
 )
 from backend.synthetic_engine import days_in_pipeline, generate_cohort, infer_bottleneck
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+NO_CACHE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+EmployerSession = Annotated[dict, Depends(require_employer)]
 
 API_DESCRIPTION = """
-SmartStart Layers 1–3 — Synthetic onboarding data engine, Employer Command Center,
+SmartStart Layers 1–4 — Synthetic onboarding data engine, Employer Command Center,
 and Employee Experience API.
 
-All joiners, documents, IT tickets, alerts, analytics, learning tracks, and
-notifications are **100% synthetic**. No real employee PII, production logs,
+All joiners, documents, IT tickets, alerts, analytics, learning tracks, notifications, and AI prototypes are **100% synthetic**. No real employee PII, production logs,
 or live iCIMS / ServiceNow / Jira data.
+
+Command Center APIs require a synthetic employer login (see `/api/auth/demo-accounts`).
 """
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    print(f"[SmartStart] backend file: {Path(__file__).resolve()}")
+    print(f"[SmartStart] frontend dir: {FRONTEND_DIR.resolve()}")
+    print(f"[SmartStart] portal exists: {(FRONTEND_DIR / 'portal.html').exists()}")
     generate_cohort(n_interns=15, n_ftes=15, seed=42)
     clear_feedback()
     yield
@@ -64,7 +81,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="SmartStart",
     description=API_DESCRIPTION,
-    version="0.4.0",
+    version="0.5.2",
     lifespan=lifespan,
 )
 
@@ -78,8 +95,40 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "layer": "3", "mode": "synthetic"}
+def health() -> dict[str, str | bool]:
+    return {
+        "status": "ok",
+        "layer": "4",
+        "mode": "synthetic",
+        "version": "0.5.2",
+        "frontend_dir": str(FRONTEND_DIR.resolve()),
+        "portal_html": (FRONTEND_DIR / "portal.html").exists(),
+        "backend_file": str(Path(__file__).resolve()),
+        "employer_auth": True,
+    }
+
+
+# --- Auth (synthetic demo only) --------------------------------------------
+
+
+@app.get("/api/auth/demo-accounts")
+def auth_demo_accounts() -> dict:
+    """Public sample IDs/passwords for the portal login screen."""
+    return {
+        "accounts": list_demo_accounts(),
+        "synthetic": True,
+        "note": "Demo credentials only — not real authentication.",
+    }
+
+
+@app.post("/api/auth/login", response_model=EmployerLoginResponse)
+def auth_login(body: EmployerLoginRequest) -> EmployerLoginResponse:
+    return login(body)
+
+
+@app.get("/api/auth/me")
+def auth_me(session: EmployerSession) -> dict:
+    return {**session, "synthetic": True}
 
 
 # --- Layer 1 ---------------------------------------------------------------
@@ -167,11 +216,13 @@ def metrics_summary() -> MetricsSummary:
 
 @app.post("/api/admin/regenerate")
 def regenerate(
+    session: EmployerSession,
     seed: int = Query(default=42, ge=0),
     n_interns: int = Query(default=15, ge=0, le=100),
     n_ftes: int = Query(default=15, ge=0, le=100),
 ) -> dict[str, int | str]:
     """Rebuild the in-memory synthetic cohort (dev/demo only)."""
+    _ = session
     generate_cohort(n_interns=n_interns, n_ftes=n_ftes, seed=seed)
     clear_feedback()
     return {
@@ -184,15 +235,31 @@ def regenerate(
 # --- Layer 2 ---------------------------------------------------------------
 
 
+def _manager_scope(session: dict) -> Optional[str]:
+    """Hiring-manager accounts only see their own joiners."""
+    if session.get("persona") == "Manager":
+        return session.get("manager_id")
+    return None
+
+
 @app.get("/api/dashboard", response_model=DashboardResponse)
 def dashboard(
+    session: EmployerSession,
     role_view: EmployerRole = Query(default=EmployerRole.ALL),
     role_type: RoleType | None = Query(default=None),
     state: OnboardingState | None = Query(default=None),
 ) -> DashboardResponse:
     """Employer Command Center table: joiners + states (synthetic only)."""
+    manager_id = _manager_scope(session)
+    # Manager accounts default their lens to their team + Manager queue when All is selected.
+    effective_view = role_view
+    if manager_id and role_view == EmployerRole.ALL:
+        effective_view = EmployerRole.ALL
+
     rows: list[DashboardJoinerRow] = []
     for joiner in store.list_joiners():
+        if manager_id and joiner.manager_id != manager_id:
+            continue
         if role_type is not None and joiner.role_type != role_type:
             continue
         if state is not None and joiner.current_state != state:
@@ -201,17 +268,12 @@ def dashboard(
         ticket = store.get_ticket_for_joiner(joiner.id)
         if docs is None or ticket is None:
             continue
+        if not joiner_in_role_view(
+            joiner, docs.status, ticket.hardware_status, ticket.sla_breached, effective_view
+        ):
+            continue
 
         bottleneck = infer_bottleneck(joiner.current_state, docs, ticket)
-        # Role views emphasize different columns via frontend; light server filter:
-        if role_view == EmployerRole.HR and docs.status == DocumentStatus.COMPLETE:
-            # Still include everyone for HR overview; no hard filter.
-            pass
-        if role_view == EmployerRole.IT and ticket.sla_breached is False:
-            pass
-        if role_view == EmployerRole.MANAGER and not joiner.assigned_tasks:
-            pass
-
         rows.append(
             DashboardJoinerRow(
                 id=joiner.id,
@@ -222,6 +284,8 @@ def dashboard(
                 department_track=joiner.department_track,
                 current_state=joiner.current_state,
                 mentor_name=joiner.mentor_name,
+                manager_id=joiner.manager_id,
+                manager_name=joiner.manager_name,
                 learning_track=joiner.learning_track,
                 joining_date=joiner.joining_date,
                 days_in_pipeline=days_in_pipeline(joiner, now=ANALYTICS_AS_OF),
@@ -243,28 +307,43 @@ def dashboard(
 
 
 @app.get("/api/alerts")
-def alerts(role_view: EmployerRole = Query(default=EmployerRole.ALL)):
+def alerts(
+    session: EmployerSession,
+    role_view: EmployerRole = Query(default=EmployerRole.ALL),
+):
     """Synthetic SLA breaches + pending-task alerts."""
+    manager_id = _manager_scope(session)
     payload = build_alerts()
+    alerts_list = payload.alerts
     if role_view != EmployerRole.ALL:
-        filtered = [
+        alerts_list = [
             a
-            for a in payload.alerts
+            for a in alerts_list
             if a.role_view in {role_view.value, EmployerRole.ALL.value, "Ops"}
         ]
-        return payload.model_copy(update={"alerts": filtered, "total": len(filtered)})
-    return payload
+    if manager_id:
+        team_ids = {j.id for j in store.list_joiners() if j.manager_id == manager_id}
+        alerts_list = [
+            a
+            for a in alerts_list
+            if a.joiner_id is None or a.joiner_id in team_ids
+        ]
+    return payload.model_copy(update={"alerts": alerts_list, "total": len(alerts_list)})
 
 
 @app.get("/api/analytics")
-def analytics():
-    """KPIs from synthetic timestamps (avg time, bottlenecks, trend)."""
-    return build_analytics()
+def analytics(
+    session: EmployerSession,
+    role_view: EmployerRole = Query(default=EmployerRole.ALL),
+):
+    """KPIs from synthetic timestamps, scoped to an employer persona lens."""
+    return build_analytics(role_view=role_view, manager_id=_manager_scope(session))
 
 
 @app.get("/api/integrations")
-def integrations():
+def integrations(session: EmployerSession):
     """Mock iCIMS / ServiceNow / Jira connector snapshots (synthetic)."""
+    _ = session
     return build_integrations()
 
 
@@ -314,15 +393,62 @@ def feedback_list(joiner_id: str | None = Query(default=None)):
     return {"total": len(rows), "feedback": rows, "synthetic": True}
 
 
+@app.get("/api/employee/{joiner_id}/workspace", response_model=TeamWorkspaceResponse)
+def employee_workspace(joiner_id: str) -> TeamWorkspaceResponse:
+    """Synthetic consult network, team roster, and suggested questions."""
+    try:
+        return build_team_workspace(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Workspace not found") from None
+
+
+# --- Layer 4: Prototype AI Features ------------------------------------
+
+@app.get("/api/chatbot/{joiner_id}", response_model=ChatbotResponse)
+def chatbot(joiner_id: str, q: str | None = Query(default=None)) -> ChatbotResponse:
+    """Synthetic rule-based onboarding FAQ guidance for a joiner."""
+    try:
+        return build_chatbot(joiner_id, query=q)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Chatbot context not found") from None
+
+
+@app.get("/api/predict/{joiner_id}", response_model=PredictResponse)
+def predict(joiner_id: str) -> PredictResponse:
+    """Synthetic predictive SLA / onboarding risk scores (seed-stable)."""
+    try:
+        return build_predictions(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Prediction context not found") from None
+
+
+@app.get("/api/recommendations/{joiner_id}", response_model=RecommendationsResponse)
+def recommendations(joiner_id: str) -> RecommendationsResponse:
+    """Adaptive synthetic learning recommendations by role and progress."""
+    try:
+        return build_recommendations(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Recommendations not found") from None
+
+
 # --- Frontend static -------------------------------------------------------
 
 if FRONTEND_DIR.exists():
     @app.get("/")
+    def portal() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "portal.html", headers=NO_CACHE)
+
+    @app.get("/command-center")
+    @app.get("/employer")
     def command_center() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "index.html")
+        return FileResponse(FRONTEND_DIR / "index.html", headers=NO_CACHE)
 
     @app.get("/employee")
     def employee_experience() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "employee.html")
+        return FileResponse(FRONTEND_DIR / "employee.html", headers=NO_CACHE)
+
+    @app.get("/ai")
+    def ai_features() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "ai.html", headers=NO_CACHE)
 
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

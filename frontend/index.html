@@ -3,21 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SmartStart — Employer Command Center</title>
+  <title>SmartStart — Employer Command Center (build 15)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/style.css?v=15" />
 </head>
-<body>
-  <div class="app-shell">
+<body class="employer-page">
+  <div class="app-shell" id="employer-shell">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">SS</div>
         <div>
           <div class="brand-name">SmartStart</div>
-          <div class="brand-sub">Employer Command Center</div>
+          <div class="brand-sub">Employer Command Center · build 15</div>
         </div>
+      </div>
+
+      <div class="signed-in" id="signed-in-user">
+        <span class="muted tiny">Signed in…</span>
       </div>
 
       <nav class="nav" aria-label="Primary">
@@ -28,9 +32,10 @@
       </nav>
 
       <div class="sidebar-foot">
-        <a class="btn-link" href="/employee">Open Employee Experience →</a>
+        <a class="btn-link" href="/ai">Open AI Features →</a>
+        <button type="button" class="btn-link" id="sign-out-btn">Exit to portal / sign out</button>
         <div class="pill synthetic">SYNTHETIC DATA ONLY</div>
-        <p class="muted tiny">No real PII · Seed 42 demo cohort · Mock iCIMS / ServiceNow / Jira</p>
+        <p class="muted tiny">Sample login required · No real PII · Seed 42 demo cohort</p>
       </div>
     </aside>
 
@@ -41,11 +46,19 @@
           <p class="muted" id="page-subtitle">Pipeline status across all synthetic joiners</p>
         </div>
         <div class="topbar-actions">
-          <div class="role-filters" role="group" aria-label="Role filter">
-            <button class="role-btn active" data-role="All">All</button>
-            <button class="role-btn" data-role="HR">HR</button>
-            <button class="role-btn" data-role="IT">IT</button>
-            <button class="role-btn" data-role="Manager">Manager</button>
+          <div class="role-filters" role="group" aria-label="Employer persona view">
+            <button class="role-btn active" data-role="All" title="Full cohort">
+              <span class="role-ico" aria-hidden="true">◎</span> All
+            </button>
+            <button class="role-btn role-hr" data-role="HR" title="HR queue — documents &amp; offer handoff">
+              <span class="role-ico" aria-hidden="true">▤</span> HR
+            </button>
+            <button class="role-btn role-it" data-role="IT" title="IT queue — hardware &amp; SLA">
+              <span class="role-ico" aria-hidden="true">⚙</span> IT
+            </button>
+            <button class="role-btn role-mgr" data-role="Manager" title="Hiring-manager queue — Day-1 &amp; project readiness (not one shared people-manager)">
+              <span class="role-ico" aria-hidden="true">★</span> Manager
+            </button>
           </div>
           <button id="refresh-btn" class="btn-secondary">Refresh</button>
         </div>
@@ -65,11 +78,19 @@
                   <th>Joiner</th>
                   <th>Role</th>
                   <th>Department</th>
-                  <th>State</th>
-                  <th>Days</th>
-                  <th>Docs</th>
-                  <th>IT</th>
+                  <th>
+                    <span class="th-tip" tabindex="0" data-tip="Hiring manager for this joiner — cohort is split across Ava Chen, Leo Park, Priya Singh, and Jordan Cole">
+                      Manager <span class="tip-mark" aria-hidden="true">?</span>
+                    </span>
+                  </th>
+                  <th>
+                    <span class="th-tip" tabindex="0" data-tip="Current onboarding stage: Offer → Docs → IT → Day-1 → Project ready">
+                      State <span class="tip-mark" aria-hidden="true">?</span>
+                    </span>
+                  </th>
+                  <th>Progress</th>
                   <th>Bottleneck</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -89,19 +110,26 @@
       </section>
 
       <section id="section-analytics" class="section">
+        <p class="analytics-banner muted" id="analytics-focus"></p>
         <div class="kpi-row" id="analytics-kpis"></div>
         <div class="charts-grid">
           <div class="card">
-            <div class="card-head"><h2>Bottlenecks</h2></div>
+            <div class="card-head">
+              <h2>Bottlenecks in this view</h2>
+              <span class="muted tiny" id="bn-chart-sub"></span>
+            </div>
             <canvas id="bottleneck-chart" width="640" height="320" aria-label="Bottleneck bar chart"></canvas>
           </div>
           <div class="card">
-            <div class="card-head"><h2>Avg onboarding time trend</h2></div>
-            <canvas id="trend-chart" width="640" height="320" aria-label="Onboarding trend line chart"></canvas>
+            <div class="card-head">
+              <h2>Joiners by state</h2>
+              <span class="muted tiny">Counts for the filtered cohort</span>
+            </div>
+            <canvas id="trend-chart" width="640" height="320" aria-label="Joiners by onboarding state"></canvas>
           </div>
         </div>
         <div class="card">
-          <div class="card-head"><h2>Average days by state</h2></div>
+          <div class="card-head"><h2>Average days in each state</h2></div>
           <div id="state-days" class="state-days"></div>
         </div>
       </section>
@@ -118,6 +146,24 @@
       </section>
     </main>
   </div>
-  <script src="/static/app.js"></script>
+
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="joiner-drawer" class="joiner-drawer" hidden aria-hidden="true" aria-label="Joiner detail">
+    <div class="drawer-head">
+      <div>
+        <p class="muted tiny" id="drawer-kicker">Joiner detail</p>
+        <h2 id="drawer-name">—</h2>
+        <p class="muted tiny" id="drawer-email"></p>
+      </div>
+      <button type="button" class="btn-secondary" id="drawer-close" aria-label="Close detail panel">Close</button>
+    </div>
+    <div id="drawer-body" class="drawer-body">
+      <p class="muted">Select a joiner from the pipeline table.</p>
+    </div>
+  </aside>
+
+  <div id="toast" class="toast" hidden role="status"></div>
+  <script src="/static/session.js?v=15"></script>
+  <script src="/static/app.js?v=15"></script>
 </body>
 </html>

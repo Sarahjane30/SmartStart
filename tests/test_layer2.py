@@ -68,11 +68,20 @@ def test_layer2_role_filters_and_frontend():
         home = client.get("/")
         assert home.status_code == 200
         assert "Employer Command Center" in home.text
+        assert "joiner-drawer" in home.text
+        assert "th-tip" in home.text
+        assert 'data-role="HR"' in home.text
 
         css = client.get("/static/style.css")
         assert css.status_code == 200
         assert ".app-shell" in css.text
+        assert ".bn-tag" in css.text
+        assert ".joiner-drawer" in css.text
 
         js = client.get("/static/app.js")
         assert js.status_code == 200
         assert "/api/dashboard" in js.text
+        assert "openJoinerDrawer" in js.text
+        assert "bottleneckTag" in js.text
+        assert "pipelineProgress" in js.text
+        assert "handleAction" in js.text

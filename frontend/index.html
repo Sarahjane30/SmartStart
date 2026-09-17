@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/style.css?v=6" />
 </head>
 <body>
   <div class="app-shell">
@@ -43,10 +43,18 @@
         </div>
         <div class="topbar-actions">
           <div class="role-filters" role="group" aria-label="Role filter">
-            <button class="role-btn active" data-role="All">All</button>
-            <button class="role-btn" data-role="HR">HR</button>
-            <button class="role-btn" data-role="IT">IT</button>
-            <button class="role-btn" data-role="Manager">Manager</button>
+            <button class="role-btn active" data-role="All" title="All roles">
+              <span class="role-ico" aria-hidden="true">◎</span> All
+            </button>
+            <button class="role-btn role-hr" data-role="HR" title="HR — documents &amp; offer handoff">
+              <span class="role-ico" aria-hidden="true">▤</span> HR
+            </button>
+            <button class="role-btn role-it" data-role="IT" title="IT — hardware &amp; SLA">
+              <span class="role-ico" aria-hidden="true">⚙</span> IT
+            </button>
+            <button class="role-btn role-mgr" data-role="Manager" title="Manager — Day-1 &amp; project readiness">
+              <span class="role-ico" aria-hidden="true">★</span> Manager
+            </button>
           </div>
           <button id="refresh-btn" class="btn-secondary">Refresh</button>
         </div>
@@ -66,11 +74,19 @@
                   <th>Joiner</th>
                   <th>Role</th>
                   <th>Department</th>
-                  <th>State</th>
-                  <th>Days</th>
-                  <th>Docs</th>
-                  <th>IT</th>
+                  <th>
+                    <span class="th-tip" tabindex="0" data-tip="Current onboarding stage: Offer → Docs → IT → Day-1 → Project ready">
+                      State <span class="tip-mark" aria-hidden="true">?</span>
+                    </span>
+                  </th>
+                  <th>
+                    <span class="th-tip" tabindex="0" data-tip="Calendar days since offer accepted (as of demo date 2026-09-15)">
+                      Days <span class="tip-mark" aria-hidden="true">?</span>
+                    </span>
+                  </th>
+                  <th>Progress</th>
                   <th>Bottleneck</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -119,6 +135,23 @@
       </section>
     </main>
   </div>
-  <script src="/static/app.js"></script>
+
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="joiner-drawer" class="joiner-drawer" hidden aria-hidden="true" aria-label="Joiner detail">
+    <div class="drawer-head">
+      <div>
+        <p class="muted tiny" id="drawer-kicker">Joiner detail</p>
+        <h2 id="drawer-name">—</h2>
+        <p class="muted tiny" id="drawer-email"></p>
+      </div>
+      <button type="button" class="btn-secondary" id="drawer-close" aria-label="Close detail panel">Close</button>
+    </div>
+    <div id="drawer-body" class="drawer-body">
+      <p class="muted">Select a joiner from the pipeline table.</p>
+    </div>
+  </aside>
+
+  <div id="toast" class="toast" hidden role="status"></div>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>

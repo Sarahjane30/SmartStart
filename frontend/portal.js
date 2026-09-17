@@ -43,11 +43,13 @@ function populateEmployeeSelect() {
 function showPersonaStep() {
   document.getElementById("persona-step").hidden = false;
   document.getElementById("employee-step").hidden = true;
+  document.getElementById("portal-shell")?.classList.remove("joining");
 }
 
 function showEmployeeStep() {
   document.getElementById("persona-step").hidden = true;
   document.getElementById("employee-step").hidden = false;
+  document.getElementById("portal-shell")?.classList.add("joining");
   syncRoleButtons();
   populateEmployeeSelect();
 }

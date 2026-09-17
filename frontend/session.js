@@ -15,33 +15,35 @@ function readSession() {
 }
 
 function writeSession(data) {
-  sessionStorage.setItem(SS_SESSION_KEY, JSON.stringify(data));
+  try {
+    sessionStorage.setItem(SS_SESSION_KEY, JSON.stringify(data));
+  } catch {
+    // sessionStorage may be blocked in some IDE browsers — URL persona still works
+  }
 }
 
 function clearSession() {
-  sessionStorage.removeItem(SS_SESSION_KEY);
+  try {
+    sessionStorage.removeItem(SS_SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 function requireEmployerSession() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("persona") === "employer") {
-    writeSession({
+  if (params.get("persona") === "employer" || params.get("demo") === "1") {
+    const session = {
       persona: "employer",
       role: "employer",
       employeeId: null,
       at: new Date().toISOString(),
-    });
-    // Clean the URL without reloading
-    params.delete("persona");
-    const qs = params.toString();
-    window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    };
+    writeSession(session);
+    return session;
   }
   const s = readSession();
   if (!s || s.persona !== "employer") {
-    // Fallback for browsers that block sessionStorage: still allow demo via query once
-    if (params.get("demo") === "1") {
-      return { persona: "employer", role: "employer", employeeId: null };
-    }
     window.location.replace("/?need=employer");
     return null;
   }
@@ -49,7 +51,6 @@ function requireEmployerSession() {
 }
 
 function requireEmployeeSession() {
-  const params = new URLSearchParams(window.location.search);
   const s = readSession();
   if (!s || s.persona !== "employee" || !s.employeeId) {
     window.location.replace("/?need=employee");
@@ -60,5 +61,5 @@ function requireEmployeeSession() {
 
 function exitToPortal() {
   clearSession();
-  window.location.href = "/";
+  window.location.href = "/?reset=1";
 }

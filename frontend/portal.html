@@ -4,47 +4,56 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Cache-Control" content="no-store" />
-  <title>SmartStart — Sign in (build 11)</title>
+  <title>SmartStart — Choose your path</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=12" />
+  <link rel="stylesheet" href="/static/style.css?v=13" />
 </head>
 <body class="portal-page">
-  <main class="portal">
-    <p class="pill synthetic">BUILD 11 · If you see Joiner pipeline here, you are on a cached page</p>
-    <header class="portal-brand">
-      <div class="brand-mark">SS</div>
-      <div>
-        <h1>SmartStart</h1>
-        <p class="muted">Synthetic onboarding demo — choose who you are</p>
+  <div class="portal-shell" id="portal-shell">
+    <div class="portal-atmosphere" aria-hidden="true">
+      <span class="orb orb-a"></span>
+      <span class="orb orb-b"></span>
+      <span class="orb orb-c"></span>
+    </div>
+
+    <header class="portal-top">
+      <div class="portal-logo">
+        <span class="brand-mark">SS</span>
+        <span class="portal-logo-name">SmartStart</span>
       </div>
+      <span class="portal-chip">Synthetic demo</span>
     </header>
 
-    <p class="pill synthetic">SYNTHETIC ONLY · No real auth · Session stays in this browser</p>
+    <main class="portal-hero" id="persona-step">
+      <p class="portal-eyebrow">Intern &amp; FTE onboarding</p>
+      <h1 class="portal-title">SmartStart</h1>
+      <p class="portal-lede">Pick how you enter the demo — run the employer command center, or step into one joiner’s workspace.</p>
 
-    <div id="portal-error" class="load-error" hidden></div>
+      <div id="portal-error" class="load-error" hidden></div>
 
-    <section id="persona-step" class="portal-step">
-      <h2>Who are you signing in as?</h2>
-      <div class="portal-cards">
-        <button type="button" class="portal-card" id="pick-employer">
-          <span class="portal-card-kicker">Employer</span>
-          <strong>HR · IT · Manager</strong>
-          <p>Command Center — full cohort pipeline, alerts, analytics</p>
+      <div class="portal-paths" role="group" aria-label="Choose a path">
+        <button type="button" class="portal-path path-employer" id="pick-employer">
+          <span class="path-label">Employer side</span>
+          <span class="path-title">Command Center</span>
+          <span class="path-copy">Pipeline, alerts, and analytics for HR, IT, and hiring managers.</span>
+          <span class="path-cta">Enter as employer <span aria-hidden="true">→</span></span>
         </button>
-        <button type="button" class="portal-card" id="pick-employee">
-          <span class="portal-card-kicker">Employee</span>
-          <strong>Intern or FTE</strong>
-          <p>Your own onboarding workspace only — not the employer dashboard</p>
+
+        <button type="button" class="portal-path path-employee" id="pick-employee">
+          <span class="path-label">Employee side</span>
+          <span class="path-title">Joiner workspace</span>
+          <span class="path-copy">Your learning, Q&amp;A, people, and team — one Intern or FTE profile only.</span>
+          <span class="path-cta">Enter as joiner <span aria-hidden="true">→</span></span>
         </button>
       </div>
-    </section>
+    </main>
 
-    <section id="employee-step" class="portal-step" hidden>
-      <button type="button" class="btn-link" id="back-persona">← Back</button>
-      <h2>Sign in as one joiner</h2>
-      <p class="muted">You will only see this profile’s learning, Q&amp;A, people, and team pod — not every employee record.</p>
+    <section class="portal-join" id="employee-step" hidden>
+      <button type="button" class="portal-back" id="back-persona">← Back to paths</button>
+      <h2>Choose your joiner</h2>
+      <p class="muted">You’ll only see this person’s onboarding — not the full company roster.</p>
 
       <div class="role-login portal-role" role="group" aria-label="Employee role">
         <button type="button" class="role-login-btn active" data-role="INTERN">Intern</button>
@@ -52,14 +61,19 @@
       </div>
 
       <label class="login-field">
-        Your synthetic profile
+        Synthetic profile
         <select id="employee-select" required></select>
       </label>
 
-      <button type="button" class="btn-primary login-submit" id="employee-enter">Enter my workspace</button>
+      <button type="button" class="btn-primary login-submit" id="employee-enter">Open my workspace</button>
     </section>
-  </main>
-  <script src="/static/session.js?v=12"></script>
-  <script src="/static/portal.js?v=12"></script>
+
+    <footer class="portal-foot">
+      <span>No real PII · Seed 42 · Mock iCIMS / ServiceNow / Jira</span>
+    </footer>
+  </div>
+
+  <script src="/static/session.js?v=13"></script>
+  <script src="/static/portal.js?v=13"></script>
 </body>
 </html>

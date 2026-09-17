@@ -219,8 +219,8 @@ th {
 .bn-tag.it .bn-dot { background: #245b7a; }
 .bn-tag.mgr { background: #e8f2ec; color: #0f5a48; }
 .bn-tag.mgr .bn-dot { background: #0f6a56; }
-.bn-tag.day1 { background: #efe8f4; color: #5a3d7a; }
-.bn-tag.day1 .bn-dot { background: #5a3d7a; }
+.bn-tag.day1 { background: #e6f0ea; color: #1f6b3a; }
+.bn-tag.day1 .bn-dot { background: #1f6b3a; }
 .bn-tag.warn { background: #f6dede; color: #8f2d2d; }
 .bn-tag.warn .bn-dot { background: #8f2d2d; }
 
@@ -296,7 +296,7 @@ th {
 .badge.state-OFFER_ACCEPTED { background: #efe6d4; color: #6d4c12; }
 .badge.state-DOCS_SUBMITTED { background: #e3ebf5; color: #245b7a; }
 .badge.state-IT_PROVISIONED { background: #e6f0ea; color: #1f6b3a; }
-.badge.state-DAY1_ORIENTED { background: #ebe4f4; color: #5a3d7a; }
+.badge.state-DAY1_ORIENTED { background: #e6f0ea; color: #1f6b3a; }
 .badge.state-PROJECT_READY { background: #d9f2e4; color: #0f5a38; }
 .badge.ok { background: #d9f2e4; color: #0f5a38; }
 .badge.warn { background: #f4e5c8; color: #7a4b0d; }

@@ -203,7 +203,6 @@ th {
 }
 .pipe-dot.done { background: #3aa882; }
 .pipe-dot.current { background: #0f6a56; box-shadow: 0 0 0 3px rgba(15, 106, 86, 0.18); }
-.days-cell { font-variant-numeric: tabular-nums; font-weight: 600; }
 
 .bn-tag {
   display: inline-flex; align-items: center; gap: 0.35rem;

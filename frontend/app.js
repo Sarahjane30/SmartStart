@@ -105,14 +105,16 @@ function stageIndex(s) {
   return i < 0 ? 0 : i;
 }
 
-function pipelineProgress(current) {
+function pipelineProgress(current, days) {
   const idx = stageIndex(current);
   const pct = Math.round(((idx + 1) / PIPELINE_STAGES.length) * 100);
+  const dayHint =
+    typeof days === "number" ? ` · ${days} days since offer` : "";
   const dots = PIPELINE_STAGES.map((s, i) => {
     const cls = i < idx ? "done" : i === idx ? "current" : "todo";
     return `<span class="pipe-dot ${cls}" title="${STAGE_LABELS[s]}"></span>`;
   }).join("");
-  return `<div class="pipe" title="${pct}% through onboarding">
+  return `<div class="pipe" title="${pct}% through onboarding${dayHint}">
     <div class="pipe-track"><div class="pipe-fill" style="width:${pct}%"></div></div>
     <div class="pipe-dots">${dots}</div>
   </div>`;
@@ -176,8 +178,7 @@ function renderDashboard() {
       <td>${r.role_type}</td>
       <td>${esc(r.department)}</td>
       <td>${stateBadge(r.current_state)}</td>
-      <td><span class="days-cell" title="Days since offer accepted">${r.days_in_pipeline}<span class="muted tiny"> d</span></span></td>
-      <td>${pipelineProgress(r.current_state)}</td>
+      <td>${pipelineProgress(r.current_state, r.days_in_pipeline)}</td>
       <td>${bottleneckTag(r.bottleneck)}</td>
       <td>${actionCell(r)}</td>
     </tr>`

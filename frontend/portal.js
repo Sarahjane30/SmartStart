@@ -68,7 +68,7 @@ function wire() {
       employeeId: null,
       at: new Date().toISOString(),
     });
-    window.location.href = "/employer";
+    window.location.href = "/command-center";
   });
 
   document.getElementById("pick-employee").addEventListener("click", async () => {
@@ -115,17 +115,13 @@ function wire() {
     window.location.href = `/employee?id=${encodeURIComponent(joiner.id)}`;
   });
 
-  // Already signed in? Send them to the right place.
-  const existing = readSession();
-  const need = new URLSearchParams(window.location.search).get("need");
-  if (existing?.persona === "employer" && need !== "employee") {
-    window.location.replace("/employer");
-    return;
+  // Do NOT auto-redirect — always show the chooser so a cached tab can't hide it.
+  // Clear stale demo sessions when landing with ?reset=1
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("reset") === "1") {
+    clearSession();
   }
-  if (existing?.persona === "employee" && existing.employeeId && need !== "employer") {
-    window.location.replace(`/employee?id=${encodeURIComponent(existing.employeeId)}`);
-    return;
-  }
+  const need = params.get("need");
   if (need === "employer") {
     showError("Employer Command Center is for HR / IT / Manager demo sessions only. Sign in as Employer.");
   } else if (need === "employee") {

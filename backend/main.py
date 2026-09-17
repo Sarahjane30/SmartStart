@@ -373,6 +373,7 @@ if FRONTEND_DIR.exists():
     def portal() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "portal.html", headers=NO_CACHE)
 
+    @app.get("/command-center")
     @app.get("/employer")
     def command_center() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "index.html", headers=NO_CACHE)

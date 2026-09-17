@@ -25,7 +25,7 @@ function clearSession() {
 function requireEmployerSession() {
   const s = readSession();
   if (!s || s.persona !== "employer") {
-    window.location.replace("/?need=employer");
+    window.location.replace("/?need=employer&reset=1");
     return null;
   }
   return s;
@@ -34,7 +34,7 @@ function requireEmployerSession() {
 function requireEmployeeSession() {
   const s = readSession();
   if (!s || s.persona !== "employee" || !s.employeeId) {
-    window.location.replace("/?need=employee");
+    window.location.replace("/?need=employee&reset=1");
     return null;
   }
   return s;

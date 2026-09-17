@@ -1,5 +1,26 @@
 /* SmartStart Employer Command Center */
 
+const employerSession = requireEmployerSession();
+if (!employerSession) {
+  /* redirect in progress */
+}
+
+const PIPELINE_STAGES = [
+  "OFFER_ACCEPTED",
+  "DOCS_SUBMITTED",
+  "IT_PROVISIONED",
+  "DAY1_ORIENTED",
+  "PROJECT_READY",
+];
+
+const STAGE_LABELS = {
+  OFFER_ACCEPTED: "Offer",
+  DOCS_SUBMITTED: "Docs",
+  IT_PROVISIONED: "IT",
+  DAY1_ORIENTED: "Day-1",
+  PROJECT_READY: "Ready",
+};
+
 const state = {
   role: "All",
   section: "dashboard",
@@ -7,13 +28,21 @@ const state = {
   alerts: null,
   analytics: null,
   integrations: null,
+  selectedId: null,
+  actions: {}, // joinerId -> { status: 'assigned'|'resolved', note }
 };
 
 const TITLES = {
-  dashboard: ["Dashboard", "Pipeline status across all synthetic joiners"],
-  alerts: ["Alerts", "Synthetic SLA breaches and pending onboarding tasks"],
-  analytics: ["Analytics", "KPIs from synthetic timestamps — seed-stable demo"],
-  roles: ["Role Views", "Mock iCIMS / ServiceNow / Jira connectors + role queues"],
+  dashboard: [
+    "Dashboard",
+    "Employer persona queues — All / HR / IT / Manager filter the cohort (not one shared people-manager)",
+  ],
+  alerts: ["Alerts", "SLA breaches and pending work for the selected employer lens"],
+  analytics: [
+    "Analytics",
+    "KPIs for the filtered cohort — switch HR / IT / Manager and the numbers change",
+  ],
+  roles: ["Role Views", "Mock iCIMS / ServiceNow / Jira connectors + queue for this lens"],
 };
 
 async function fetchJSON(path) {
@@ -27,7 +56,7 @@ async function loadAll() {
   const [dashboard, alerts, analytics, integrations] = await Promise.all([
     fetchJSON(`/api/dashboard?role_view=${roleQ}`),
     fetchJSON(`/api/alerts?role_view=${roleQ}`),
-    fetchJSON(`/api/analytics`),
+    fetchJSON(`/api/analytics?role_view=${roleQ}`),
     fetchJSON(`/api/integrations`),
   ]);
   state.dashboard = dashboard;
@@ -44,52 +73,75 @@ function render() {
   renderRoles();
 }
 
-function kpi(label, value, hint = "") {
-  return `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div>${
-    hint ? `<div class="hint">${hint}</div>` : ""
-  }</div>`;
+function kpi(label, value, hint = "", tone = "") {
+  return `<div class="kpi ${tone}">
+    <div class="kpi-accent" aria-hidden="true"></div>
+    <div class="label">${label}</div>
+    <div class="value">${value}</div>
+    ${hint ? `<div class="hint">${hint}</div>` : ""}
+  </div>`;
 }
 
 function stateBadge(s) {
-  return `<span class="badge state-${s}">${String(s).replaceAll("_", " ")}</span>`;
-}
-
-function docsBadge(status) {
-  return `<span class="badge ${status === "Complete" ? "ok" : "warn"}">${status}</span>`;
-}
-
-function itBadge(row) {
-  if (row.it_sla_breached) {
-    return `<span class="badge danger">SLA · ${row.hardware_status}</span>`;
-  }
-  return `<span class="badge ${
-    row.hardware_status === "Delivered" ? "ok" : "warn"
-  }">${row.hardware_status}</span>`;
+  return `<span class="badge state-${s}" title="Onboarding stage: ${String(s).replaceAll("_", " ")}">${String(s).replaceAll("_", " ")}</span>`;
 }
 
 function filterRows(rows) {
-  if (state.role === "All") return rows;
-  if (state.role === "HR") {
-    return rows.filter(
-      (r) =>
-        r.docs_status !== "Complete" ||
-        ["OFFER_ACCEPTED", "DOCS_SUBMITTED", "IT_PROVISIONED"].includes(r.current_state)
-    );
+  // Server already scopes by role_view; keep identity for callers.
+  return rows || [];
+}
+
+function stageIndex(s) {
+  const i = PIPELINE_STAGES.indexOf(s);
+  return i < 0 ? 0 : i;
+}
+
+function pipelineProgress(current, days) {
+  const idx = stageIndex(current);
+  const pct = Math.round(((idx + 1) / PIPELINE_STAGES.length) * 100);
+  const dayHint =
+    typeof days === "number" ? ` · ${days} days since offer` : "";
+  const dots = PIPELINE_STAGES.map((s, i) => {
+    const cls = i < idx ? "done" : i === idx ? "current" : "todo";
+    return `<span class="pipe-dot ${cls}" title="${STAGE_LABELS[s]}"></span>`;
+  }).join("");
+  return `<div class="pipe" title="${pct}% through onboarding${dayHint}">
+    <div class="pipe-track"><div class="pipe-fill" style="width:${pct}%"></div></div>
+    <div class="pipe-dots">${dots}</div>
+  </div>`;
+}
+
+function bottleneckTag(text) {
+  if (!text) {
+    return `<span class="bn-tag ok"><span class="bn-dot" aria-hidden="true"></span>On track</span>`;
   }
-  if (state.role === "IT") {
-    return rows.filter(
-      (r) =>
-        r.it_sla_breached ||
-        r.hardware_status !== "Delivered" ||
-        r.current_state === "DOCS_SUBMITTED"
-    );
+  const t = String(text);
+  let kind = "warn";
+  if (/document|docs|iCIMS/i.test(t)) kind = "docs";
+  else if (/IT|SLA|ServiceNow|hardware/i.test(t)) kind = "it";
+  else if (/project|Jira/i.test(t)) kind = "mgr";
+  else if (/Day-1|orientation/i.test(t)) kind = "day1";
+  return `<span class="bn-tag ${kind}"><span class="bn-dot" aria-hidden="true"></span>${esc(t)}</span>`;
+}
+
+function actionCell(row) {
+  const act = state.actions[row.id];
+  if (!row.bottleneck) {
+    return `<span class="muted tiny">—</span>`;
   }
-  return rows.filter(
-    (r) =>
-      r.current_state === "DAY1_ORIENTED" ||
-      r.current_state === "PROJECT_READY" ||
-      (r.assigned_tasks && r.assigned_tasks.length)
-  );
+  if (act?.status === "resolved") {
+    return `<span class="bn-tag ok">Resolved</span>`;
+  }
+  if (act?.status === "assigned") {
+    return `<div class="row-actions">
+      <span class="muted tiny">Assigned</span>
+      <button type="button" class="btn-mini" data-act="resolve" data-id="${esc(row.id)}">Resolve</button>
+    </div>`;
+  }
+  return `<div class="row-actions">
+    <button type="button" class="btn-mini primary" data-act="assign" data-id="${esc(row.id)}">Assign</button>
+    <button type="button" class="btn-mini" data-act="resolve" data-id="${esc(row.id)}">Resolve</button>
+  </div>`;
 }
 
 function renderDashboard() {
@@ -98,24 +150,28 @@ function renderDashboard() {
   const rows = filterRows(data.rows);
   const by = data.by_state || {};
   document.getElementById("dashboard-kpis").innerHTML = [
-    kpi("Joiners", data.total_joiners, "Synthetic cohort"),
-    kpi("Offer accepted", by.OFFER_ACCEPTED || 0),
-    kpi("IT provisioned", by.IT_PROVISIONED || 0),
-    kpi("Project ready", by.PROJECT_READY || 0),
+    kpi("In this view", data.total_joiners, `${state.role} employer lens`, "tone-all"),
+    kpi("Offer accepted", by.OFFER_ACCEPTED || 0, "Early pipeline", "tone-hr"),
+    kpi("IT provisioned", by.IT_PROVISIONED || 0, "Hardware stage", "tone-it"),
+    kpi("Project ready", by.PROJECT_READY || 0, "Manager handoff done", "tone-mgr"),
   ].join("");
   document.getElementById("dashboard-count").textContent =
-    `${rows.length} shown · role filter: ${state.role}`;
+    `${rows.length} joiners · each has their own mentor (not one shared manager)`;
   document.querySelector("#joiners-table tbody").innerHTML = rows
     .map(
-      (r) => `<tr>
-      <td class="joiner-cell"><div class="name"><a class="btn-link" href="/employee?id=${encodeURIComponent(r.id)}">${esc(r.name)}</a></div><div class="email">${esc(r.email)}</div></td>
+      (r) => `<tr class="joiner-row ${state.selectedId === r.id ? "selected" : ""}" data-id="${esc(r.id)}" tabindex="0">
+      <td class="joiner-cell">
+        <button type="button" class="joiner-open" data-open="${esc(r.id)}">
+          <div class="name">${esc(r.name)}</div>
+          <div class="email">${esc(r.email)}</div>
+        </button>
+      </td>
       <td>${r.role_type}</td>
       <td>${esc(r.department)}</td>
       <td>${stateBadge(r.current_state)}</td>
-      <td>${r.days_in_pipeline}</td>
-      <td>${docsBadge(r.docs_status)}</td>
-      <td>${itBadge(r)}</td>
-      <td>${esc(r.bottleneck || "—")}</td>
+      <td>${pipelineProgress(r.current_state, r.days_in_pipeline)}</td>
+      <td>${bottleneckTag(r.bottleneck)}</td>
+      <td>${actionCell(r)}</td>
     </tr>`
     )
     .join("");
@@ -139,6 +195,11 @@ function renderAlerts() {
         <div class="alert-meta">${a.severity.toUpperCase()} · ${esc(a.category)} · ${esc(a.role_view)}</div>
       </div>
       <div class="alert-msg">${esc(a.message)}</div>
+      ${
+        a.joiner_id
+          ? `<button type="button" class="btn-mini" data-open="${esc(a.joiner_id)}">Open joiner</button>`
+          : ""
+      }
     </article>`
     )
     .join("");
@@ -147,12 +208,44 @@ function renderAlerts() {
 function renderAnalytics() {
   const a = state.analytics;
   if (!a) return;
-  document.getElementById("analytics-kpis").innerHTML = [
-    kpi("Avg onboarding days", a.avg_onboarding_days, "Synthetic timestamps"),
-    kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to hardware"),
-    kpi("Completion rate", `${a.completion_rate_pct}%`, "PROJECT_READY"),
-    kpi("Active joiners", a.active_joiners, `${a.docs_pending} docs pending`),
-  ].join("");
+  const focus = document.getElementById("analytics-focus");
+  if (focus) {
+    focus.innerHTML = `<strong>${esc(a.role_view || state.role)} view</strong> · ${esc(
+      a.focus_note || ""
+    )} · <span class="mono">${a.cohort_size || 0} joiners in cohort</span>`;
+  }
+  const bnSub = document.getElementById("bn-chart-sub");
+  if (bnSub) bnSub.textContent = `${a.cohort_size || 0} joiners`;
+
+  const kpis =
+    state.role === "HR"
+      ? [
+          kpi("In HR queue", a.cohort_size, a.focus_note, "tone-hr"),
+          kpi("Docs pending", a.docs_pending, "iCIMS packet still open", "tone-hr"),
+          kpi("Avg days in view", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
+          kpi("Project ready", a.project_ready_count, "Already past HR gates", "tone-mgr"),
+        ]
+      : state.role === "IT"
+        ? [
+            kpi("In IT queue", a.cohort_size, a.focus_note, "tone-it"),
+            kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to hardware", "tone-it"),
+            kpi("SLA breaches", a.sla_breaches || 0, "ServiceNow synthetic", "tone-it"),
+            kpi("Active in view", a.active_joiners, "Not project-ready yet", "tone-all"),
+          ]
+        : state.role === "Manager"
+          ? [
+              kpi("Manager queue", a.cohort_size, "Day-1 / project readiness", "tone-mgr"),
+              kpi("Project ready", a.project_ready_count, "Ready for Jira assignment", "tone-mgr"),
+              kpi("Completion rate", `${a.completion_rate_pct}%`, "Of this queue", "tone-mgr"),
+              kpi("Avg days in view", a.avg_onboarding_days, "Not one shared mentor", "tone-all"),
+            ]
+          : [
+              kpi("Cohort size", a.cohort_size, "Full synthetic cohort", "tone-all"),
+              kpi("Avg onboarding days", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
+              kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to hardware", "tone-it"),
+              kpi("Completion rate", `${a.completion_rate_pct}%`, `${a.docs_pending} docs pending`, "tone-mgr"),
+            ];
+  document.getElementById("analytics-kpis").innerHTML = kpis.join("");
 
   drawBars(
     document.getElementById("bottleneck-chart"),
@@ -160,7 +253,7 @@ function renderAnalytics() {
     Object.values(a.bottleneck_counts || {}),
     "#0f6a56"
   );
-  drawLine(
+  drawBars(
     document.getElementById("trend-chart"),
     (a.onboarding_trend || []).map((p) => p.label),
     (a.onboarding_trend || []).map((p) => p.value),
@@ -171,7 +264,7 @@ function renderAnalytics() {
       ([s, v]) =>
         `<div class="state-day"><div class="s">${s.replaceAll("_", " ")}</div><div class="v">${v}d</div></div>`
     )
-    .join("");
+    .join("") || `<p class="muted">No joiners in this view.</p>`;
 }
 
 function renderRoles() {
@@ -199,13 +292,136 @@ function renderRoles() {
     .slice(0, 12)
     .map(
       (r) => `<div class="focus-item">
-      <div><strong>${esc(r.name)}</strong><span>${esc(r.email)}</span></div>
+      <div>
+        <button type="button" class="joiner-open" data-open="${esc(r.id)}"><strong>${esc(r.name)}</strong></button>
+        <span>${esc(r.email)}</span>
+      </div>
       <div>${stateBadge(r.current_state)}</div>
-      <div><span>${esc(r.bottleneck || "On track")}</span></div>
-      <div>${r.role_type}</div>
+      <div>${bottleneckTag(r.bottleneck)}</div>
+      <div class="row-actions">${
+        r.bottleneck && !state.actions[r.id]
+          ? `<button type="button" class="btn-mini primary" data-act="assign" data-id="${esc(r.id)}">Assign</button>`
+          : r.role_type
+      }</div>
     </div>`
     )
     .join("");
+}
+
+async function openJoinerDrawer(id) {
+  state.selectedId = id;
+  const drawer = document.getElementById("joiner-drawer");
+  const backdrop = document.getElementById("drawer-backdrop");
+  const body = document.getElementById("drawer-body");
+  drawer.hidden = false;
+  backdrop.hidden = false;
+  drawer.setAttribute("aria-hidden", "false");
+  body.innerHTML = `<p class="muted">Loading synthetic detail…</p>`;
+
+  const row = (state.dashboard?.rows || []).find((r) => r.id === id);
+  try {
+    const detail = await fetchJSON(`/api/joiners/${encodeURIComponent(id)}`);
+    const j = detail.joiner;
+    document.getElementById("drawer-name").textContent = j.name;
+    document.getElementById("drawer-email").textContent = j.email;
+    document.getElementById("drawer-kicker").textContent =
+      `${j.role_type} · ${j.department} · ${detail.days_in_pipeline} days in pipeline`;
+
+    const idx = stageIndex(j.current_state);
+    const timeline = PIPELINE_STAGES.map((s, i) => {
+      const cls = i < idx ? "done" : i === idx ? "current" : "todo";
+      return `<li class="tl-item ${cls}">
+        <span class="tl-dot"></span>
+        <div>
+          <strong>${STAGE_LABELS[s]}</strong>
+          <div class="muted tiny">${s.replaceAll("_", " ")}</div>
+        </div>
+      </li>`;
+    }).join("");
+
+    const tasks = (j.assigned_tasks || row?.assigned_tasks || []).length
+      ? `<ul class="drawer-tasks">${(j.assigned_tasks || row.assigned_tasks)
+          .map((t) => `<li>${esc(t)}</li>`)
+          .join("")}</ul>`
+      : `<p class="muted tiny">No assigned tasks yet.</p>`;
+
+    const act = state.actions[id];
+    const bn = detail.bottleneck || row?.bottleneck;
+    body.innerHTML = `
+      <dl class="drawer-meta">
+        <div><dt>State</dt><dd>${stateBadge(j.current_state)}</dd></div>
+        <div><dt>Mentor</dt><dd>${esc(j.mentor_name)}</dd></div>
+        <div><dt>Docs</dt><dd>${esc(detail.documents.status)}</dd></div>
+        <div><dt>Hardware</dt><dd>${esc(detail.it_ticket.hardware_status)}${
+          detail.it_ticket.sla_breached ? ' <span class="badge danger">SLA</span>' : ""
+        }</dd></div>
+      </dl>
+      <section class="drawer-section">
+        <h3>Bottleneck</h3>
+        ${bottleneckTag(bn)}
+        <div class="row-actions drawer-acts">
+          ${
+            bn && act?.status !== "resolved"
+              ? `<button type="button" class="btn-mini primary" data-act="assign" data-id="${esc(id)}">Assign owner</button>
+                 <button type="button" class="btn-mini" data-act="resolve" data-id="${esc(id)}">Mark resolved</button>`
+              : bn
+                ? `<span class="bn-tag ok">Resolved (demo)</span>`
+                : ""
+          }
+          <a class="btn-link" href="/?need=employee">View as this joiner (portal) →</a>
+        </div>
+      </section>
+      <section class="drawer-section">
+        <h3>Timeline</h3>
+        <ol class="timeline">${timeline}</ol>
+      </section>
+      <section class="drawer-section">
+        <h3>Tasks</h3>
+        ${tasks}
+      </section>
+      <section class="drawer-section">
+        <h3>Learning track</h3>
+        <p>${esc(j.learning_track)} · ${esc(j.department_track)}</p>
+        <p class="muted tiny">Join date ${esc(j.joining_date)}</p>
+      </section>
+    `;
+    renderDashboard();
+  } catch (err) {
+    body.innerHTML = `<p class="load-error">Failed to load joiner: ${esc(err.message)}</p>`;
+  }
+}
+
+function closeDrawer() {
+  state.selectedId = null;
+  document.getElementById("joiner-drawer").hidden = true;
+  document.getElementById("drawer-backdrop").hidden = true;
+  document.getElementById("joiner-drawer").setAttribute("aria-hidden", "true");
+  renderDashboard();
+}
+
+function handleAction(act, id) {
+  if (!id) return;
+  state.actions[id] = {
+    status: act === "resolve" ? "resolved" : "assigned",
+    at: new Date().toISOString(),
+  };
+  showToast(
+    act === "resolve"
+      ? "Bottleneck marked resolved (synthetic demo — not persisted)"
+      : "Owner assigned (synthetic demo — not persisted)"
+  );
+  render();
+  if (state.selectedId === id) openJoinerDrawer(id);
+}
+
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  el.hidden = false;
+  el.textContent = msg;
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => {
+    el.hidden = true;
+  }, 2800);
 }
 
 function drawBars(canvas, labels, values, color) {
@@ -294,7 +510,7 @@ function setSection(name) {
 }
 
 function esc(v) {
-  return String(v)
+  return String(v ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -312,6 +528,7 @@ function fmt(iso) {
 }
 
 function wireUI() {
+  document.getElementById("sign-out-btn")?.addEventListener("click", exitToPortal);
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => setSection(btn.dataset.section));
   });
@@ -324,11 +541,34 @@ function wireUI() {
     });
   });
   document.getElementById("refresh-btn").addEventListener("click", () => loadAll());
+  document.getElementById("drawer-close").addEventListener("click", closeDrawer);
+  document.getElementById("drawer-backdrop").addEventListener("click", closeDrawer);
+
+  document.addEventListener("click", (e) => {
+    const openBtn = e.target.closest("[data-open]");
+    if (openBtn) {
+      e.preventDefault();
+      openJoinerDrawer(openBtn.dataset.open);
+      return;
+    }
+    const actBtn = e.target.closest("[data-act]");
+    if (actBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleAction(actBtn.dataset.act, actBtn.dataset.id);
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeDrawer();
+  });
 }
 
-wireUI();
-loadAll().catch((err) => {
-  console.error(err);
-  document.getElementById("page-subtitle").textContent =
-    `Failed to load synthetic API: ${err.message}`;
-});
+if (employerSession) {
+  wireUI();
+  loadAll().catch((err) => {
+    console.error(err);
+    document.getElementById("page-subtitle").textContent =
+      `Failed to load synthetic API: ${err.message}`;
+  });
+}

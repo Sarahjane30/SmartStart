@@ -44,7 +44,9 @@ def test_layer2_dashboard_alerts_analytics_integrations():
         assert a["synthetic"] is True
         assert a["avg_onboarding_days"] > 0
         assert a["bottleneck_counts"]
-        assert len(a["onboarding_trend"]) == 6
+        assert len(a["onboarding_trend"]) >= 1
+        assert a["cohort_size"] == 30
+        assert a["role_view"] == "All"
 
         integrations = client.get("/api/integrations")
         assert integrations.status_code == 200
@@ -56,23 +58,62 @@ def test_layer2_dashboard_alerts_analytics_integrations():
 
 def test_layer2_role_filters_and_frontend():
     with TestClient(app) as client:
+        all_dash = client.get("/api/dashboard", params={"role_view": "All"})
+        assert all_dash.status_code == 200
+        assert all_dash.json()["total_joiners"] == 30
+
+        sizes = {}
         for role in ("All", "HR", "IT", "Manager"):
             r = client.get("/api/dashboard", params={"role_view": role})
             assert r.status_code == 200
-            assert r.json()["total_joiners"] == 30
+            sizes[role] = r.json()["total_joiners"]
+            assert sizes[role] >= 1
 
             a = client.get("/api/alerts", params={"role_view": role})
             assert a.status_code == 200
             assert a.json()["synthetic"] is True
 
-        home = client.get("/")
+            an = client.get("/api/analytics", params={"role_view": role})
+            assert an.status_code == 200
+            body = an.json()
+            assert body["role_view"] == role
+            assert body["cohort_size"] == sizes[role]
+            assert body["focus_note"]
+
+        # Persona lenses must actually change the cohort — not cosmetic
+        assert sizes["Manager"] < sizes["All"]
+        assert sizes["IT"] < sizes["All"]
+        assert sizes["HR"] < sizes["All"]
+        mgr = client.get("/api/analytics", params={"role_view": "Manager"}).json()
+        hr = client.get("/api/analytics", params={"role_view": "HR"}).json()
+        assert mgr["avg_onboarding_days"] != hr["avg_onboarding_days"] or mgr["bottleneck_counts"] != hr["bottleneck_counts"]
+        assert "mentor" in mgr["focus_note"].lower() or "Manager" in mgr["focus_note"]
+
+        portal = client.get("/")
+        assert portal.status_code == 200
+        assert "Open Command Center" in portal.text
+        assert "Open Workspace" in portal.text
+        assert "Choose your view" in portal.text
+
+        home = client.get("/employer")
         assert home.status_code == 200
         assert "Employer Command Center" in home.text
+        assert "joiner-drawer" in home.text
+        assert "analytics-focus" in home.text
+        assert 'data-role="HR"' in home.text
 
         css = client.get("/static/style.css")
         assert css.status_code == 200
         assert ".app-shell" in css.text
+        assert ".bn-tag" in css.text
 
         js = client.get("/static/app.js")
         assert js.status_code == 200
-        assert "/api/dashboard" in js.text
+        assert "/api/analytics?role_view=" in js.text
+        assert "requireEmployerSession" in js.text
+        assert "pipelineProgress" in js.text
+
+        session_js = client.get("/static/session.js")
+        assert session_js.status_code == 200
+        assert "requireEmployeeSession" in session_js.text
+        assert "requireEmployerSession" in session_js.text

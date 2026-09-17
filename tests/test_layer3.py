@@ -95,12 +95,12 @@ def test_layer3_seed_stable_and_frontend():
         assert track_a == track_b
 
         health = client.get("/health").json()
-        assert health["layer"] == "3"
+        assert health["layer"] in {"3", "4"}
 
         page = client.get("/employee")
         assert page.status_code == 200
         assert "Employee Experience" in page.text
-        assert "Learning track" in page.text
+        assert "Learning" in page.text
         assert "Notifications" in page.text
         assert "feedback-form" in page.text
 

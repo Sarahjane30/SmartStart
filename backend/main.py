@@ -1,4 +1,4 @@
-"""SmartStart Layers 1–3 — FastAPI synthetic onboarding + Command Center + Employee UI."""
+"""SmartStart Layers 1–4 — FastAPI synthetic onboarding + Command Center + Employee UI."""
 
 from __future__ import annotations
 
@@ -12,19 +12,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend.chatbot import build_chatbot
+from backend.predictor import build_predictions
+from backend.recommender import build_recommendations
 from backend.alerts import build_alerts
-from backend.analytics import ANALYTICS_AS_OF, build_analytics
+from backend.analytics import ANALYTICS_AS_OF, build_analytics, joiner_in_role_view
 from backend.database import store
 from backend.employee_experience import (
     build_employee_profile,
     build_learning_track,
     build_notifications,
+    build_team_workspace,
     clear_feedback,
     list_feedback,
     submit_feedback,
 )
 from backend.integrations import build_integrations
 from backend.models import (
+    RecommendationsResponse,
+    PredictResponse,
+    ChatbotResponse,
     DashboardJoinerRow,
     DashboardResponse,
     DocumentStatus,
@@ -39,23 +46,27 @@ from backend.models import (
     NotificationsResponse,
     OnboardingState,
     RoleType,
+    TeamWorkspaceResponse,
 )
 from backend.synthetic_engine import days_in_pipeline, generate_cohort, infer_bottleneck
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+NO_CACHE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
 
 API_DESCRIPTION = """
-SmartStart Layers 1–3 — Synthetic onboarding data engine, Employer Command Center,
+SmartStart Layers 1–4 — Synthetic onboarding data engine, Employer Command Center,
 and Employee Experience API.
 
-All joiners, documents, IT tickets, alerts, analytics, learning tracks, and
-notifications are **100% synthetic**. No real employee PII, production logs,
+All joiners, documents, IT tickets, alerts, analytics, learning tracks, notifications, and AI prototypes are **100% synthetic**. No real employee PII, production logs,
 or live iCIMS / ServiceNow / Jira data.
 """
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    print(f"[SmartStart] backend file: {Path(__file__).resolve()}")
+    print(f"[SmartStart] frontend dir: {FRONTEND_DIR.resolve()}")
+    print(f"[SmartStart] portal exists: {(FRONTEND_DIR / 'portal.html').exists()}")
     generate_cohort(n_interns=15, n_ftes=15, seed=42)
     clear_feedback()
     yield
@@ -64,7 +75,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="SmartStart",
     description=API_DESCRIPTION,
-    version="0.4.0",
+    version="0.5.1",
     lifespan=lifespan,
 )
 
@@ -78,8 +89,16 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "layer": "3", "mode": "synthetic"}
+def health() -> dict[str, str | bool]:
+    return {
+        "status": "ok",
+        "layer": "4",
+        "mode": "synthetic",
+        "version": "0.5.1",
+        "frontend_dir": str(FRONTEND_DIR.resolve()),
+        "portal_html": (FRONTEND_DIR / "portal.html").exists(),
+        "backend_file": str(Path(__file__).resolve()),
+    }
 
 
 # --- Layer 1 ---------------------------------------------------------------
@@ -201,17 +220,12 @@ def dashboard(
         ticket = store.get_ticket_for_joiner(joiner.id)
         if docs is None or ticket is None:
             continue
+        if not joiner_in_role_view(
+            joiner, docs.status, ticket.hardware_status, ticket.sla_breached, role_view
+        ):
+            continue
 
         bottleneck = infer_bottleneck(joiner.current_state, docs, ticket)
-        # Role views emphasize different columns via frontend; light server filter:
-        if role_view == EmployerRole.HR and docs.status == DocumentStatus.COMPLETE:
-            # Still include everyone for HR overview; no hard filter.
-            pass
-        if role_view == EmployerRole.IT and ticket.sla_breached is False:
-            pass
-        if role_view == EmployerRole.MANAGER and not joiner.assigned_tasks:
-            pass
-
         rows.append(
             DashboardJoinerRow(
                 id=joiner.id,
@@ -257,9 +271,9 @@ def alerts(role_view: EmployerRole = Query(default=EmployerRole.ALL)):
 
 
 @app.get("/api/analytics")
-def analytics():
-    """KPIs from synthetic timestamps (avg time, bottlenecks, trend)."""
-    return build_analytics()
+def analytics(role_view: EmployerRole = Query(default=EmployerRole.ALL)):
+    """KPIs from synthetic timestamps, scoped to an employer persona lens."""
+    return build_analytics(role_view=role_view)
 
 
 @app.get("/api/integrations")
@@ -314,15 +328,62 @@ def feedback_list(joiner_id: str | None = Query(default=None)):
     return {"total": len(rows), "feedback": rows, "synthetic": True}
 
 
+@app.get("/api/employee/{joiner_id}/workspace", response_model=TeamWorkspaceResponse)
+def employee_workspace(joiner_id: str) -> TeamWorkspaceResponse:
+    """Synthetic consult network, team roster, and suggested questions."""
+    try:
+        return build_team_workspace(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Workspace not found") from None
+
+
+# --- Layer 4: Prototype AI Features ------------------------------------
+
+@app.get("/api/chatbot/{joiner_id}", response_model=ChatbotResponse)
+def chatbot(joiner_id: str, q: str | None = Query(default=None)) -> ChatbotResponse:
+    """Synthetic rule-based onboarding FAQ guidance for a joiner."""
+    try:
+        return build_chatbot(joiner_id, query=q)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Chatbot context not found") from None
+
+
+@app.get("/api/predict/{joiner_id}", response_model=PredictResponse)
+def predict(joiner_id: str) -> PredictResponse:
+    """Synthetic predictive SLA / onboarding risk scores (seed-stable)."""
+    try:
+        return build_predictions(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Prediction context not found") from None
+
+
+@app.get("/api/recommendations/{joiner_id}", response_model=RecommendationsResponse)
+def recommendations(joiner_id: str) -> RecommendationsResponse:
+    """Adaptive synthetic learning recommendations by role and progress."""
+    try:
+        return build_recommendations(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Recommendations not found") from None
+
+
 # --- Frontend static -------------------------------------------------------
 
 if FRONTEND_DIR.exists():
     @app.get("/")
+    def portal() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "portal.html", headers=NO_CACHE)
+
+    @app.get("/command-center")
+    @app.get("/employer")
     def command_center() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "index.html")
+        return FileResponse(FRONTEND_DIR / "index.html", headers=NO_CACHE)
 
     @app.get("/employee")
     def employee_experience() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "employee.html")
+        return FileResponse(FRONTEND_DIR / "employee.html", headers=NO_CACHE)
+
+    @app.get("/ai")
+    def ai_features() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "ai.html", headers=NO_CACHE)
 
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

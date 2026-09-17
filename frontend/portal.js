@@ -68,7 +68,7 @@ function wire() {
       employeeId: null,
       at: new Date().toISOString(),
     });
-    window.location.href = "/command-center";
+    window.location.href = "/command-center?persona=employer";
   });
 
   document.getElementById("pick-employee").addEventListener("click", async () => {

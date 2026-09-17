@@ -23,18 +23,36 @@ function clearSession() {
 }
 
 function requireEmployerSession() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("persona") === "employer") {
+    writeSession({
+      persona: "employer",
+      role: "employer",
+      employeeId: null,
+      at: new Date().toISOString(),
+    });
+    // Clean the URL without reloading
+    params.delete("persona");
+    const qs = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+  }
   const s = readSession();
   if (!s || s.persona !== "employer") {
-    window.location.replace("/?need=employer&reset=1");
+    // Fallback for browsers that block sessionStorage: still allow demo via query once
+    if (params.get("demo") === "1") {
+      return { persona: "employer", role: "employer", employeeId: null };
+    }
+    window.location.replace("/?need=employer");
     return null;
   }
   return s;
 }
 
 function requireEmployeeSession() {
+  const params = new URLSearchParams(window.location.search);
   const s = readSession();
   if (!s || s.persona !== "employee" || !s.employeeId) {
-    window.location.replace("/?need=employee&reset=1");
+    window.location.replace("/?need=employee");
     return null;
   }
   return s;

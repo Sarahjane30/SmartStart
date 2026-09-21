@@ -164,6 +164,9 @@ def test_layer2_role_filters_and_frontend():
         assert "assign-modal" in home.text
         assert "filter-explain" in home.text
         assert "HR queue" in home.text
+        assert "bottleneck-bars" in home.text
+        assert "Where people are stuck" in home.text
+        assert "Stage snapshot" in home.text
 
         css = client.get("/static/style.css")
         assert css.status_code == 200

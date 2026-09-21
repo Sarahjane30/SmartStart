@@ -40,7 +40,7 @@ const TITLES = {
   alerts: ["Alerts", "SLA breaches and pending work for the selected work queue"],
   analytics: [
     "Analytics",
-    "KPIs for the filtered queue — switch HR / IT / Manager and the numbers change",
+    "Readable queue metrics — bottlenecks, pipeline distribution, and how long people have been waiting",
   ],
   roles: ["Role Views", "Mock iCIMS / ServiceNow / Jira connectors + queue for this lens"],
 };
@@ -253,70 +253,183 @@ function renderAlerts() {
   revealAll(list, ".alert", 30);
 }
 
+function shortBottleneck(label) {
+  const map = {
+    "Documents pending (iCIMS)": "Docs pending",
+    "Document rework loop": "Docs rework",
+    "IT SLA breach (ServiceNow)": "IT SLA breach",
+    "IT provisioning in progress": "IT provisioning",
+    "Awaiting Day-1 orientation": "Awaiting Day-1",
+    "Awaiting project assignment (Jira)": "Awaiting project",
+    "Offer-to-docs handoff": "Offer → docs",
+    "On track": "On track",
+  };
+  return map[label] || label;
+}
+
+function shortStage(label) {
+  const map = {
+    "OFFER ACCEPTED": "Offer",
+    "DOCS SUBMITTED": "Docs",
+    "IT PROVISIONED": "IT",
+    "DAY1 ORIENTED": "Day-1",
+    "PROJECT READY": "Ready",
+    OFFER_ACCEPTED: "Offer",
+    DOCS_SUBMITTED: "Docs",
+    IT_PROVISIONED: "IT",
+    DAY1_ORIENTED: "Day-1",
+    PROJECT_READY: "Ready",
+  };
+  const key = String(label).toUpperCase().replaceAll(" ", "_");
+  return map[label] || map[key] || label;
+}
+
+function renderHBars(el, items, { tone = "navy" } = {}) {
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = `<p class="muted">Nothing in this view.</p>`;
+    return;
+  }
+  const max = Math.max(...items.map((i) => i.value), 1);
+  el.innerHTML = items
+    .map(
+      (item, idx) => {
+        const pct = Math.round((100 * item.value) / max);
+        return `<div class="h-bar-row reveal" style="--i:${idx}">
+          <div class="h-bar-label">
+            <span class="h-bar-name">${esc(item.label)}</span>
+            ${item.hint ? `<span class="muted tiny">${esc(item.hint)}</span>` : ""}
+          </div>
+          <div class="h-bar-track" aria-hidden="true">
+            <div class="h-bar-fill tone-${tone}" style="width:${pct}%"></div>
+          </div>
+          <div class="h-bar-value">${item.value}</div>
+        </div>`;
+      }
+    )
+    .join("");
+  revealAll(el, ".h-bar-row", 40);
+}
+
 function renderAnalytics() {
   const a = state.analytics;
   if (!a) return;
   const focus = document.getElementById("analytics-focus");
   if (focus) {
-    focus.innerHTML = `<strong>${esc(a.role_view || state.role)} view</strong> · ${esc(
+    const asOf = a.as_of ? fmt(a.as_of) : "2026-09-15";
+    focus.innerHTML = `<strong>${esc(a.role_view || state.role)} queue</strong> · ${esc(
       a.focus_note || ""
-    )} · <span class="mono">${a.cohort_size || 0} joiners in cohort</span>`;
+    )} · <span class="mono">${a.cohort_size || 0} joiners</span> · as of ${esc(asOf)}`;
   }
-  const bnSub = document.getElementById("bn-chart-sub");
-  if (bnSub) bnSub.textContent = `${a.cohort_size || 0} joiners`;
+  const bnEntries = Object.entries(a.bottleneck_counts || {});
+  const stuck = bnEntries.filter(([k]) => k !== "On track").reduce((n, [, v]) => n + v, 0);
+  const onTrack = (a.bottleneck_counts || {})["On track"] || 0;
+  if (bnSub) {
+    bnSub.textContent = `${stuck} blocked · ${onTrack} on track`;
+  }
+
+  const bnByQueue = { HR: 0, IT: 0, Manager: 0, Ops: 0 };
+  for (const [label, value] of bnEntries) {
+    if (label === "On track") continue;
+    const l = label.toLowerCase();
+    if (l.includes("document") || l.includes("docs") || l.includes("icims") || l.includes("offer-to-docs")) {
+      bnByQueue.HR += value;
+    } else if (l.includes("it ") || l.includes("sla") || l.includes("servicenow") || l.includes("hardware") || l.includes("provisioning")) {
+      bnByQueue.IT += value;
+    } else if (l.includes("project") || l.includes("jira") || l.includes("day-1") || l.includes("orientation")) {
+      bnByQueue.Manager += value;
+    } else {
+      bnByQueue.Ops += value;
+    }
+  }
 
   const kpis =
     state.role === "HR"
       ? [
-          kpi("In HR queue", a.cohort_size, a.focus_note, "tone-hr"),
+          kpi("In HR queue", a.cohort_size, "Docs / early pipeline", "tone-hr"),
           kpi("Docs pending", a.docs_pending, "iCIMS packet still open", "tone-hr"),
-          kpi("Avg days in view", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
-          kpi("Project ready", a.project_ready_count, "Already past HR gates", "tone-mgr"),
+          kpi("Avg days waiting", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
+          kpi("Already ready", a.project_ready_count, "Past HR gates", "tone-mgr"),
         ]
       : state.role === "IT"
         ? [
-            kpi("In IT queue", a.cohort_size, a.focus_note, "tone-it"),
-            kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to hardware", "tone-it"),
+            kpi("In IT queue", a.cohort_size, "Hardware / SLA", "tone-it"),
+            kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to deliver hardware", "tone-it"),
             kpi("SLA breaches", a.sla_breaches || 0, "ServiceNow synthetic", "tone-it"),
-            kpi("Active in view", a.active_joiners, "Not project-ready yet", "tone-all"),
+            kpi("Still active", a.active_joiners, "Not project-ready yet", "tone-all"),
           ]
         : state.role === "Manager"
           ? [
               kpi("Manager queue", a.cohort_size, "Day-1 / project readiness", "tone-mgr"),
-              kpi("Project ready", a.project_ready_count, "Ready for Jira assignment", "tone-mgr"),
+              kpi("Project ready", a.project_ready_count, "Ready for first Jira work", "tone-mgr"),
               kpi("Completion rate", `${a.completion_rate_pct}%`, "Of this queue", "tone-mgr"),
-              kpi("Avg days in view", a.avg_onboarding_days, "Hiring managers split the cohort", "tone-all"),
+              kpi("Avg days waiting", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
             ]
           : [
-              kpi("Cohort size", a.cohort_size, "Full synthetic cohort", "tone-all"),
-              kpi("Avg onboarding days", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
-              kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to hardware", "tone-it"),
-              kpi("Completion rate", `${a.completion_rate_pct}%`, `${a.docs_pending} docs pending`, "tone-mgr"),
+              kpi("Cohort size", a.cohort_size, "Joiners in this view", "tone-all"),
+              kpi("Avg days in pipeline", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
+              kpi("Project ready", a.project_ready_count, `${a.completion_rate_pct}% of view`, "tone-mgr"),
+              kpi(
+                "Blocked now",
+                stuck,
+                `${bnByQueue.HR} HR · ${bnByQueue.IT} IT · ${bnByQueue.Manager} mgr`,
+                "tone-it"
+              ),
             ];
   document.getElementById("analytics-kpis").innerHTML = kpis.join("");
   countUpAll(document.getElementById("analytics-kpis"));
 
-  drawBars(
-    document.getElementById("bottleneck-chart"),
-    Object.keys(a.bottleneck_counts || {}),
-    Object.values(a.bottleneck_counts || {}),
-    ["#163a7a", "#0e1631"]
-  );
-  drawBars(
-    document.getElementById("trend-chart"),
-    (a.onboarding_trend || []).map((p) => p.label),
-    (a.onboarding_trend || []).map((p) => p.value),
-    ["#1e4a8c", "#0e1631"]
+  const bnItems = Object.entries(a.bottleneck_counts || {}).map(([label, value]) => ({
+    label: shortBottleneck(label),
+    hint: label === shortBottleneck(label) ? "" : label,
+    value,
+  }));
+  renderHBars(document.getElementById("bottleneck-bars"), bnItems, { tone: "navy" });
+
+  const stageItems = (a.onboarding_trend || []).map((p) => ({
+    label: shortStage(p.label),
+    hint: p.label,
+    value: p.value,
+  }));
+  renderHBars(document.getElementById("stage-bars"), stageItems, { tone: "slate" });
+
+  const stageOrder = [
+    "OFFER_ACCEPTED",
+    "DOCS_SUBMITTED",
+    "IT_PROVISIONED",
+    "DAY1_ORIENTED",
+    "PROJECT_READY",
+  ];
+  const daysMap = a.avg_days_by_state || {};
+  const countsFromTrend = Object.fromEntries(
+    (a.onboarding_trend || []).map((p) => [
+      String(p.label).toUpperCase().replaceAll(" ", "_"),
+      p.value,
+    ])
   );
   const stateDays = document.getElementById("state-days");
-  stateDays.innerHTML = Object.entries(a.avg_days_by_state || {})
-    .map(
-      ([s, v]) =>
-        `<div class="state-day"><div class="s">${s.replaceAll("_", " ")}</div><div class="v" data-count="${v}" data-suffix="d" data-decimals="${
-          String(v).includes(".") ? String(v).split(".")[1].length : 0
-        }">0</div></div>`
-    )
-    .join("") || `<p class="muted">No joiners in this view.</p>`;
+  const rows = stageOrder
+    .filter((s) => daysMap[s] != null || countsFromTrend[s])
+    .map((s) => {
+      const count = countsFromTrend[s] || 0;
+      const avg = daysMap[s];
+      return `<div class="stage-snap-row">
+        <div class="stage-snap-name">
+          <strong>${shortStage(s)}</strong>
+          <span class="muted tiny">${s.replaceAll("_", " ")}</span>
+        </div>
+        <div class="stage-snap-count">${count} <span class="muted tiny">joiners</span></div>
+        <div class="stage-snap-days">${
+          avg != null
+            ? `<strong data-count="${avg}" data-suffix="d" data-decimals="${
+                String(avg).includes(".") ? String(avg).split(".")[1].length : 0
+              }">0</strong><span class="muted tiny"> avg in pipeline</span>`
+            : `<span class="muted tiny">—</span>`
+        }</div>
+      </div>`;
+    });
+  stateDays.innerHTML =
+    rows.join("") || `<p class="muted">No joiners in this view.</p>`;
   countUpAll(stateDays);
 }
 

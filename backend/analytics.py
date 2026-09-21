@@ -169,11 +169,15 @@ def build_analytics(
         bottlenecks[label or "On track"] += 1
 
     avg_days_by_state = {
-        state: round(sum(vals) / len(vals), 2)
-        for state, vals in sorted(days_by_state.items())
+        state.value: round(
+            sum(days_by_state.get(state.value, [0])) / max(len(days_by_state.get(state.value, [])), 1),
+            2,
+        )
+        for state in OnboardingState
+        if days_by_state.get(state.value)
     }
 
-    # Real cohort distribution by state (not a fake weekly wobble).
+    # Real cohort distribution by state (pipeline order).
     stage_order = [s.value for s in OnboardingState]
     trend = [
         TimeSeriesPoint(label=s.replace("_", " "), value=float(state_counts.get(s, 0)))
@@ -185,6 +189,26 @@ def build_analytics(
             TimeSeriesPoint(label=s.replace("_", " "), value=float(state_counts.get(s, 0)))
             for s in stage_order
         ]
+
+    # Stable, readable bottleneck order (worst / most common first).
+    bn_priority = (
+        "Documents pending (iCIMS)",
+        "Document rework loop",
+        "IT SLA breach (ServiceNow)",
+        "IT provisioning in progress",
+        "Awaiting Day-1 orientation",
+        "Awaiting project assignment (Jira)",
+        "Offer-to-docs handoff",
+        "On track",
+    )
+    ordered_bn: dict[str, int] = {}
+    for key in bn_priority:
+        if key in bottlenecks:
+            ordered_bn[key] = bottlenecks[key]
+    for key, val in bottlenecks.items():
+        if key not in ordered_bn:
+            ordered_bn[key] = val
+    bottlenecks = ordered_bn
 
     docs_pending = sum(
         1 for d in docs if d is not None and d.status == DocumentStatus.PENDING

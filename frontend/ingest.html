@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartStart — Data ingestion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=22" />
+  <link rel="stylesheet" href="/static/sources.css?v=1" />
+</head>
+<body class="employer-page ingest-page">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">SS</div>
+        <div>
+          <div class="brand-name">SmartStart</div>
+          <div class="brand-sub">Data ingestion</div>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Primary">
+        <a class="nav-btn" href="/employer">Command Center</a>
+        <a class="nav-btn active" href="/ingest">Ingestion</a>
+        <a class="nav-btn" href="/sources/icims">iCIMS (source)</a>
+        <a class="nav-btn" href="/sources/servicenow">ServiceNow (source)</a>
+        <a class="nav-btn" href="/sources/jira">Jira (source)</a>
+      </nav>
+      <div class="sidebar-foot">
+        <a class="btn-link" href="/">← Portal</a>
+        <div class="pill synthetic">SOURCES ≠ SMARTSTART</div>
+        <p class="muted tiny">Mock systems of record feed SmartStart. SmartStart never writes back in this demo.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Data ingestion</h1>
+          <p class="muted">Pull mock iCIMS · ServiceNow · Jira into SmartStart’s operational store</p>
+        </div>
+        <div class="topbar-actions">
+          <button type="button" class="btn-secondary" id="refresh-btn">Refresh status</button>
+          <button type="button" class="btn-primary" id="run-ingest-btn">Run ingest</button>
+        </div>
+      </header>
+
+      <p class="filter-explain" id="ingest-explain">
+        <strong>Architecture:</strong> Source systems hold the records. SmartStart is a separate product that ingests copies for orchestration, alerts, and analytics.
+      </p>
+
+      <div id="ingest-error" class="load-error" hidden></div>
+
+      <section class="section active">
+        <div class="kpi-row" id="ingest-kpis"></div>
+
+        <div class="charts-grid analytics-panels ingest-flow">
+          <div class="card">
+            <div class="card-head"><h2>Systems of record</h2><span class="muted tiny">Mock sources</span></div>
+            <div class="ingest-sources" id="source-cards"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>SmartStart store</h2><span class="muted tiny">After ingest</span></div>
+            <div id="smartstart-card" class="ingest-ss"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:1rem">
+          <div class="card-head">
+            <h2>Last ingest run</h2>
+            <span class="muted tiny" id="last-run-meta"></span>
+          </div>
+          <pre class="ingest-log mono" id="last-run-log">No ingest run yet — click Run ingest.</pre>
+        </div>
+
+        <div class="card" style="margin-top:1rem">
+          <div class="card-head"><h2>Pipeline</h2></div>
+          <ol class="ingest-steps" id="pipeline-steps">
+            <li><span class="step-sys icims">iCIMS</span> candidates + offer packets</li>
+            <li><span class="step-sys snow">ServiceNow</span> RITMs + hardware / SLA</li>
+            <li><span class="step-sys jira">Jira</span> mentor, learning track, tasks</li>
+            <li><span class="step-sys ss">SmartStart</span> unified joiner pipeline</li>
+          </ol>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/session.js?v=16"></script>
+  <script src="/static/ingest.js?v=1"></script>
+</body>
+</html>

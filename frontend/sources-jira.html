@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jira — ONB project (mock)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/sources.css?v=1" />
+</head>
+<body class="src-page src-jira">
+  <header class="src-topbar">
+    <div class="src-brand">
+      <span class="src-mark jira">J</span>
+      <div>
+        <strong>Jira · ONB</strong>
+        <span class="src-sub">Mock work tracker · mentor &amp; tasks</span>
+      </div>
+    </div>
+    <nav class="src-links">
+      <a href="/sources/icims">iCIMS</a>
+      <a href="/sources/servicenow">ServiceNow</a>
+      <a href="/ingest">SmartStart ingest →</a>
+    </nav>
+  </header>
+
+  <main class="src-main">
+    <div class="src-banner">
+      <p><strong>Not SmartStart.</strong> This is a mock Jira onboarding project. SmartStart pulls issues + subtasks from here via data ingestion.</p>
+    </div>
+
+    <div class="src-kpis" id="kpis"></div>
+
+    <section class="src-panel">
+      <div class="src-panel-head">
+        <h1>Onboarding board</h1>
+        <span class="src-chip" id="count"></span>
+      </div>
+      <div class="src-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Summary</th>
+              <th>Status</th>
+              <th>Assignee (mentor)</th>
+              <th>Reporter</th>
+              <th>Subtasks</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/sources.js?v=1"></script>
+  <script>bootSource("jira");</script>
+</body>
+</html>

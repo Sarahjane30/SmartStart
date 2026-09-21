@@ -254,6 +254,30 @@ class IntegrationsResponse(BaseModel):
     integrations: list[IntegrationSnapshot]
     synthetic: bool = True
     as_of: datetime
+    ingest_last_run: Optional[dict] = None
+    smartstart_separate: bool = True
+    note: str = (
+        "iCIMS, ServiceNow, and Jira are separate mock systems of record. "
+        "SmartStart ingests from them — it is not the source."
+    )
+
+
+class IngestSourceStat(BaseModel):
+    records_pulled: int
+    domain: str
+
+
+class IngestRunResponse(BaseModel):
+    status: str
+    started_at: datetime
+    finished_at: datetime
+    duration_ms: int
+    sources: dict[str, IngestSourceStat]
+    joiners_upserted: int
+    smartstart_total: int
+    cleared_before_load: bool = True
+    synthetic: bool = True
+    message: str = ""
 
 
 # --- Layer 3: Employee Experience ---

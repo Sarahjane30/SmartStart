@@ -18,7 +18,7 @@ from backend.predictor import build_predictions
 from backend.recommender import build_recommendations
 from backend.alerts import build_alerts
 from backend.analytics import ANALYTICS_AS_OF, build_analytics, joiner_in_role_view
-from backend.database import store
+from backend.database import source_store, store
 from backend.employee_experience import (
     build_employee_profile,
     build_learning_track,
@@ -27,6 +27,15 @@ from backend.employee_experience import (
     clear_feedback,
     list_feedback,
     submit_feedback,
+)
+from backend.ingest import (
+    bootstrap_sources_and_ingest,
+    ingest_status,
+    list_icims_candidates,
+    list_jira_issues,
+    list_servicenow_tickets,
+    run_ingest,
+    source_system_summary,
 )
 from backend.integrations import build_integrations
 from backend.owners import build_assignable_owners
@@ -44,6 +53,7 @@ from backend.models import (
     EmployeeProfile,
     FeedbackCreate,
     FeedbackResponse,
+    IngestRunResponse,
     Joiner,
     JoinerDetail,
     LearningTrackResponse,
@@ -53,7 +63,7 @@ from backend.models import (
     RoleType,
     TeamWorkspaceResponse,
 )
-from backend.synthetic_engine import days_in_pipeline, generate_cohort, infer_bottleneck
+from backend.synthetic_engine import days_in_pipeline, infer_bottleneck
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 NO_CACHE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
@@ -62,6 +72,11 @@ EmployerSession = Annotated[dict, Depends(require_employer)]
 API_DESCRIPTION = """
 SmartStart Layers 1–4 — Synthetic onboarding data engine, Employer Command Center,
 and Employee Experience API.
+
+**SmartStart is separate from the mock systems of record.** Synthetic cohorts are
+generated into mock iCIMS / ServiceNow / Jira stores, then **ingested** into SmartStart
+via `POST /api/ingest/run`. Browse sources at `/sources/icims`, `/sources/servicenow`,
+`/sources/jira`, and the ingest console at `/ingest`.
 
 All joiners, documents, IT tickets, alerts, analytics, learning tracks, notifications, and AI prototypes are **100% synthetic**. No real employee PII, production logs,
 or live iCIMS / ServiceNow / Jira data.
@@ -75,7 +90,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     print(f"[SmartStart] backend file: {Path(__file__).resolve()}")
     print(f"[SmartStart] frontend dir: {FRONTEND_DIR.resolve()}")
     print(f"[SmartStart] portal exists: {(FRONTEND_DIR / 'portal.html').exists()}")
-    generate_cohort(n_interns=15, n_ftes=15, seed=42)
+    bootstrap_sources_and_ingest(n_interns=15, n_ftes=15, seed=42)
     clear_feedback()
     yield
 
@@ -83,7 +98,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="SmartStart",
     description=API_DESCRIPTION,
-    version="0.5.2",
+    version="0.6.0",
     lifespan=lifespan,
 )
 
@@ -97,16 +112,19 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str | bool]:
+def health() -> dict[str, str | bool | int]:
     return {
         "status": "ok",
         "layer": "4",
         "mode": "synthetic",
-        "version": "0.5.2",
+        "version": "0.6.0",
         "frontend_dir": str(FRONTEND_DIR.resolve()),
         "portal_html": (FRONTEND_DIR / "portal.html").exists(),
         "backend_file": str(Path(__file__).resolve()),
         "employer_auth": True,
+        "source_joiners": len(source_store.list_joiners()),
+        "smartstart_joiners": len(store.list_joiners()),
+        "ingest_ready": True,
     }
 
 
@@ -232,16 +250,85 @@ def regenerate(
     seed: int = Query(default=42, ge=0),
     n_interns: int = Query(default=15, ge=0, le=100),
     n_ftes: int = Query(default=15, ge=0, le=100),
-) -> dict[str, int | str]:
-    """Rebuild the in-memory synthetic cohort (dev/demo only)."""
+) -> dict[str, int | str | dict]:
+    """Rebuild mock source systems and re-ingest into SmartStart (dev/demo only)."""
     _ = session
-    generate_cohort(n_interns=n_interns, n_ftes=n_ftes, seed=seed)
+    result = bootstrap_sources_and_ingest(n_interns=n_interns, n_ftes=n_ftes, seed=seed)
     clear_feedback()
     return {
         "status": "regenerated",
         "total_joiners": len(store.list_joiners()),
+        "source_joiners": len(source_store.list_joiners()),
         "seed": seed,
+        "ingest": result["ingest"],
     }
+
+
+# --- Mock source systems (separate from SmartStart) ------------------------
+
+
+@app.get("/api/sources/summary")
+def sources_summary() -> dict:
+    """Counts across mock iCIMS / ServiceNow / Jira (systems of record)."""
+    return source_system_summary()
+
+
+@app.get("/api/sources/icims")
+def sources_icims() -> dict:
+    """Mock iCIMS ATS candidate list — not SmartStart."""
+    rows = list_icims_candidates()
+    return {
+        "system": "iCIMS",
+        "domain": "HR / ATS",
+        "total": len(rows),
+        "candidates": rows,
+        "synthetic": True,
+        "note": "Mock ATS system of record. SmartStart pulls from here via ingest.",
+    }
+
+
+@app.get("/api/sources/servicenow")
+def sources_servicenow() -> dict:
+    """Mock ServiceNow ITSM ticket list — not SmartStart."""
+    rows = list_servicenow_tickets()
+    return {
+        "system": "ServiceNow",
+        "domain": "IT / ITSM",
+        "total": len(rows),
+        "tickets": rows,
+        "synthetic": True,
+        "note": "Mock ITSM system of record. SmartStart pulls from here via ingest.",
+    }
+
+
+@app.get("/api/sources/jira")
+def sources_jira() -> dict:
+    """Mock Jira onboarding issues — not SmartStart."""
+    rows = list_jira_issues()
+    return {
+        "system": "Jira",
+        "domain": "Manager / Work",
+        "total": len(rows),
+        "issues": rows,
+        "synthetic": True,
+        "note": "Mock work tracker. SmartStart pulls from here via ingest.",
+    }
+
+
+@app.get("/api/ingest/status")
+def api_ingest_status() -> dict:
+    """SmartStart vs source counts and last ingest run."""
+    return ingest_status()
+
+
+@app.post("/api/ingest/run", response_model=IngestRunResponse)
+def api_ingest_run(
+    session: EmployerSession,
+    clear_first: bool = Query(default=True),
+) -> IngestRunResponse:
+    """Pull mock source systems into SmartStart's operational store."""
+    _ = session
+    return run_ingest(clear_first=clear_first)
 
 
 # --- Layer 2 ---------------------------------------------------------------
@@ -359,7 +446,7 @@ def analytics(
 
 @app.get("/api/integrations")
 def integrations(session: EmployerSession):
-    """Mock iCIMS / ServiceNow / Jira connector snapshots (synthetic)."""
+    """Mock iCIMS / ServiceNow / Jira connector snapshots (source systems, not SmartStart)."""
     _ = session
     return build_integrations()
 
@@ -467,5 +554,21 @@ if FRONTEND_DIR.exists():
     @app.get("/ai")
     def ai_features() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "ai.html", headers=NO_CACHE)
+
+    @app.get("/ingest")
+    def ingest_console() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "ingest.html", headers=NO_CACHE)
+
+    @app.get("/sources/icims")
+    def source_icims_ui() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "sources-icims.html", headers=NO_CACHE)
+
+    @app.get("/sources/servicenow")
+    def source_servicenow_ui() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "sources-servicenow.html", headers=NO_CACHE)
+
+    @app.get("/sources/jira")
+    def source_jira_ui() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "sources-jira.html", headers=NO_CACHE)
 
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

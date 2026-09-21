@@ -483,7 +483,7 @@ function drawBars(canvas, labels, values, colors) {
   const w = canvas.width;
   const h = canvas.height;
   const [c1, c2] = Array.isArray(colors) ? colors : [colors, colors];
-  const pad = { t: 28, r: 18, b: 72, l: 42 };
+  const pad = { t: 28, r: 18, b: 86, l: 42 };
   const max = Math.max(...values, 1);
   const barW = (w - pad.l - pad.r) / Math.max(labels.length, 1);
   const start = performance.now();
@@ -518,11 +518,12 @@ function drawBars(canvas, labels, values, colors) {
       ctx.fill();
 
       ctx.fillStyle = "#5a6784";
-      ctx.font = "11px 'IBM Plex Mono', monospace";
+      ctx.font = "10px 'IBM Plex Mono', monospace";
       ctx.save();
-      ctx.translate(x + barW * 0.34, h - pad.b + 13);
-      ctx.rotate(-0.62);
-      ctx.fillText(clip(label, 22), 0, 0);
+      ctx.translate(x + barW * 0.68, h - pad.b + 14);
+      ctx.rotate(-0.48);
+      ctx.textAlign = "right";
+      ctx.fillText(clip(label, 18), 0, 0);
       ctx.restore();
 
       ctx.fillStyle = "#0b1026";
@@ -584,6 +585,9 @@ function setSection(name) {
   state.section = name;
   document.querySelectorAll(".section").forEach((el) => el.classList.remove("active"));
   document.getElementById(`section-${name}`).classList.add("active");
+  // Canvas charts only animate while visible, so repaint when the tab opens.
+  if (name === "analytics") renderAnalytics();
+  if (name === "roles") renderRoles();
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.section === name);
   });

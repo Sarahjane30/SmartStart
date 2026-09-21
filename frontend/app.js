@@ -380,12 +380,21 @@ function renderAnalytics() {
   document.getElementById("analytics-kpis").innerHTML = kpis.join("");
   countUpAll(document.getElementById("analytics-kpis"));
 
-  const bnItems = Object.entries(a.bottleneck_counts || {}).map(([label, value]) => ({
-    label: shortBottleneck(label),
-    hint: label === shortBottleneck(label) ? "" : label,
-    value,
-  }));
-  renderHBars(document.getElementById("bottleneck-bars"), bnItems, { tone: "navy" });
+  const bnItems = Object.entries(a.bottleneck_counts || {})
+    .filter(([label]) => label !== "On track")
+    .map(([label, value]) => ({
+      label: shortBottleneck(label),
+      hint: label === shortBottleneck(label) ? "" : label,
+      value,
+    }));
+  const bnEl = document.getElementById("bottleneck-bars");
+  renderHBars(bnEl, bnItems, { tone: "navy" });
+  if (bnEl && onTrack) {
+    bnEl.insertAdjacentHTML(
+      "beforeend",
+      `<p class="muted tiny on-track-note">${onTrack} on track (no active bottleneck)</p>`
+    );
+  }
 
   const stageItems = (a.onboarding_trend || []).map((p) => ({
     label: shortStage(p.label),

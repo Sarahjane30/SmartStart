@@ -46,10 +46,10 @@ const TITLES = {
 };
 
 const FILTER_EXPLAIN = {
-  All: "Showing every joiner in your scope. Pick HR / IT / Manager queue to focus on that bottleneck type.",
-  HR: "HR queue — joiners with docs pending or still in the early pipeline (offer → docs → IT).",
-  IT: "IT queue — joiners waiting on hardware, ServiceNow tickets, or SLA pressure.",
-  Manager: "Manager queue — joiners at Day-1 or project readiness (each still has their own hiring manager).",
+  All: "<strong>All</strong> — every joiner in your scope. These buttons are <em>work queues</em> (who needs to act), not which hiring manager owns the person.",
+  HR: "<strong>HR queue</strong> — only joiners whose bottleneck is docs / iCIMS. Assign opens People Ops teammates.",
+  IT: "<strong>IT queue</strong> — only joiners whose bottleneck is hardware / ServiceNow / SLA. Assign opens IT partners.",
+  Manager: "<strong>Manager queue</strong> — only joiners whose bottleneck is Day-1 or project assignment. Assign opens the hiring manager, mentor, and peer managers.",
 };
 
 function paintSignedIn() {
@@ -481,12 +481,12 @@ async function openAssignModal(id) {
   try {
     const data = await fetchJSON(`/api/joiners/${encodeURIComponent(id)}/owners`);
     document.getElementById("assign-title").textContent =
-      `Assign owner · ${data.joiner_name}`;
+      `Assign · ${data.joiner_name}`;
     document.getElementById("assign-sub").textContent = data.bottleneck
-      ? `${data.queue} queue · ${data.bottleneck}`
-      : `${data.queue} queue · no active bottleneck`;
+      ? `Bottleneck: ${data.bottleneck}`
+      : "No active bottleneck — pick a partner anyway if you need one";
     document.getElementById("assign-kicker").textContent =
-      `${data.department} · manager ${data.manager_name}`;
+      `${data.queue} work queue · ${data.department} · hiring manager ${data.manager_name}`;
 
     const groups = {};
     for (const o of data.owners || []) {
@@ -498,8 +498,14 @@ async function openAssignModal(id) {
       ...Object.keys(groups).filter((k) => !order.includes(k)),
     ];
 
+    const recommended = (data.owners || []).filter((o) => o.recommended);
     body.innerHTML = `
-      <p class="muted tiny assign-note">${esc(data.note || "")}</p>
+      <p class="assign-lede">Pick someone on the <strong>${esc(data.queue)}</strong> team to own this joiner’s bottleneck. Synthetic demo only — not saved to a real system.</p>
+      ${
+        recommended.length
+          ? `<p class="muted tiny assign-note">${recommended.length} suggested · click a row to assign</p>`
+          : `<p class="muted tiny assign-note">${esc(data.note || "")}</p>`
+      }
       ${keys
         .map((team) => {
           const rows = groups[team]
@@ -522,13 +528,13 @@ async function openAssignModal(id) {
                 ${
                   o.recommended
                     ? `<span class="owner-rec">Suggested</span>`
-                    : `<span class="muted tiny">Select</span>`
+                    : `<span class="owner-pick">Select</span>`
                 }
               </button>`;
             })
             .join("");
           return `<section class="owner-group">
-            <h3>${esc(team)} team</h3>
+            <h3>${esc(team)} team · ${groups[team].length}</h3>
             <div class="owner-list">${rows}</div>
           </section>`;
         })

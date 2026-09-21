@@ -21,11 +21,25 @@ from backend.synthetic_engine import days_in_pipeline, infer_bottleneck
 ANALYTICS_AS_OF = datetime(2026, 9, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 ROLE_FOCUS = {
-    EmployerRole.ALL: "Full cohort — every synthetic joiner",
-    EmployerRole.HR: "HR lens — docs pending / early pipeline handoff",
-    EmployerRole.IT: "IT lens — hardware not delivered or SLA pressure",
-    EmployerRole.MANAGER: "Manager lens — Day-1 / project readiness (hiring managers split the cohort)",
+    EmployerRole.ALL: "Full cohort — every synthetic joiner in your scope",
+    EmployerRole.HR: "HR work queue — docs pending or offer/docs stages",
+    EmployerRole.IT: "IT work queue — hardware not delivered or SLA pressure",
+    EmployerRole.MANAGER: "Manager work queue — Day-1 / project readiness",
 }
+
+
+def queue_for_bottleneck(bottleneck: str | None) -> str:
+    """Map a bottleneck label to the work queue that should own it."""
+    if not bottleneck:
+        return "Ops"
+    t = bottleneck.lower()
+    if "document" in t or "docs" in t or "icims" in t or "offer-to-docs" in t:
+        return "HR"
+    if "it " in t or "sla" in t or "servicenow" in t or "hardware" in t or "provisioning" in t:
+        return "IT"
+    if "project" in t or "jira" in t or "day-1" in t or "orientation" in t:
+        return "Manager"
+    return "Ops"
 
 
 def joiner_in_role_view(
@@ -34,27 +48,36 @@ def joiner_in_role_view(
     hardware_status: HardwareStatus | None,
     it_sla_breached: bool,
     role_view: EmployerRole,
+    bottleneck: str | None = None,
 ) -> bool:
-    """Same employer-persona lenses used by the Command Center table."""
+    """Work-queue lenses for the Command Center (not hiring-manager picks).
+
+    All = everyone in scope.
+    HR / IT / Manager = joiners whose current bottleneck belongs to that queue.
+    """
     if role_view == EmployerRole.ALL:
         return True
-    if role_view == EmployerRole.HR:
-        return docs_status != DocumentStatus.COMPLETE or joiner.current_state in {
-            OnboardingState.OFFER_ACCEPTED,
-            OnboardingState.DOCS_SUBMITTED,
-            OnboardingState.IT_PROVISIONED,
+
+    if bottleneck is None:
+        # Fallback when caller only has status fields (no full docs/ticket).
+        if role_view == EmployerRole.HR:
+            return docs_status != DocumentStatus.COMPLETE or joiner.current_state in {
+                OnboardingState.OFFER_ACCEPTED,
+                OnboardingState.DOCS_SUBMITTED,
+            }
+        if role_view == EmployerRole.IT:
+            return it_sla_breached or hardware_status != HardwareStatus.DELIVERED
+        return joiner.current_state in {
+            OnboardingState.DAY1_ORIENTED,
+            OnboardingState.PROJECT_READY,
         }
+
+    queue = queue_for_bottleneck(bottleneck)
+    if role_view == EmployerRole.HR:
+        return queue == "HR"
     if role_view == EmployerRole.IT:
-        return (
-            it_sla_breached
-            or hardware_status != HardwareStatus.DELIVERED
-            or joiner.current_state == OnboardingState.DOCS_SUBMITTED
-        )
-    # Manager = hiring-manager queue for late-stage joiners (each still has their own mentor)
-    return joiner.current_state in {
-        OnboardingState.DAY1_ORIENTED,
-        OnboardingState.PROJECT_READY,
-    }
+        return queue == "IT"
+    return queue == "Manager"
 
 
 def focus_note_for(role_view: EmployerRole, manager_id: str | None = None) -> str:
@@ -97,8 +120,14 @@ def build_analytics(
         ticket = db.get_ticket_for_joiner(j.id)
         if docs is None or ticket is None:
             continue
+        bottleneck = infer_bottleneck(j.current_state, docs, ticket)
         if joiner_in_role_view(
-            j, docs.status, ticket.hardware_status, ticket.sla_breached, role_view
+            j,
+            docs.status,
+            ticket.hardware_status,
+            ticket.sla_breached,
+            role_view,
+            bottleneck=bottleneck,
         ):
             joiners.append(j)
 

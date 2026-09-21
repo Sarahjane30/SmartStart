@@ -35,7 +35,7 @@ def _queue_for_bottleneck(bottleneck: str | None) -> str:
     if not bottleneck:
         return "Ops"
     t = bottleneck.lower()
-    if "document" in t or "docs" in t or "icims" in t:
+    if "document" in t or "docs" in t or "icims" in t or "offer-to-docs" in t:
         return "HR"
     if "it " in t or "sla" in t or "servicenow" in t or "hardware" in t or "provisioning" in t:
         return "IT"

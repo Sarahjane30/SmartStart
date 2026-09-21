@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SmartStart — Employer Command Center (build 17)</title>
+  <title>SmartStart — Employer Command Center (build 18)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=17" />
+  <link rel="stylesheet" href="/static/style.css?v=18" />
 </head>
 <body class="employer-page">
   <div class="app-shell" id="employer-shell">
@@ -16,7 +16,7 @@
         <div class="brand-mark">SS</div>
         <div>
           <div class="brand-name">SmartStart</div>
-          <div class="brand-sub">Employer Command Center · build 17</div>
+          <div class="brand-sub">Employer Command Center · build 18</div>
         </div>
       </div>
 
@@ -47,16 +47,16 @@
         </div>
         <div class="topbar-actions">
           <div class="role-filters" role="group" aria-label="Work queue filters">
-            <button class="role-btn active" data-role="All" title="Show every joiner in your scope">
+            <button class="role-btn active" data-role="All" title="Every joiner in your scope">
               All
             </button>
-            <button class="role-btn role-hr" data-role="HR" title="Docs pending / early pipeline — People Ops queue">
+            <button class="role-btn role-hr" data-role="HR" title="Docs pending — People Ops queue">
               HR queue
             </button>
-            <button class="role-btn role-it" data-role="IT" title="Hardware / SLA / ServiceNow — IT queue">
+            <button class="role-btn role-it" data-role="IT" title="Hardware / SLA — IT queue">
               IT queue
             </button>
-            <button class="role-btn role-mgr" data-role="Manager" title="Day-1 &amp; project readiness — hiring-manager queue">
+            <button class="role-btn role-mgr" data-role="Manager" title="Day-1 &amp; project readiness — manager queue">
               Manager queue
             </button>
           </div>
@@ -64,7 +64,7 @@
         </div>
       </header>
       <p class="filter-explain" id="filter-explain">
-        These buttons filter the <strong>work queue</strong> — not which hiring manager. HR = docs / early pipeline · IT = hardware &amp; SLA · Manager = Day-1 &amp; project readiness.
+        <strong>All</strong> — every joiner in your scope. These buttons are <em>work queues</em> (who needs to act), not which hiring manager owns the person.
       </p>
 
       <section id="section-dashboard" class="section active">
@@ -176,7 +176,7 @@
   >
     <header class="assign-head">
       <div>
-        <p class="muted tiny" id="assign-kicker">Assign owner</p>
+        <p class="muted tiny" id="assign-kicker">Assign to the team</p>
         <h2 id="assign-title">Choose someone on the team</h2>
         <p class="muted" id="assign-sub"></p>
       </div>
@@ -188,8 +188,8 @@
   </div>
 
   <div id="toast" class="toast" hidden role="status"></div>
-  <script src="/static/session.js?v=17"></script>
-  <script src="/static/motion.js?v=17"></script>
-  <script src="/static/app.js?v=17"></script>
+  <script src="/static/session.js?v=18"></script>
+  <script src="/static/motion.js?v=18"></script>
+  <script src="/static/app.js?v=18"></script>
 </body>
 </html>

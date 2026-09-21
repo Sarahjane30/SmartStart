@@ -280,12 +280,17 @@ def dashboard(
         ticket = store.get_ticket_for_joiner(joiner.id)
         if docs is None or ticket is None:
             continue
+        bottleneck = infer_bottleneck(joiner.current_state, docs, ticket)
         if not joiner_in_role_view(
-            joiner, docs.status, ticket.hardware_status, ticket.sla_breached, effective_view
+            joiner,
+            docs.status,
+            ticket.hardware_status,
+            ticket.sla_breached,
+            effective_view,
+            bottleneck=bottleneck,
         ):
             continue
 
-        bottleneck = infer_bottleneck(joiner.current_state, docs, ticket)
         rows.append(
             DashboardJoinerRow(
                 id=joiner.id,

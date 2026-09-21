@@ -709,6 +709,11 @@ canvas {
   min-width: 1.6rem;
   text-align: right;
 }
+.on-track-note {
+  margin: 0.55rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--line);
+}
 @keyframes hbar-grow {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }

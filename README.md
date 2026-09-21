@@ -2,7 +2,16 @@
 
 Sandboxed **employee onboarding orchestration** for Interns and FTEs.
 
-All data is **100% synthetic** — no real PII, production logs, or live iCIMS / ServiceNow / Jira calls.
+All data is **100% synthetic** — no real PII, production logs, or live HR/IT systems.
+
+## Companion systems (separate websites)
+
+| App | Port | Start |
+|-----|------|-------|
+| **SmartStart** (this app) | `8000` | `uvicorn backend.main:app --reload --port 8000` |
+| **Mock iCIMS** (standalone HR/ATS) | `8100` | `uvicorn icims.backend.main:app --reload --port 8100` |
+
+See [`icims/README.md`](icims/README.md). Demo login: `hr.demo` / `hr-demo-2026`.
 
 ## Layers
 

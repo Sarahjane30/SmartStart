@@ -324,6 +324,7 @@ function renderAnalytics() {
   const bnEntries = Object.entries(a.bottleneck_counts || {});
   const stuck = bnEntries.filter(([k]) => k !== "On track").reduce((n, [, v]) => n + v, 0);
   const onTrack = (a.bottleneck_counts || {})["On track"] || 0;
+  const bnSub = document.getElementById("bn-chart-sub");
   if (bnSub) {
     bnSub.textContent = `${stuck} blocked · ${onTrack} on track`;
   }

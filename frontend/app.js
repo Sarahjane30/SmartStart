@@ -435,14 +435,11 @@ function renderRoles() {
       <div>
         <button type="button" class="joiner-open" data-open="${esc(r.id)}"><strong>${esc(r.name)}</strong></button>
         <span>${esc(r.email)}</span>
+        <span class="muted tiny">${esc(r.role_type)} · ${esc(r.department)}</span>
       </div>
       <div>${stateBadge(r.current_state)}</div>
       <div>${bottleneckTag(r.bottleneck)}</div>
-      <div class="row-actions">${
-        r.bottleneck && !state.actions[r.id]
-          ? `<button type="button" class="btn-mini primary" data-act="assign" data-id="${esc(r.id)}">Assign</button>`
-          : r.role_type
-      }</div>
+      <div class="row-actions">${actionCell(r)}</div>
     </div>`
     )
     .join("");

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from faker import Faker
 
-from backend.database import DataStore, store
+from backend.database import DataStore, source_store
 from backend.models import (
     ONBOARDING_STAGES,
     DepartmentTrack,
@@ -92,8 +92,11 @@ def generate_cohort(
     seed: int = 42,
     target_store: DataStore | None = None,
 ) -> DataStore:
-    """Generate a fully synthetic joiner cohort and load it into the store."""
-    db = target_store or store
+    """Generate a fully synthetic cohort into a systems-of-record store (default: source_store).
+
+    SmartStart's operational `store` is filled separately via ingest — see backend.ingest.
+    """
+    db = target_store or source_store
     db.clear()
 
     fake = Faker()

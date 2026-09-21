@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SmartStart — Employer Command Center (build 21)</title>
+  <title>SmartStart — Employer Command Center (build 22)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=21" />
+  <link rel="stylesheet" href="/static/style.css?v=22" />
 </head>
 <body class="employer-page">
   <div class="app-shell" id="employer-shell">
@@ -16,7 +16,7 @@
         <div class="brand-mark">SS</div>
         <div>
           <div class="brand-name">SmartStart</div>
-          <div class="brand-sub">Employer Command Center · build 21</div>
+          <div class="brand-sub">Employer Command Center · build 22</div>
         </div>
       </div>
 
@@ -29,13 +29,17 @@
         <button class="nav-btn" data-section="alerts">Alerts</button>
         <button class="nav-btn" data-section="analytics">Analytics</button>
         <button class="nav-btn" data-section="roles">Role Views</button>
+        <a class="nav-btn nav-link" href="/ingest">Data ingestion</a>
       </nav>
 
       <div class="sidebar-foot">
         <a class="btn-link" href="/ai">Open AI Features →</a>
+        <a class="btn-link" href="/sources/icims">Mock iCIMS</a>
+        <a class="btn-link" href="/sources/servicenow">Mock ServiceNow</a>
+        <a class="btn-link" href="/sources/jira">Mock Jira</a>
         <button type="button" class="btn-link" id="sign-out-btn">Exit to portal / sign out</button>
         <div class="pill synthetic">SYNTHETIC DATA ONLY</div>
-        <p class="muted tiny">Sample login required · No real PII · Seed 42 demo cohort</p>
+        <p class="muted tiny">Sources ≠ SmartStart · Seed 42 · Ingest from mock ATS/ITSM/Jira</p>
       </div>
     </aside>
 

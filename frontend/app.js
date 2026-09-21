@@ -408,8 +408,9 @@ function renderRoles() {
   const data = state.integrations;
   if (!data) return;
   document.getElementById("integrations").innerHTML = (data.integrations || [])
-    .map(
-      (i) => `<div class="integration">
+    .map((i) => {
+      const ui = (i.sample_payload && i.sample_payload.ui) || "/ingest";
+      return `<div class="integration">
       <div class="sys">${esc(i.domain)}</div>
       <h3>${esc(i.system)}</h3>
       <dl>
@@ -418,8 +419,9 @@ function renderRoles() {
         <dt>Open items</dt><dd>${i.open_items}</dd>
       </dl>
       <p class="muted tiny" style="margin:0.7rem 0 0">${esc((i.sample_payload && i.sample_payload.note) || "")}</p>
-    </div>`
-    )
+      <p style="margin:0.55rem 0 0"><a class="btn-link" href="${esc(ui)}">Open mock ${esc(i.system)} →</a></p>
+    </div>`;
+    })
     .join("");
 
   revealAll(document.getElementById("integrations"), ".integration", 60);

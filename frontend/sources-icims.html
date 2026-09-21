@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iCIMS — Talent Cloud (mock)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/sources.css?v=1" />
+</head>
+<body class="src-page src-icims">
+  <header class="src-topbar">
+    <div class="src-brand">
+      <span class="src-mark icims">iC</span>
+      <div>
+        <strong>iCIMS Talent Cloud</strong>
+        <span class="src-sub">Mock ATS · system of record</span>
+      </div>
+    </div>
+    <nav class="src-links">
+      <a href="/sources/servicenow">ServiceNow</a>
+      <a href="/sources/jira">Jira</a>
+      <a href="/ingest">SmartStart ingest →</a>
+    </nav>
+  </header>
+
+  <main class="src-main">
+    <div class="src-banner">
+      <p><strong>Not SmartStart.</strong> This is a mock iCIMS ATS. SmartStart pulls candidates + offer packets from here via data ingestion.</p>
+    </div>
+
+    <div class="src-kpis" id="kpis"></div>
+
+    <section class="src-panel">
+      <div class="src-panel-head">
+        <h1>Candidates &amp; offer packets</h1>
+        <span class="src-chip" id="count"></span>
+      </div>
+      <div class="src-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Candidate ID</th>
+              <th>Name</th>
+              <th>Requisition</th>
+              <th>Start</th>
+              <th>Hiring manager</th>
+              <th>Packet</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/sources.js?v=1"></script>
+  <script>bootSource("icims");</script>
+</body>
+</html>

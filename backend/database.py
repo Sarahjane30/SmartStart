@@ -1,8 +1,10 @@
-"""In-memory store for Layer 1 synthetic onboarding data."""
+"""In-memory stores for Layer 1 — source systems vs SmartStart."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Optional
 
 from backend.models import DocumentSubmission, ITProvisioningTicket, Joiner
 
@@ -43,5 +45,39 @@ class DataStore:
                 return ticket
         return None
 
+    def copy_from(self, other: "DataStore") -> int:
+        """Replace contents with a deep copy of another store. Returns joiner count."""
+        self.clear()
+        for joiner in other.list_joiners():
+            docs = other.get_documents(joiner.id)
+            ticket = other.get_ticket_for_joiner(joiner.id)
+            if docs is None or ticket is None:
+                continue
+            self.upsert_bundle(
+                joiner.model_copy(deep=True),
+                docs.model_copy(deep=True),
+                ticket.model_copy(deep=True),
+            )
+        return len(self.joiners)
 
+
+@dataclass
+class IngestRunLog:
+    """Last (and history of) SmartStart ingest runs from mock source systems."""
+
+    last_run: Optional[dict[str, Any]] = None
+    history: list[dict[str, Any]] = field(default_factory=list)
+
+    def record(self, payload: dict[str, Any]) -> None:
+        self.last_run = payload
+        self.history.insert(0, payload)
+        self.history = self.history[:20]
+
+
+# Systems of record (mock iCIMS / ServiceNow / Jira) — generated here first.
+source_store = DataStore()
+
+# SmartStart operational store — populated only via ingest from source_store.
 store = DataStore()
+
+ingest_log = IngestRunLog()

@@ -53,17 +53,26 @@
 
       <div class="card">
         <div class="card-head">
-          <h2>Delay risk</h2>
-          <span id="risk-pill" class="risk-pill">—</span>
+          <h2>Predictive delay risk</h2>
+          <span id="overall-risk" class="risk-pill">—</span>
         </div>
-        <p class="muted tiny" id="predict-summary"></p>
-        <div id="predict-alerts" class="ai-alerts"></div>
+        <p class="muted tiny" id="predict-note"></p>
+        <div id="alerts-list" class="ai-alerts"></div>
       </div>
 
       <div class="card recs-card">
         <div class="card-head">
           <h2>Adaptive recommendations</h2>
-          <span class="muted tiny" id="recs-summary"></span>
+          <span class="muted tiny" id="recs-focus"></span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Learning track completion</span>
+            <span id="track-pct">0%</span>
+          </div>
+          <div class="progress-bar" id="track-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="progress-fill" id="track-fill"></div>
+          </div>
         </div>
         <div id="recs-list" class="recs-list"></div>
       </div>

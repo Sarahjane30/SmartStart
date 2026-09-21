@@ -29,7 +29,9 @@ from backend.employee_experience import (
     submit_feedback,
 )
 from backend.integrations import build_integrations
+from backend.owners import build_assignable_owners
 from backend.models import (
+    AssignOwnersResponse,
     RecommendationsResponse,
     PredictResponse,
     ChatbotResponse,
@@ -163,6 +165,16 @@ def get_joiner(joiner_id: str) -> JoinerDetail:
         days_in_pipeline=days_in_pipeline(joiner, now=ANALYTICS_AS_OF),
         bottleneck=infer_bottleneck(joiner.current_state, documents, ticket),
     )
+
+
+@app.get("/api/joiners/{joiner_id}/owners", response_model=AssignOwnersResponse)
+def joiner_owners(joiner_id: str, session: EmployerSession) -> AssignOwnersResponse:
+    """Assignable team owners for a joiner's current bottleneck (Assign modal)."""
+    _ = session
+    try:
+        return build_assignable_owners(joiner_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Joiner not found") from exc
 
 
 @app.get("/api/metrics/summary", response_model=MetricsSummary)

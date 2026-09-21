@@ -161,6 +161,9 @@ def test_layer2_role_filters_and_frontend():
         assert "analytics-focus" in home.text
         assert 'data-role="HR"' in home.text
         assert "signed-in-user" in home.text
+        assert "assign-modal" in home.text
+        assert "filter-explain" in home.text
+        assert "HR queue" in home.text
 
         css = client.get("/static/style.css")
         assert css.status_code == 200
@@ -174,6 +177,8 @@ def test_layer2_role_filters_and_frontend():
         assert "requireEmployerSession" in js.text
         assert "employerAuthHeaders" in js.text
         assert "pipelineProgress" in js.text
+        assert "openAssignModal" in js.text
+        assert "/owners" in js.text
 
         session_js = client.get("/static/session.js")
         assert session_js.status_code == 200
@@ -184,6 +189,27 @@ def test_layer2_role_filters_and_frontend():
         portal_js = client.get("/static/portal.js")
         assert portal_js.status_code == 200
         assert "/api/auth/login" in portal_js.text
+
+
+def test_assignable_owners_for_bottleneck():
+    """Assign modal lists team owners scoped to the joiner's bottleneck queue."""
+    with TestClient(app) as client:
+        headers = _login(client, "ops.admin", "ops-demo-2026")
+        dash = client.get("/api/dashboard", headers=headers).json()
+        assert dash["rows"]
+        target = next((r for r in dash["rows"] if r.get("bottleneck")), dash["rows"][0])
+        res = client.get(f"/api/joiners/{target['id']}/owners", headers=headers)
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["joiner_id"] == target["id"]
+        assert body["synthetic"] is True
+        assert body["queue"] in {"HR", "IT", "Manager", "Ops"}
+        assert len(body["owners"]) >= 2
+        names = {o["name"] for o in body["owners"]}
+        assert body["manager_name"] in names
+        assert body["mentor_name"] in names
+        denied = client.get(f"/api/joiners/{target['id']}/owners")
+        assert denied.status_code == 401
 
 
 def test_portal_visual_layer_is_served():

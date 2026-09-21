@@ -478,3 +478,30 @@ class TeamWorkspaceResponse(BaseModel):
     suggested_questions: list[str]
     synthetic: bool = True
     note: str = "Synthetic consult network and team roster — demo only."
+
+
+class OwnerCandidate(BaseModel):
+    """Someone who can own a bottleneck (Assign modal)."""
+
+    id: str
+    name: str
+    title: str
+    team: str
+    focus: str
+    recommended: bool = False
+    synthetic: bool = True
+
+
+class AssignOwnersResponse(BaseModel):
+    """Assignable owners for a joiner's current bottleneck."""
+
+    joiner_id: str
+    joiner_name: str
+    department: str
+    manager_name: str
+    mentor_name: str
+    bottleneck: str | None = None
+    queue: str = "Ops"
+    owners: list[OwnerCandidate]
+    synthetic: bool = True
+    note: str = "Synthetic demo only — assignments are not persisted."

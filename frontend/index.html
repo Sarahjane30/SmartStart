@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SmartStart — Employer Command Center (build 16)</title>
+  <title>SmartStart — Employer Command Center (build 17)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=16" />
+  <link rel="stylesheet" href="/static/style.css?v=17" />
 </head>
 <body class="employer-page">
   <div class="app-shell" id="employer-shell">
@@ -16,7 +16,7 @@
         <div class="brand-mark">SS</div>
         <div>
           <div class="brand-name">SmartStart</div>
-          <div class="brand-sub">Employer Command Center · build 16</div>
+          <div class="brand-sub">Employer Command Center · build 17</div>
         </div>
       </div>
 
@@ -46,23 +46,26 @@
           <p class="muted" id="page-subtitle">Pipeline status across all synthetic joiners</p>
         </div>
         <div class="topbar-actions">
-          <div class="role-filters" role="group" aria-label="Employer persona view">
-            <button class="role-btn active" data-role="All" title="Full cohort">
-              <span class="role-ico" aria-hidden="true">◎</span> All
+          <div class="role-filters" role="group" aria-label="Work queue filters">
+            <button class="role-btn active" data-role="All" title="Show every joiner in your scope">
+              All
             </button>
-            <button class="role-btn role-hr" data-role="HR" title="HR queue — documents &amp; offer handoff">
-              <span class="role-ico" aria-hidden="true">▤</span> HR
+            <button class="role-btn role-hr" data-role="HR" title="Docs pending / early pipeline — People Ops queue">
+              HR queue
             </button>
-            <button class="role-btn role-it" data-role="IT" title="IT queue — hardware &amp; SLA">
-              <span class="role-ico" aria-hidden="true">⚙</span> IT
+            <button class="role-btn role-it" data-role="IT" title="Hardware / SLA / ServiceNow — IT queue">
+              IT queue
             </button>
-            <button class="role-btn role-mgr" data-role="Manager" title="Hiring-manager queue — Day-1 &amp; project readiness (not one shared people-manager)">
-              <span class="role-ico" aria-hidden="true">★</span> Manager
+            <button class="role-btn role-mgr" data-role="Manager" title="Day-1 &amp; project readiness — hiring-manager queue">
+              Manager queue
             </button>
           </div>
           <button id="refresh-btn" class="btn-secondary">Refresh</button>
         </div>
       </header>
+      <p class="filter-explain" id="filter-explain">
+        These buttons filter the <strong>work queue</strong> — not which hiring manager. HR = docs / early pipeline · IT = hardware &amp; SLA · Manager = Day-1 &amp; project readiness.
+      </p>
 
       <section id="section-dashboard" class="section active">
         <div class="kpi-row" id="dashboard-kpis"></div>
@@ -162,9 +165,31 @@
     </div>
   </aside>
 
+  <div id="assign-backdrop" class="drawer-backdrop" hidden></div>
+  <div
+    id="assign-modal"
+    class="assign-modal"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="assign-title"
+  >
+    <header class="assign-head">
+      <div>
+        <p class="muted tiny" id="assign-kicker">Assign owner</p>
+        <h2 id="assign-title">Choose someone on the team</h2>
+        <p class="muted" id="assign-sub"></p>
+      </div>
+      <button type="button" class="btn-secondary" id="assign-close">Close</button>
+    </header>
+    <div id="assign-body" class="assign-body">
+      <p class="muted">Loading team…</p>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden role="status"></div>
-  <script src="/static/session.js?v=16"></script>
-  <script src="/static/motion.js?v=16"></script>
-  <script src="/static/app.js?v=16"></script>
+  <script src="/static/session.js?v=17"></script>
+  <script src="/static/motion.js?v=17"></script>
+  <script src="/static/app.js?v=17"></script>
 </body>
 </html>

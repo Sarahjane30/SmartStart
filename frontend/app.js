@@ -29,20 +29,27 @@ const state = {
   analytics: null,
   integrations: null,
   selectedId: null,
-  actions: {}, // joinerId -> { status: 'assigned'|'resolved', note }
+  actions: {}, // joinerId -> { status, ownerId, ownerName, ownerTeam, at }
 };
 
 const TITLES = {
   dashboard: [
     "Dashboard",
-    "Employer persona queues — All / HR / IT / Manager filter the cohort (four hiring managers split the 30 joiners)",
+    "Work-queue filters (HR / IT / Manager) show joiners with that kind of bottleneck — not which hiring manager owns them",
   ],
-  alerts: ["Alerts", "SLA breaches and pending work for the selected employer lens"],
+  alerts: ["Alerts", "SLA breaches and pending work for the selected work queue"],
   analytics: [
     "Analytics",
-    "KPIs for the filtered cohort — switch HR / IT / Manager and the numbers change",
+    "KPIs for the filtered queue — switch HR / IT / Manager and the numbers change",
   ],
   roles: ["Role Views", "Mock iCIMS / ServiceNow / Jira connectors + queue for this lens"],
+};
+
+const FILTER_EXPLAIN = {
+  All: "Showing every joiner in your scope. Pick HR / IT / Manager queue to focus on that bottleneck type.",
+  HR: "HR queue — joiners with docs pending or still in the early pipeline (offer → docs → IT).",
+  IT: "IT queue — joiners waiting on hardware, ServiceNow tickets, or SLA pressure.",
+  Manager: "Manager queue — joiners at Day-1 or project readiness (each still has their own hiring manager).",
 };
 
 function paintSignedIn() {
@@ -148,17 +155,26 @@ function bottleneckTag(text) {
   return `<span class="bn-tag ${kind}"><span class="bn-dot" aria-hidden="true"></span>${esc(t)}</span>`;
 }
 
+function paintFilterExplain() {
+  const el = document.getElementById("filter-explain");
+  if (!el) return;
+  el.innerHTML = FILTER_EXPLAIN[state.role] || FILTER_EXPLAIN.All;
+}
+
 function actionCell(row) {
   const act = state.actions[row.id];
   if (!row.bottleneck) {
     return `<span class="muted tiny">—</span>`;
   }
   if (act?.status === "resolved") {
-    return `<span class="bn-tag ok">Resolved</span>`;
+    return `<span class="bn-tag ok">Resolved${
+      act.ownerName ? ` · ${esc(act.ownerName)}` : ""
+    }</span>`;
   }
   if (act?.status === "assigned") {
     return `<div class="row-actions">
-      <span class="muted tiny">Assigned</span>
+      <span class="owner-chip" title="${esc(act.ownerTeam || "")}">${esc(act.ownerName || "Assigned")}</span>
+      <button type="button" class="btn-mini" data-act="assign" data-id="${esc(row.id)}">Reassign</button>
       <button type="button" class="btn-mini" data-act="resolve" data-id="${esc(row.id)}">Resolve</button>
     </div>`;
   }
@@ -284,13 +300,13 @@ function renderAnalytics() {
     document.getElementById("bottleneck-chart"),
     Object.keys(a.bottleneck_counts || {}),
     Object.values(a.bottleneck_counts || {}),
-    ["#1f3bff", "#22d3ee"]
+    ["#163a7a", "#0e1631"]
   );
   drawBars(
     document.getElementById("trend-chart"),
     (a.onboarding_trend || []).map((p) => p.label),
     (a.onboarding_trend || []).map((p) => p.value),
-    ["#6c5cff", "#22d3ee"]
+    ["#1e4a8c", "#0e1631"]
   );
   const stateDays = document.getElementById("state-days");
   stateDays.innerHTML = Object.entries(a.avg_days_by_state || {})
@@ -403,11 +419,20 @@ async function openJoinerDrawer(id) {
         ${bottleneckTag(bn)}
         <div class="row-actions drawer-acts">
           ${
+            act?.status === "assigned"
+              ? `<span class="owner-chip">${esc(act.ownerName || "Assigned")}</span>`
+              : ""
+          }
+          ${
             bn && act?.status !== "resolved"
-              ? `<button type="button" class="btn-mini primary" data-act="assign" data-id="${esc(id)}">Assign owner</button>
+              ? `<button type="button" class="btn-mini primary" data-act="assign" data-id="${esc(id)}">${
+                  act?.status === "assigned" ? "Reassign" : "Assign owner"
+                }</button>
                  <button type="button" class="btn-mini" data-act="resolve" data-id="${esc(id)}">Mark resolved</button>`
               : bn
-                ? `<span class="bn-tag ok">Resolved (demo)</span>`
+                ? `<span class="bn-tag ok">Resolved${
+                    act?.ownerName ? ` · ${esc(act.ownerName)}` : ""
+                  }</span>`
                 : ""
           }
           <a class="btn-link" href="/?need=employee">View as this joiner (portal) →</a>
@@ -441,19 +466,109 @@ function closeDrawer() {
   renderDashboard();
 }
 
-function handleAction(act, id) {
-  if (!id) return;
-  state.actions[id] = {
-    status: act === "resolve" ? "resolved" : "assigned",
+function closeAssignModal() {
+  document.getElementById("assign-modal").hidden = true;
+  document.getElementById("assign-backdrop").hidden = true;
+}
+
+async function openAssignModal(id) {
+  const modal = document.getElementById("assign-modal");
+  const backdrop = document.getElementById("assign-backdrop");
+  const body = document.getElementById("assign-body");
+  modal.hidden = false;
+  backdrop.hidden = false;
+  body.innerHTML = `<p class="muted">Loading team…</p>`;
+  try {
+    const data = await fetchJSON(`/api/joiners/${encodeURIComponent(id)}/owners`);
+    document.getElementById("assign-title").textContent =
+      `Assign owner · ${data.joiner_name}`;
+    document.getElementById("assign-sub").textContent = data.bottleneck
+      ? `${data.queue} queue · ${data.bottleneck}`
+      : `${data.queue} queue · no active bottleneck`;
+    document.getElementById("assign-kicker").textContent =
+      `${data.department} · manager ${data.manager_name}`;
+
+    const groups = {};
+    for (const o of data.owners || []) {
+      (groups[o.team] ||= []).push(o);
+    }
+    const order = ["HR", "IT", "Manager", "Mentor", "Ops"];
+    const keys = [
+      ...order.filter((k) => groups[k]),
+      ...Object.keys(groups).filter((k) => !order.includes(k)),
+    ];
+
+    body.innerHTML = `
+      <p class="muted tiny assign-note">${esc(data.note || "")}</p>
+      ${keys
+        .map((team) => {
+          const rows = groups[team]
+            .map((o) => {
+              const initials = o.name
+                .split(/\s+/)
+                .map((p) => p[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
+              return `<button type="button" class="owner-row ${
+                o.recommended ? "recommended" : ""
+              }" data-pick-owner="${esc(o.id)}" data-joiner="${esc(id)}"
+                data-owner-name="${esc(o.name)}" data-owner-team="${esc(o.team)}">
+                <span class="owner-avatar" aria-hidden="true">${esc(initials)}</span>
+                <span class="owner-meta">
+                  <strong>${esc(o.name)}</strong>
+                  <span class="muted tiny">${esc(o.title)} · ${esc(o.focus)}</span>
+                </span>
+                ${
+                  o.recommended
+                    ? `<span class="owner-rec">Suggested</span>`
+                    : `<span class="muted tiny">Select</span>`
+                }
+              </button>`;
+            })
+            .join("");
+          return `<section class="owner-group">
+            <h3>${esc(team)} team</h3>
+            <div class="owner-list">${rows}</div>
+          </section>`;
+        })
+        .join("")}`;
+  } catch (err) {
+    body.innerHTML = `<p class="load-error">Could not load team: ${esc(err.message)}</p>`;
+  }
+}
+
+function confirmAssign(joinerId, ownerId, ownerName, ownerTeam) {
+  state.actions[joinerId] = {
+    status: "assigned",
+    ownerId,
+    ownerName,
+    ownerTeam,
     at: new Date().toISOString(),
   };
-  showToast(
-    act === "resolve"
-      ? "Bottleneck marked resolved (synthetic demo — not persisted)"
-      : "Owner assigned (synthetic demo — not persisted)"
-  );
+  closeAssignModal();
+  showToast(`Assigned to ${ownerName} (${ownerTeam}) — synthetic demo, not persisted`);
   render();
-  if (state.selectedId === id) openJoinerDrawer(id);
+  if (state.selectedId === joinerId) openJoinerDrawer(joinerId);
+}
+
+function handleAction(act, id) {
+  if (!id) return;
+  if (act === "assign") {
+    openAssignModal(id);
+    return;
+  }
+  if (act === "resolve") {
+    const prev = state.actions[id] || {};
+    state.actions[id] = {
+      ...prev,
+      status: "resolved",
+      at: new Date().toISOString(),
+    };
+    showToast("Bottleneck marked resolved (synthetic demo — not persisted)");
+    render();
+    if (state.selectedId === id) openJoinerDrawer(id);
+  }
 }
 
 function showToast(msg) {
@@ -624,14 +739,28 @@ function wireUI() {
       state.role = btn.dataset.role;
       document.querySelectorAll(".role-btn").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
+      paintFilterExplain();
       await loadAll();
     });
   });
   document.getElementById("refresh-btn").addEventListener("click", () => loadAll());
   document.getElementById("drawer-close").addEventListener("click", closeDrawer);
   document.getElementById("drawer-backdrop").addEventListener("click", closeDrawer);
+  document.getElementById("assign-close")?.addEventListener("click", closeAssignModal);
+  document.getElementById("assign-backdrop")?.addEventListener("click", closeAssignModal);
 
   document.addEventListener("click", (e) => {
+    const pick = e.target.closest("[data-pick-owner]");
+    if (pick) {
+      e.preventDefault();
+      confirmAssign(
+        pick.dataset.joiner,
+        pick.dataset.pickOwner,
+        pick.dataset.ownerName,
+        pick.dataset.ownerTeam
+      );
+      return;
+    }
     const openBtn = e.target.closest("[data-open]");
     if (openBtn) {
       e.preventDefault();
@@ -647,12 +776,16 @@ function wireUI() {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeDrawer();
+    if (e.key === "Escape") {
+      closeAssignModal();
+      closeDrawer();
+    }
   });
 }
 
 if (employerSession) {
   paintSignedIn();
+  paintFilterExplain();
   // Hiring-manager accounts land on their team; default lens stays All within that team.
   if (employerSession.employerPersona === "Manager") {
     state.role = "All";
@@ -667,6 +800,7 @@ if (employerSession) {
       b.classList.toggle("active", b.dataset.role === "IT");
     });
   }
+  paintFilterExplain();
   wireUI();
   loadAll().catch((err) => {
     console.error(err);

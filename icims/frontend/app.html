@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iCIMS — Talent Acquisition (Mock)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=1" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">iC</span>
+        <div>
+          <div class="brand-name">iCIMS</div>
+          <div class="brand-sub">Mock Talent Acquisition</div>
+        </div>
+      </div>
+
+      <div class="nav-group">Home</div>
+      <button type="button" class="nav-btn active" data-section="home">Home</button>
+
+      <div class="nav-group">Recruiting</div>
+      <button type="button" class="nav-btn" data-section="requisitions">Job Requisitions</button>
+      <button type="button" class="nav-btn" data-section="candidates">Candidates</button>
+      <button type="button" class="nav-btn" data-section="interviews">Interviews</button>
+
+      <div class="nav-group">Hiring</div>
+      <button type="button" class="nav-btn" data-section="offers">Offers</button>
+      <button type="button" class="nav-btn" data-section="newhires">New Hires</button>
+
+      <div class="nav-group">Preboarding</div>
+      <button type="button" class="nav-btn" data-section="documents">Documents</button>
+      <button type="button" class="nav-btn" data-section="readiness">Readiness</button>
+
+      <div class="nav-group">Administration</div>
+      <button type="button" class="nav-btn" data-section="reports">Reports</button>
+      <button type="button" class="nav-btn" data-section="integrations">Integrations</button>
+      <button type="button" class="nav-btn" data-section="settings">Settings</button>
+
+      <div class="sidebar-foot">
+        <span class="muted tiny">Logged in as</span>
+        <strong id="user-name">Jordan Blake</strong>
+        <span class="tiny" id="user-title">HR Business Partner</span>
+        <div class="synth-pill">SYNTHETIC DEMO ENVIRONMENT</div>
+        <button type="button" class="btn-secondary" id="sign-out" style="margin-top:0.75rem;width:100%;color:#0a2540">Sign out</button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="page-title">Home</h1>
+          <p class="muted tiny" id="page-sub">HR dashboard · synthetic cohort seed 42</p>
+        </div>
+        <div class="topbar-actions">
+          <span class="chip warn">Synthetic Demo</span>
+          <button type="button" class="btn-secondary" id="refresh-btn">Refresh</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div id="global-error" class="load-error" hidden></div>
+
+        <!-- HOME -->
+        <section id="section-home" class="section active">
+          <div class="kpi-row" id="home-kpis"></div>
+          <div class="panel">
+            <div class="panel-head"><h2>Hiring Pipeline</h2></div>
+            <div class="panel-body"><div class="pipeline" id="pipeline"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Upcoming Starts</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="upcoming-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th><th>Position</th><th>Department</th>
+                    <th>Manager</th><th>Start Date</th><th>Status</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- REQUISITIONS -->
+        <section id="section-requisitions" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Job Requisitions</h2><span class="muted tiny" id="req-count"></span></div>
+            <div class="table-wrap">
+              <table class="data" id="req-table">
+                <thead>
+                  <tr>
+                    <th>Requisition ID</th><th>Position</th><th>Department</th>
+                    <th>Hiring Manager</th><th>Openings</th><th>Candidates</th>
+                    <th>Status</th><th>Created</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel" id="req-detail" hidden>
+            <div class="panel-head"><h2 id="req-detail-title">Requisition candidates</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="req-cand-table">
+                <thead>
+                  <tr><th>Candidate</th><th>Type</th><th>Stage</th><th>Applied</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- CANDIDATES -->
+        <section id="section-candidates" class="section">
+          <div class="filters" id="cand-filters">
+            <input type="search" id="cand-q" placeholder="Search name / ID / email" />
+            <select id="f-dept"><option value="">All departments</option></select>
+            <select id="f-pos"><option value="">All positions</option></select>
+            <select id="f-mgr"><option value="">All managers</option></select>
+            <select id="f-type">
+              <option value="">Intern / FTE</option>
+              <option>Intern</option>
+              <option>FTE</option>
+            </select>
+            <select id="f-stage">
+              <option value="">All stages</option>
+              <option>Applied</option><option>Screening</option><option>Interview</option>
+              <option>Offer</option><option>Offer Accepted</option><option>Hired</option>
+            </select>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Candidates</h2><span class="muted tiny" id="cand-count"></span></div>
+            <div class="table-wrap">
+              <table class="data" id="cand-table">
+                <thead>
+                  <tr>
+                    <th>Candidate ID</th><th>Name</th><th>Position</th><th>Department</th>
+                    <th>Hiring Manager</th><th>Type</th><th>Stage</th>
+                    <th>Application Date</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel" id="cand-profile" hidden></div>
+        </section>
+
+        <!-- INTERVIEWS -->
+        <section id="section-interviews" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Interviews</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="int-table">
+                <thead>
+                  <tr>
+                    <th>Candidate</th><th>Interview</th><th>Outcome</th>
+                    <th>Rating</th><th>Interviewer</th><th>When</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- OFFERS -->
+        <section id="section-offers" class="section">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Offers</h2>
+              <span class="muted tiny">Mark Accepted emits OFFER_ACCEPTED for external systems</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data" id="offer-table">
+                <thead>
+                  <tr>
+                    <th>Candidate</th><th>Position</th><th>Department</th>
+                    <th>Offer Date</th><th>Proposed Start</th><th>Status</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- NEW HIRES -->
+        <section id="section-newhires" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>New Hires</h2><span class="muted tiny" id="hire-count"></span></div>
+            <div class="table-wrap">
+              <table class="data" id="hire-table">
+                <thead>
+                  <tr>
+                    <th>Employee ID</th><th>Employee</th><th>Role</th><th>Department</th>
+                    <th>Hiring Manager</th><th>Type</th><th>Start Date</th>
+                    <th>Documents</th><th>Preboarding</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel" id="hire-profile" hidden></div>
+        </section>
+
+        <!-- DOCUMENTS -->
+        <section id="section-documents" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Documents</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="doc-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th><th>Document</th><th>Required</th>
+                    <th>Submission</th><th>Verification</th><th>Submitted</th><th>Action</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- READINESS -->
+        <section id="section-readiness" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Preboarding Readiness</h2></div>
+            <div class="panel-body" id="readiness-list"></div>
+          </div>
+        </section>
+
+        <!-- REPORTS -->
+        <section id="section-reports" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Reports</h2></div>
+            <div class="panel-body muted">
+              <p>Synthetic summary only — pipeline volume by stage is on Home.</p>
+              <p>Export connectors are not live; use Integrations → Event feed for external systems.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- INTEGRATIONS -->
+        <section id="section-integrations" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Integrations</h2><span class="muted tiny">Admin view · not SmartStart UI</span></div>
+            <div class="panel-body" id="integ-status"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Integration activity</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="integ-log">
+                <thead>
+                  <tr><th>Time</th><th>Kind</th><th>Event</th><th>Record</th><th>Delivery</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SETTINGS -->
+        <section id="section-settings" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Settings</h2></div>
+            <div class="panel-body">
+              <p class="muted">Demo environment settings. This application is independent of SmartStart.</p>
+              <p><button type="button" class="btn-secondary" id="reseed-btn">Reseed cohort (seed 42)</button></p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/static/session.js?v=1"></script>
+  <script src="/static/app.js?v=1"></script>
+</body>
+</html>

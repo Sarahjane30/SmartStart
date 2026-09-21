@@ -23,10 +23,10 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["backend"]
+packages = ["backend", "icims"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "icims/tests"]
 pythonpath = ["."]
 
 [tool.ruff]

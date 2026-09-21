@@ -166,7 +166,9 @@ def test_layer2_role_filters_and_frontend():
         assert "HR queue" in home.text
         assert "bottleneck-bars" in home.text
         assert "Where people are stuck" in home.text
-        assert "Stage snapshot" in home.text
+        assert "Pipeline distribution" in home.text
+        assert "Stage snapshot" not in home.text
+        assert "state-days" not in home.text
 
         css = client.get("/static/style.css")
         assert css.status_code == 200

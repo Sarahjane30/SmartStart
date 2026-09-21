@@ -40,7 +40,7 @@ const TITLES = {
   alerts: ["Alerts", "SLA breaches and pending work for the selected work queue"],
   analytics: [
     "Analytics",
-    "Readable queue metrics — bottlenecks, pipeline distribution, and how long people have been waiting",
+    "Queue metrics — who’s blocked, and where they sit in the pipeline",
   ],
   roles: ["Role Views", "Mock iCIMS / ServiceNow / Jira connectors + queue for this lens"],
 };
@@ -349,27 +349,27 @@ function renderAnalytics() {
       ? [
           kpi("In HR queue", a.cohort_size, "Docs / early pipeline", "tone-hr"),
           kpi("Docs pending", a.docs_pending, "iCIMS packet still open", "tone-hr"),
-          kpi("Avg days waiting", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
           kpi("Already ready", a.project_ready_count, "Past HR gates", "tone-mgr"),
+          kpi("Blocked now", stuck, `${bnByQueue.HR} in this queue`, "tone-it"),
         ]
       : state.role === "IT"
         ? [
             kpi("In IT queue", a.cohort_size, "Hardware / SLA", "tone-it"),
-            kpi("Avg IT lead time", a.avg_it_lead_time_days, "Days to deliver hardware", "tone-it"),
             kpi("SLA breaches", a.sla_breaches || 0, "ServiceNow synthetic", "tone-it"),
             kpi("Still active", a.active_joiners, "Not project-ready yet", "tone-all"),
+            kpi("Blocked now", stuck, `${bnByQueue.IT} IT bottlenecks`, "tone-it"),
           ]
         : state.role === "Manager"
           ? [
               kpi("Manager queue", a.cohort_size, "Day-1 / project readiness", "tone-mgr"),
               kpi("Project ready", a.project_ready_count, "Ready for first Jira work", "tone-mgr"),
               kpi("Completion rate", `${a.completion_rate_pct}%`, "Of this queue", "tone-mgr"),
-              kpi("Avg days waiting", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
+              kpi("Blocked now", stuck, `${bnByQueue.Manager} waiting on manager`, "tone-it"),
             ]
           : [
               kpi("Cohort size", a.cohort_size, "Joiners in this view", "tone-all"),
-              kpi("Avg days in pipeline", a.avg_onboarding_days, "Since offer accepted", "tone-all"),
               kpi("Project ready", a.project_ready_count, `${a.completion_rate_pct}% of view`, "tone-mgr"),
+              kpi("On track", onTrack, "No active bottleneck", "tone-all"),
               kpi(
                 "Blocked now",
                 stuck,
@@ -402,45 +402,6 @@ function renderAnalytics() {
     value: p.value,
   }));
   renderHBars(document.getElementById("stage-bars"), stageItems, { tone: "slate" });
-
-  const stageOrder = [
-    "OFFER_ACCEPTED",
-    "DOCS_SUBMITTED",
-    "IT_PROVISIONED",
-    "DAY1_ORIENTED",
-    "PROJECT_READY",
-  ];
-  const daysMap = a.avg_days_by_state || {};
-  const countsFromTrend = Object.fromEntries(
-    (a.onboarding_trend || []).map((p) => [
-      String(p.label).toUpperCase().replaceAll(" ", "_"),
-      p.value,
-    ])
-  );
-  const stateDays = document.getElementById("state-days");
-  const rows = stageOrder
-    .filter((s) => daysMap[s] != null || countsFromTrend[s])
-    .map((s) => {
-      const count = countsFromTrend[s] || 0;
-      const avg = daysMap[s];
-      return `<div class="stage-snap-row">
-        <div class="stage-snap-name">
-          <strong>${shortStage(s)}</strong>
-          <span class="muted tiny">${s.replaceAll("_", " ")}</span>
-        </div>
-        <div class="stage-snap-count">${count} <span class="muted tiny">joiners</span></div>
-        <div class="stage-snap-days">${
-          avg != null
-            ? `<strong data-count="${avg}" data-suffix="d" data-decimals="${
-                String(avg).includes(".") ? String(avg).split(".")[1].length : 0
-              }">0</strong><span class="muted tiny"> avg in pipeline</span>`
-            : `<span class="muted tiny">—</span>`
-        }</div>
-      </div>`;
-    });
-  stateDays.innerHTML =
-    rows.join("") || `<p class="muted">No joiners in this view.</p>`;
-  countUpAll(stateDays);
 }
 
 function renderRoles() {

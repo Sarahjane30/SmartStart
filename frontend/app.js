@@ -91,10 +91,17 @@ function render() {
 }
 
 function kpi(label, value, hint = "", tone = "") {
+  const raw = String(value);
+  const match = raw.match(/^(-?\d+(?:\.\d+)?)(\D*)$/);
+  const valueAttrs = match
+    ? ` data-count="${match[1]}" data-suffix="${esc(match[2])}" data-decimals="${
+        match[1].includes(".") ? match[1].split(".")[1].length : 0
+      }"`
+    : "";
   return `<div class="kpi ${tone}">
     <div class="kpi-accent" aria-hidden="true"></div>
     <div class="label">${label}</div>
-    <div class="value">${value}</div>
+    <div class="value"${valueAttrs}>${match ? "0" : esc(raw)}</div>
     ${hint ? `<div class="hint">${hint}</div>` : ""}
   </div>`;
 }
@@ -196,6 +203,9 @@ function renderDashboard() {
     </tr>`
     )
     .join("");
+
+  countUpAll(document.getElementById("dashboard-kpis"));
+  revealAll(document.querySelector("#joiners-table tbody"), ".joiner-row", 28);
 }
 
 function renderAlerts() {
@@ -224,6 +234,7 @@ function renderAlerts() {
     </article>`
     )
     .join("");
+  revealAll(list, ".alert", 30);
 }
 
 function renderAnalytics() {
@@ -267,25 +278,30 @@ function renderAnalytics() {
               kpi("Completion rate", `${a.completion_rate_pct}%`, `${a.docs_pending} docs pending`, "tone-mgr"),
             ];
   document.getElementById("analytics-kpis").innerHTML = kpis.join("");
+  countUpAll(document.getElementById("analytics-kpis"));
 
   drawBars(
     document.getElementById("bottleneck-chart"),
     Object.keys(a.bottleneck_counts || {}),
     Object.values(a.bottleneck_counts || {}),
-    "#0f6a56"
+    ["#1f3bff", "#22d3ee"]
   );
   drawBars(
     document.getElementById("trend-chart"),
     (a.onboarding_trend || []).map((p) => p.label),
     (a.onboarding_trend || []).map((p) => p.value),
-    "#245b7a"
+    ["#6c5cff", "#22d3ee"]
   );
-  document.getElementById("state-days").innerHTML = Object.entries(a.avg_days_by_state || {})
+  const stateDays = document.getElementById("state-days");
+  stateDays.innerHTML = Object.entries(a.avg_days_by_state || {})
     .map(
       ([s, v]) =>
-        `<div class="state-day"><div class="s">${s.replaceAll("_", " ")}</div><div class="v">${v}d</div></div>`
+        `<div class="state-day"><div class="s">${s.replaceAll("_", " ")}</div><div class="v" data-count="${v}" data-suffix="d" data-decimals="${
+          String(v).includes(".") ? String(v).split(".")[1].length : 0
+        }">0</div></div>`
     )
     .join("") || `<p class="muted">No joiners in this view.</p>`;
+  countUpAll(stateDays);
 }
 
 function renderRoles() {
@@ -306,10 +322,13 @@ function renderRoles() {
     )
     .join("");
 
+  revealAll(document.getElementById("integrations"), ".integration", 60);
+
   const rows = filterRows(state.dashboard?.rows || []);
   document.getElementById("role-focus-label").textContent =
     `${state.role} queue · ${rows.length} items`;
-  document.getElementById("role-focus").innerHTML = rows
+  const focus = document.getElementById("role-focus");
+  focus.innerHTML = rows
     .slice(0, 12)
     .map(
       (r) => `<div class="focus-item">
@@ -327,6 +346,7 @@ function renderRoles() {
     </div>`
     )
     .join("");
+  revealAll(focus, ".focus-item", 32);
 }
 
 async function openJoinerDrawer(id) {
@@ -446,36 +466,77 @@ function showToast(msg) {
   }, 2800);
 }
 
-function drawBars(canvas, labels, values, color) {
+function roundRect(ctx, x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, Math.max(h, 1));
+  ctx.beginPath();
+  ctx.moveTo(x, y + h);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.lineTo(x + w - radius, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+  ctx.lineTo(x + w, y + h);
+  ctx.closePath();
+}
+
+function drawBars(canvas, labels, values, colors) {
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
   const h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  if (!labels.length) return;
-  const pad = { t: 24, r: 16, b: 70, l: 40 };
+  const [c1, c2] = Array.isArray(colors) ? colors : [colors, colors];
+  const pad = { t: 28, r: 18, b: 72, l: 42 };
   const max = Math.max(...values, 1);
-  const barW = (w - pad.l - pad.r) / labels.length;
-  ctx.strokeStyle = "#d5ddd6";
-  ctx.beginPath();
-  ctx.moveTo(pad.l, h - pad.b);
-  ctx.lineTo(w - pad.r, h - pad.b);
-  ctx.stroke();
-  labels.forEach((label, i) => {
-    const x = pad.l + i * barW + barW * 0.15;
-    const bh = ((h - pad.t - pad.b) * values[i]) / max;
-    const y = h - pad.b - bh;
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, barW * 0.7, bh);
-    ctx.fillStyle = "#5d6b63";
-    ctx.font = "11px IBM Plex Mono, monospace";
-    ctx.save();
-    ctx.translate(x + barW * 0.35, h - pad.b + 12);
-    ctx.rotate(-0.65);
-    ctx.fillText(clip(label, 22), 0, 0);
-    ctx.restore();
-    ctx.fillStyle = "#1c2a24";
-    ctx.fillText(String(values[i]), x + 4, y - 6);
-  });
+  const barW = (w - pad.l - pad.r) / Math.max(labels.length, 1);
+  const start = performance.now();
+  const duration = ssReduceMotion ? 0 : 750;
+
+  function paint(progress) {
+    ctx.clearRect(0, 0, w, h);
+    if (!labels.length) return;
+
+    // horizontal guide lines
+    ctx.strokeStyle = "#e6eaf6";
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g += 1) {
+      const gy = pad.t + ((h - pad.t - pad.b) * g) / 4;
+      ctx.beginPath();
+      ctx.moveTo(pad.l, gy);
+      ctx.lineTo(w - pad.r, gy);
+      ctx.stroke();
+    }
+
+    const grad = ctx.createLinearGradient(0, pad.t, 0, h - pad.b);
+    grad.addColorStop(0, c2);
+    grad.addColorStop(1, c1);
+
+    labels.forEach((label, i) => {
+      const x = pad.l + i * barW + barW * 0.16;
+      const full = ((h - pad.t - pad.b) * values[i]) / max;
+      const bh = full * progress;
+      const y = h - pad.b - bh;
+      ctx.fillStyle = grad;
+      roundRect(ctx, x, y, barW * 0.68, bh, 7);
+      ctx.fill();
+
+      ctx.fillStyle = "#5a6784";
+      ctx.font = "11px 'IBM Plex Mono', monospace";
+      ctx.save();
+      ctx.translate(x + barW * 0.34, h - pad.b + 13);
+      ctx.rotate(-0.62);
+      ctx.fillText(clip(label, 22), 0, 0);
+      ctx.restore();
+
+      ctx.fillStyle = "#0b1026";
+      ctx.font = "600 12px Inter, sans-serif";
+      ctx.fillText(String(values[i]), x + 3, Math.max(pad.t - 8, y - 7));
+    });
+  }
+
+  function frame(now) {
+    const p = duration === 0 ? 1 : Math.min(1, (now - start) / duration);
+    paint(1 - Math.pow(1 - p, 3));
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
 
 function drawLine(canvas, labels, values, color) {
@@ -496,7 +557,7 @@ function drawLine(canvas, labels, values, color) {
     v,
     label: labels[i],
   }));
-  ctx.strokeStyle = "#d5ddd6";
+  ctx.strokeStyle = "#e6eaf6";
   ctx.beginPath();
   ctx.moveTo(pad.l, h - pad.b);
   ctx.lineTo(w - pad.r, h - pad.b);
@@ -511,10 +572,10 @@ function drawLine(canvas, labels, values, color) {
     ctx.beginPath();
     ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#1c2a24";
-    ctx.font = "11px IBM Plex Mono, monospace";
+    ctx.fillStyle = "#0b1026";
+    ctx.font = "11px 'IBM Plex Mono', monospace";
     ctx.fillText(String(p.v), p.x - 8, p.y - 10);
-    ctx.fillStyle = "#5d6b63";
+    ctx.fillStyle = "#5a6784";
     ctx.fillText(p.label, p.x - 8, h - 12);
   });
 }

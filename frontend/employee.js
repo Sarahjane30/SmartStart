@@ -177,6 +177,7 @@ function renderNotifications() {
     </article>`
     )
     .join("");
+  revealAll(list, ".note", 40);
 }
 
 function renderLearning() {
@@ -192,7 +193,8 @@ function renderLearning() {
   bar.setAttribute("aria-valuenow", String(t.completion_pct));
   fill.style.width = `${t.completion_pct}%`;
 
-  document.getElementById("modules-list").innerHTML = (t.modules || [])
+  const modulesList = document.getElementById("modules-list");
+  modulesList.innerHTML = (t.modules || [])
     .map((m) => {
       const pct =
         m.status === "complete"
@@ -217,6 +219,7 @@ function renderLearning() {
       </div>`;
     })
     .join("");
+  revealAll(modulesList, ".module", 45);
 }
 
 function renderChat() {
@@ -282,6 +285,7 @@ function renderConsult() {
     </article>`
     )
     .join("");
+  revealAll(list, ".consult-card", 50);
 }
 
 function renderTeam() {
@@ -294,7 +298,8 @@ function renderTeam() {
     String(state.profile?.role_type).toUpperCase() === "INTERN"
       ? "Your department pod only — not the full company roster."
       : "Your department cohort only — not the full company roster.";
-  document.getElementById("team-list").innerHTML = (ws.team || [])
+  const teamList = document.getElementById("team-list");
+  teamList.innerHTML = (ws.team || [])
     .map(
       (m) => `<div class="team-row ${m.is_self ? "is-self" : ""}">
       <div>
@@ -306,6 +311,7 @@ function renderTeam() {
     </div>`
     )
     .join("");
+  revealAll(teamList, ".team-row", 40);
 }
 
 function renderFeedbackHistory() {

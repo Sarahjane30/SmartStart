@@ -100,7 +100,8 @@ function renderPredict() {
   pill.textContent = `${String(data.overall_risk_level).toUpperCase()} · ${data.overall_risk_score}`;
   pill.className = `risk-pill level-${data.overall_risk_level}`;
   document.getElementById("predict-note").textContent = data.note || "Synthetic risk scores only.";
-  document.getElementById("alerts-list").innerHTML = (data.alerts || [])
+  const alertsList = document.getElementById("alerts-list");
+  alertsList.innerHTML = (data.alerts || [])
     .map(
       (a) => `<article class="ai-alert level-${a.risk_level}">
       <div class="ai-alert-top">
@@ -113,6 +114,7 @@ function renderPredict() {
     </article>`
     )
     .join("");
+  revealAll(alertsList, ".ai-alert", 45);
 }
 
 function renderRecs() {
@@ -124,7 +126,8 @@ function renderRecs() {
   const fill = document.getElementById("track-fill");
   bar.setAttribute("aria-valuenow", String(data.track_completion_pct));
   fill.style.width = `${data.track_completion_pct}%`;
-  document.getElementById("recs-list").innerHTML = (data.recommendations || [])
+  const recsList = document.getElementById("recs-list");
+  recsList.innerHTML = (data.recommendations || [])
     .map(
       (r) => `<div class="rec-item">
       <div class="rec-top">
@@ -139,6 +142,7 @@ function renderRecs() {
     </div>`
     )
     .join("");
+  revealAll(recsList, ".rec-item", 45);
 }
 
 function esc(v) {

@@ -184,3 +184,32 @@ def test_layer2_role_filters_and_frontend():
         portal_js = client.get("/static/portal.js")
         assert portal_js.status_code == 200
         assert "/api/auth/login" in portal_js.text
+
+
+def test_portal_visual_layer_is_served():
+    """Split-screen portal ships an animated canvas + shared motion helpers."""
+    with TestClient(app) as client:
+        portal = client.get("/")
+        assert portal.status_code == 200
+        assert "portal-canvas" in portal.text
+        assert "pane-visual" in portal.text
+        assert "graphics.js" in portal.text
+        assert "motion.js" in portal.text
+
+        graphics = client.get("/static/graphics.js")
+        assert graphics.status_code == 200
+        assert "portal-canvas" in graphics.text
+        assert "prefers-reduced-motion" in graphics.text
+
+        motion = client.get("/static/motion.js")
+        assert motion.status_code == 200
+        for helper in ("countUpAll", "revealAll", "attachRipple", "attachTilt"):
+            assert helper in motion.text
+
+        css = client.get("/static/style.css").text
+        assert "--blue-600" in css
+        assert "@keyframes shimmer" in css
+        assert "prefers-reduced-motion" in css
+
+        home = client.get("/employer")
+        assert "motion.js" in home.text

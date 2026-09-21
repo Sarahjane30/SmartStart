@@ -74,28 +74,26 @@ function renderDemoAccounts() {
     .join("");
 }
 
+function showStep(id) {
+  ["persona-step", "employer-step", "employee-step"].forEach((step) => {
+    document.getElementById(step).hidden = step !== id;
+  });
+}
+
 function showPersonaStep() {
-  document.getElementById("persona-step").hidden = false;
-  document.getElementById("employee-step").hidden = true;
-  document.getElementById("employer-step").hidden = true;
-  document.getElementById("portal-shell")?.classList.remove("joining");
+  showStep("persona-step");
 }
 
 function showEmployeeStep() {
-  document.getElementById("persona-step").hidden = true;
-  document.getElementById("employee-step").hidden = false;
-  document.getElementById("employer-step").hidden = true;
-  document.getElementById("portal-shell")?.classList.add("joining");
+  showStep("employee-step");
   syncRoleButtons();
   populateEmployeeSelect();
 }
 
 function showEmployerStep() {
-  document.getElementById("persona-step").hidden = true;
-  document.getElementById("employee-step").hidden = true;
-  document.getElementById("employer-step").hidden = false;
-  document.getElementById("portal-shell")?.classList.add("joining");
+  showStep("employer-step");
   document.getElementById("employer-login-error").hidden = true;
+  revealAll(document.getElementById("demo-accounts-table"), ".demo-cred-row", 42);
 }
 
 function fillCredentials(user, pass) {
@@ -244,3 +242,4 @@ function wire() {
 }
 
 wire();
+countUpAll(document.querySelector(".visual-stats"));

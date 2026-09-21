@@ -11,6 +11,7 @@ All data is **100% synthetic** — no real PII, production logs, or live iCIMS /
 | **1** | Done | Synthetic data + 5-stage state engine |
 | **2** | Done | Employer Command Center (HR / IT / Manager) |
 | **3** | Done | Employee Experience (Intern / FTE dashboard) |
+| **4** | Done | Prototype AI (chatbot / predict / recommend) |
 
 ### State machine
 
@@ -23,9 +24,24 @@ python -m pip install -e ".[dev]"
 uvicorn backend.main:app --reload --port 8000
 ```
 
-- Employer Command Center: http://127.0.0.1:8000/
-- Employee Experience: http://127.0.0.1:8000/employee
+- **Portal (start here):** http://127.0.0.1:8000/ — choose Employer or Employee
+- **Employer Command Center:** http://127.0.0.1:8000/employer (after Employer sign-in)
+- **Employee Experience:** http://127.0.0.1:8000/employee (after picking one Intern/FTE)
+- **AI Features (employer):** http://127.0.0.1:8000/ai
 - API docs: http://127.0.0.1:8000/docs
+
+Employees cannot open the Command Center. Each joiner has their own mentor; **Manager** is an employer queue filter, not one shared people-manager.
+
+
+## Layer 4 API
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/chatbot/{id}` | Synthetic onboarding FAQ (`?q=` optional) |
+| GET | `/api/predict/{id}` | Seed-stable SLA / onboarding risk scores |
+| GET | `/api/recommendations/{id}` | Adaptive learning suggestions by role + progress |
+
+Open AI Features UI: http://127.0.0.1:8000/ai
 
 ## Layer 3 API
 
@@ -35,6 +51,7 @@ uvicorn backend.main:app --reload --port 8000
 | GET | `/api/learningtrack/{id}` | Role-specific learning modules |
 | GET | `/api/notifications/{id}` | Synthetic onboarding notifications |
 | POST | `/api/feedback` | Submit synthetic onboarding-step feedback |
+| GET | `/api/employee/{id}/workspace` | Consult network + department team roster |
 
 **Role differentiation:** Interns get mentor-focused modules (e.g. Git Basics); FTEs get department + project-readiness tasks.
 
@@ -53,7 +70,10 @@ Layer 1 endpoints (`/api/joiners`, `/api/metrics/summary`, etc.) remain availabl
 
 ```text
 backend/
-  main.py                 # FastAPI app (L1–L3)
+  main.py                 # FastAPI app (L1–L4)
+  chatbot.py              # Rule-based synthetic FAQ bot
+  predictor.py            # Seed-stable SLA risk scores
+  recommender.py          # Adaptive learning suggestions
   models.py               # Pydantic schemas
   synthetic_engine.py     # Faker cohort generator
   database.py             # In-memory store
@@ -64,9 +84,11 @@ backend/
 frontend/
   index.html              # Command Center UI
   employee.html           # Employee Experience UI
+  ai.html                 # Prototype AI Features UI
   style.css
   app.js                  # Employer Fetch + charts
   employee.js             # Employee dashboard Fetch UI
+  ai.js                   # AI Features Fetch UI
 tests/
 ```
 

@@ -3,21 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SmartStart — Employer Command Center</title>
+  <title>SmartStart — Employer Command Center (build 21)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=21" />
 </head>
-<body>
-  <div class="app-shell">
+<body class="employer-page">
+  <div class="app-shell" id="employer-shell">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">SS</div>
         <div>
           <div class="brand-name">SmartStart</div>
-          <div class="brand-sub">Employer Command Center</div>
+          <div class="brand-sub">Employer Command Center · build 21</div>
         </div>
+      </div>
+
+      <div class="signed-in" id="signed-in-user">
+        <span class="muted tiny">Signed in…</span>
       </div>
 
       <nav class="nav" aria-label="Primary">
@@ -28,9 +32,10 @@
       </nav>
 
       <div class="sidebar-foot">
-        <a class="btn-link" href="/employee">Open Employee Experience →</a>
+        <a class="btn-link" href="/ai">Open AI Features →</a>
+        <button type="button" class="btn-link" id="sign-out-btn">Exit to portal / sign out</button>
         <div class="pill synthetic">SYNTHETIC DATA ONLY</div>
-        <p class="muted tiny">No real PII · Seed 42 demo cohort · Mock iCIMS / ServiceNow / Jira</p>
+        <p class="muted tiny">Sample login required · No real PII · Seed 42 demo cohort</p>
       </div>
     </aside>
 
@@ -41,15 +46,26 @@
           <p class="muted" id="page-subtitle">Pipeline status across all synthetic joiners</p>
         </div>
         <div class="topbar-actions">
-          <div class="role-filters" role="group" aria-label="Role filter">
-            <button class="role-btn active" data-role="All">All</button>
-            <button class="role-btn" data-role="HR">HR</button>
-            <button class="role-btn" data-role="IT">IT</button>
-            <button class="role-btn" data-role="Manager">Manager</button>
+          <div class="role-filters" role="group" aria-label="Work queue filters">
+            <button class="role-btn active" data-role="All" title="Every joiner in your scope">
+              All
+            </button>
+            <button class="role-btn role-hr" data-role="HR" title="Docs pending — People Ops queue">
+              HR queue
+            </button>
+            <button class="role-btn role-it" data-role="IT" title="Hardware / SLA — IT queue">
+              IT queue
+            </button>
+            <button class="role-btn role-mgr" data-role="Manager" title="Day-1 &amp; project readiness — manager queue">
+              Manager queue
+            </button>
           </div>
           <button id="refresh-btn" class="btn-secondary">Refresh</button>
         </div>
       </header>
+      <p class="filter-explain" id="filter-explain">
+        <strong>All</strong> — every joiner in your scope. These buttons are <em>work queues</em> (who needs to act), not which hiring manager owns the person.
+      </p>
 
       <section id="section-dashboard" class="section active">
         <div class="kpi-row" id="dashboard-kpis"></div>
@@ -65,11 +81,19 @@
                   <th>Joiner</th>
                   <th>Role</th>
                   <th>Department</th>
-                  <th>State</th>
-                  <th>Days</th>
-                  <th>Docs</th>
-                  <th>IT</th>
+                  <th>
+                    <span class="th-tip" tabindex="0" data-tip="Hiring manager for this joiner — cohort is split across Ava Chen, Leo Park, Priya Singh, and Jordan Cole">
+                      Manager <span class="tip-mark" aria-hidden="true">?</span>
+                    </span>
+                  </th>
+                  <th>
+                    <span class="th-tip" tabindex="0" data-tip="Current onboarding stage: Offer → Docs → IT → Day-1 → Project ready">
+                      State <span class="tip-mark" aria-hidden="true">?</span>
+                    </span>
+                  </th>
+                  <th>Progress</th>
                   <th>Bottleneck</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -89,20 +113,25 @@
       </section>
 
       <section id="section-analytics" class="section">
+        <p class="analytics-banner muted" id="analytics-focus"></p>
         <div class="kpi-row" id="analytics-kpis"></div>
-        <div class="charts-grid">
+        <div class="charts-grid analytics-panels">
           <div class="card">
-            <div class="card-head"><h2>Bottlenecks</h2></div>
-            <canvas id="bottleneck-chart" width="640" height="320" aria-label="Bottleneck bar chart"></canvas>
+            <div class="card-head">
+              <h2>Where people are stuck</h2>
+              <span class="muted tiny" id="bn-chart-sub"></span>
+            </div>
+            <p class="muted tiny analytics-hint">Bottleneck counts for the filtered queue — click Assign on the Dashboard to hand one off.</p>
+            <div id="bottleneck-bars" class="h-bars" role="img" aria-label="Bottleneck counts"></div>
           </div>
           <div class="card">
-            <div class="card-head"><h2>Avg onboarding time trend</h2></div>
-            <canvas id="trend-chart" width="640" height="320" aria-label="Onboarding trend line chart"></canvas>
+            <div class="card-head">
+              <h2>Pipeline distribution</h2>
+              <span class="muted tiny">Joiners at each stage</span>
+            </div>
+            <p class="muted tiny analytics-hint">Offer → Docs → IT → Day-1 → Project ready</p>
+            <div id="stage-bars" class="h-bars h-bars-stage" role="img" aria-label="Joiners by onboarding state"></div>
           </div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Average days by state</h2></div>
-          <div id="state-days" class="state-days"></div>
         </div>
       </section>
 
@@ -118,6 +147,47 @@
       </section>
     </main>
   </div>
-  <script src="/static/app.js"></script>
+
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="joiner-drawer" class="joiner-drawer" hidden aria-hidden="true" aria-label="Joiner detail">
+    <div class="drawer-head">
+      <div>
+        <p class="muted tiny" id="drawer-kicker">Joiner detail</p>
+        <h2 id="drawer-name">—</h2>
+        <p class="muted tiny" id="drawer-email"></p>
+      </div>
+      <button type="button" class="btn-secondary" id="drawer-close" aria-label="Close detail panel">Close</button>
+    </div>
+    <div id="drawer-body" class="drawer-body">
+      <p class="muted">Select a joiner from the pipeline table.</p>
+    </div>
+  </aside>
+
+  <div id="assign-backdrop" class="drawer-backdrop" hidden></div>
+  <div
+    id="assign-modal"
+    class="assign-modal"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="assign-title"
+  >
+    <header class="assign-head">
+      <div>
+        <p class="muted tiny" id="assign-kicker">Assign to the team</p>
+        <h2 id="assign-title">Choose someone on the team</h2>
+        <p class="muted" id="assign-sub"></p>
+      </div>
+      <button type="button" class="btn-secondary" id="assign-close">Close</button>
+    </header>
+    <div id="assign-body" class="assign-body">
+      <p class="muted">Loading team…</p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden role="status"></div>
+  <script src="/static/session.js?v=21"></script>
+  <script src="/static/motion.js?v=21"></script>
+  <script src="/static/app.js?v=21"></script>
 </body>
 </html>

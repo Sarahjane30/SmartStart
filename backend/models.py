@@ -54,6 +54,8 @@ class Joiner(BaseModel):
     offer_accepted_at: datetime
     current_state: OnboardingState
     mentor_name: str
+    manager_id: str = "MGR-CHEN"
+    manager_name: str = "Ava Chen"
     learning_track: str
     assigned_tasks: list[str] = Field(default_factory=list)
     synthetic: bool = True
@@ -125,6 +127,38 @@ class EmployerRole(str, Enum):
     MANAGER = "Manager"
 
 
+class EmployerPersona(str, Enum):
+    HR = "HR"
+    IT = "IT"
+    MANAGER = "Manager"
+    OPS = "Ops"
+
+
+class EmployerAccount(BaseModel):
+    username: str
+    password: str
+    display_name: str
+    persona: EmployerPersona
+    title: str
+    manager_id: Optional[str] = None
+
+
+class EmployerLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class EmployerLoginResponse(BaseModel):
+    token: str
+    username: str
+    display_name: str
+    persona: str
+    title: str
+    manager_id: Optional[str] = None
+    synthetic: bool = True
+    message: str = "Synthetic employer session — not real authentication."
+
+
 class AlertSeverity(str, Enum):
     CRITICAL = "critical"
     HIGH = "high"
@@ -141,6 +175,8 @@ class DashboardJoinerRow(BaseModel):
     department_track: DepartmentTrack
     current_state: OnboardingState
     mentor_name: str
+    manager_id: str
+    manager_name: str
     learning_track: str
     joining_date: date
     days_in_pipeline: int
@@ -192,9 +228,13 @@ class AnalyticsResponse(BaseModel):
     active_joiners: int
     project_ready_count: int
     docs_pending: int = 0
+    sla_breaches: int = 0
     bottleneck_counts: dict[str, int]
     avg_days_by_state: dict[str, float]
     onboarding_trend: list[TimeSeriesPoint]
+    role_view: str = "All"
+    cohort_size: int = 0
+    focus_note: str = ""
     synthetic: bool = True
     as_of: Optional[datetime] = None
 
@@ -317,3 +357,151 @@ class FeedbackResponse(BaseModel):
     feedback: FeedbackRecord
     message: str = "Thanks — synthetic feedback recorded for demo."
     synthetic: bool = True
+
+
+# --- Layer 4: Prototype AI Features ---
+
+
+class RiskLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class ChatFAQ(BaseModel):
+    id: str
+    question: str
+    answer: str
+    category: str
+    synthetic: bool = True
+
+
+class ChatTurn(BaseModel):
+    role: str  # user | assistant
+    text: str
+    matched_faq_id: Optional[str] = None
+    synthetic: bool = True
+
+
+class ChatbotResponse(BaseModel):
+    joiner_id: str
+    role_type: RoleType
+    greeting: str
+    faqs: list[ChatFAQ]
+    turns: list[ChatTurn] = Field(default_factory=list)
+    query: Optional[str] = None
+    synthetic: bool = True
+    note: str = "Rule-based synthetic FAQ bot — not a live LLM."
+
+
+class PredictiveAlert(BaseModel):
+    id: str
+    category: str
+    title: str
+    message: str
+    risk_score: float = Field(ge=0, le=100)
+    risk_level: RiskLevel
+    drivers: list[str] = Field(default_factory=list)
+    recommended_action: str
+    synthetic: bool = True
+
+
+class PredictResponse(BaseModel):
+    joiner_id: str
+    overall_risk_score: float
+    overall_risk_level: RiskLevel
+    alerts: list[PredictiveAlert]
+    synthetic: bool = True
+    as_of: datetime
+    note: str = "Seed-stable synthetic risk scores from demo delays only."
+
+
+class RecommendationItem(BaseModel):
+    id: str
+    module_id: str
+    title: str
+    reason: str
+    priority: int = Field(ge=1, le=5)
+    estimated_minutes: int
+    progress_pct: float = Field(ge=0, le=100)
+    status: ModuleStatus
+    category: str
+    synthetic: bool = True
+
+
+class RecommendationsResponse(BaseModel):
+    joiner_id: str
+    role_type: RoleType
+    department_track: DepartmentTrack
+    focus: str
+    recommendations: list[RecommendationItem]
+    track_completion_pct: float
+    synthetic: bool = True
+    note: str = "Adaptive suggestions from synthetic role + progress — demo only."
+
+
+class ConsultContact(BaseModel):
+    """Synthetic person the joiner can ask for help."""
+
+    id: str
+    name: str
+    role_label: str
+    channel: str
+    availability: str
+    focus: str
+    synthetic: bool = True
+
+
+class TeamMember(BaseModel):
+    """Synthetic teammate / peer joiner in the same department."""
+
+    id: str
+    name: str
+    role_type: RoleType
+    current_state: OnboardingState
+    mentor_name: str
+    days_in_pipeline: int
+    is_self: bool = False
+    synthetic: bool = True
+
+
+class TeamWorkspaceResponse(BaseModel):
+    """Employee workspace helpers: consult network + department team."""
+
+    joiner_id: str
+    role_type: RoleType
+    department: str
+    team_name: str
+    consult: list[ConsultContact]
+    team: list[TeamMember]
+    suggested_questions: list[str]
+    synthetic: bool = True
+    note: str = "Synthetic consult network and team roster — demo only."
+
+
+class OwnerCandidate(BaseModel):
+    """Someone who can own a bottleneck (Assign modal)."""
+
+    id: str
+    name: str
+    title: str
+    team: str
+    focus: str
+    recommended: bool = False
+    synthetic: bool = True
+
+
+class AssignOwnersResponse(BaseModel):
+    """Assignable owners for a joiner's current bottleneck."""
+
+    joiner_id: str
+    joiner_name: str
+    department: str
+    manager_name: str
+    mentor_name: str
+    bottleneck: str | None = None
+    queue: str = "Ops"
+    owners: list[OwnerCandidate]
+    synthetic: bool = True
+    note: str = "Synthetic demo only — assignments are not persisted."

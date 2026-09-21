@@ -63,6 +63,24 @@ NON_TECH_TASKS = (
     "Submit week-1 checklist",
 )
 
+# Fixed hiring-manager pool — joiners are divided across these people (not one shared manager).
+HIRING_MANAGERS: tuple[tuple[str, str, frozenset[str]], ...] = (
+    ("MGR-CHEN", "Ava Chen", frozenset({"Engineering", "Data Science", "Security"})),
+    ("MGR-PARK", "Leo Park", frozenset({"Product", "IT Infrastructure"})),
+    ("MGR-SINGH", "Priya Singh", frozenset({"Human Resources", "Finance", "Operations"})),
+    ("MGR-COLE", "Jordan Cole", frozenset({"Marketing", "Sales"})),
+)
+
+
+def assign_hiring_manager(department: str, idx: int) -> tuple[str, str]:
+    """Map a joiner to one of the demo hiring managers by department."""
+    for manager_id, manager_name, depts in HIRING_MANAGERS:
+        if department in depts:
+            return manager_id, manager_name
+    # Even fallback so every joiner still lands on a real manager account.
+    manager_id, manager_name, _ = HIRING_MANAGERS[(idx - 1) % len(HIRING_MANAGERS)]
+    return manager_id, manager_name
+
 
 def _state_index(state: OnboardingState) -> int:
     return ONBOARDING_STAGES.index(state)
@@ -147,6 +165,7 @@ def generate_cohort(
         first = fake.first_name()
         last = fake.last_name()
         email = f"{first}.{last}.{idx}@synthetic.smartstart.example".lower()
+        manager_id, manager_name = assign_hiring_manager(department, idx)
 
         joiner = Joiner(
             id=joiner_id,
@@ -159,6 +178,8 @@ def generate_cohort(
             offer_accepted_at=offer_accepted_at,
             current_state=current_state,
             mentor_name=fake.name(),
+            manager_id=manager_id,
+            manager_name=manager_name,
             learning_track=learning_track,
             assigned_tasks=tasks,
             synthetic=True,

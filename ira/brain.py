@@ -50,7 +50,15 @@ def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
         if any(k in q for k in ("first day", "start date", "joining", "when do i start")):
             date = emp.get("joining_date")
             if date:
-                return f"Your first day is {date}."
+                pretty = date
+                try:
+                    from datetime import date as _date
+
+                    d = _date.fromisoformat(str(date)[:10])
+                    pretty = d.strftime("%B %-d, %Y")
+                except Exception:
+                    pass
+                return f"Your first day is {pretty}."
             return "I don’t have a start date on your record yet."
 
         if any(k in q for k in ("mentor",)):

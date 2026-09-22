@@ -33,10 +33,10 @@ Signed in as **Riley Chen · IT Service Desk Analyst**.
 
 ## Demo action
 
-1. Sign in → **Requests** (or Hardware)
+1. Sign in → lands on **Requests** (no Home dashboard — that lives in SmartStart)
 2. On an open RITM: **Configure** → **Mark Delivered** → **Grant Access**
 3. Emits `HARDWARE_DELIVERED`, `ACCESS_GRANTED`, and `IT_PROVISIONING_COMPLETE` on `GET /api/events`
-4. Stay in ServiceNow — switch tabs manually to SmartStart to show ingest
+4. Stay in ServiceNow — switch tabs to **SmartStart** to show the interactive dashboard after ingest
 
 ## Event feed
 

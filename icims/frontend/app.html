@@ -20,12 +20,9 @@
         </div>
       </div>
 
-      <div class="nav-group">Home</div>
-      <button type="button" class="nav-btn active" data-section="home">Home</button>
-
       <div class="nav-group">Recruiting</div>
       <button type="button" class="nav-btn" data-section="requisitions">Job Requisitions</button>
-      <button type="button" class="nav-btn" data-section="candidates">Candidates</button>
+      <button type="button" class="nav-btn active" data-section="candidates">Candidates</button>
       <button type="button" class="nav-btn" data-section="interviews">Interviews</button>
 
       <div class="nav-group">Hiring</div>
@@ -53,8 +50,8 @@
     <div class="main">
       <header class="topbar">
         <div>
-          <h1 id="page-title">Home</h1>
-          <p class="muted tiny" id="page-sub">HR dashboard · synthetic cohort seed 42</p>
+          <h1 id="page-title">Candidates</h1>
+          <p class="muted tiny" id="page-sub">Source system records · SmartStart pulls these via API</p>
         </div>
         <div class="topbar-actions">
           <span class="chip warn">Synthetic Demo</span>
@@ -64,29 +61,6 @@
 
       <div class="content">
         <div id="global-error" class="load-error" hidden></div>
-
-        <!-- HOME -->
-        <section id="section-home" class="section active">
-          <div class="kpi-row" id="home-kpis"></div>
-          <div class="panel">
-            <div class="panel-head"><h2>Hiring Pipeline</h2></div>
-            <div class="panel-body"><div class="pipeline" id="pipeline"></div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-head"><h2>Upcoming Starts</h2></div>
-            <div class="table-wrap">
-              <table class="data" id="upcoming-table">
-                <thead>
-                  <tr>
-                    <th>Employee</th><th>Position</th><th>Department</th>
-                    <th>Manager</th><th>Start Date</th><th>Status</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
 
         <!-- REQUISITIONS -->
         <section id="section-requisitions" class="section">
@@ -118,8 +92,8 @@
           </div>
         </section>
 
-        <!-- CANDIDATES -->
-        <section id="section-candidates" class="section">
+        <!-- CANDIDATES (default landing — no Home dashboard; SmartStart owns that) -->
+        <section id="section-candidates" class="section active">
           <div class="filters" id="cand-filters">
             <input type="search" id="cand-q" placeholder="Search name / ID / email" />
             <select id="f-dept"><option value="">All departments</option></select>
@@ -244,8 +218,8 @@
           <div class="panel">
             <div class="panel-head"><h2>Reports</h2></div>
             <div class="panel-body muted">
-              <p>Synthetic summary only — pipeline volume by stage is on Home.</p>
-              <p>Export connectors are not live; use Integrations → Event feed for external systems.</p>
+              <p>This is a source system — interactive pipeline analytics live in SmartStart after ingest.</p>
+              <p>Use Integrations → Event feed so SmartStart can pull HR events.</p>
             </div>
           </div>
         </section>

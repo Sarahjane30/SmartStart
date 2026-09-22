@@ -20,12 +20,9 @@
         </div>
       </div>
 
-      <div class="nav-group">Home</div>
-      <button type="button" class="nav-btn active" data-section="home">Home</button>
-
       <div class="nav-group">Service Desk</div>
       <button type="button" class="nav-btn" data-section="catalog">Service Catalog</button>
-      <button type="button" class="nav-btn" data-section="requests">Requests</button>
+      <button type="button" class="nav-btn active" data-section="requests">Requests</button>
       <button type="button" class="nav-btn" data-section="incidents">Incidents</button>
 
       <div class="nav-group">Onboarding IT</div>
@@ -50,8 +47,8 @@
     <div class="main">
       <header class="topbar">
         <div>
-          <h1 id="page-title">Home</h1>
-          <p class="muted tiny" id="page-sub">ITSM dashboard · synthetic cohort seed 42</p>
+          <h1 id="page-title">Requests</h1>
+          <p class="muted tiny" id="page-sub">Source system RITMs · SmartStart pulls these via API</p>
         </div>
         <div class="topbar-actions">
           <span class="chip warn">Synthetic Demo</span>
@@ -61,24 +58,6 @@
 
       <div class="content">
         <div id="global-error" class="load-error" hidden></div>
-
-        <section id="section-home" class="section active">
-          <div class="kpi-row" id="home-kpis"></div>
-          <div class="panel">
-            <div class="panel-head"><h2>Urgent / open onboarding requests</h2></div>
-            <div class="table-wrap">
-              <table class="data" id="urgent-table">
-                <thead>
-                  <tr>
-                    <th>Number</th><th>Requested for</th><th>Hardware</th>
-                    <th>State</th><th>Lead time</th><th>SLA</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
 
         <section id="section-catalog" class="section">
           <div class="panel">
@@ -94,7 +73,7 @@
           </div>
         </section>
 
-        <section id="section-requests" class="section">
+        <section id="section-requests" class="section active">
           <div class="filters">
             <input type="search" id="req-q" placeholder="Search RITM / name" />
             <select id="f-hw">
@@ -207,8 +186,8 @@
           <div class="panel">
             <div class="panel-head"><h2>Reports</h2></div>
             <div class="panel-body muted">
-              <p>Synthetic ITSM summaries live on Home and SLA.</p>
-              <p>Use Integrations → event feed for external onboarding platforms.</p>
+              <p>This is a source system — interactive onboarding analytics live in SmartStart after ingest.</p>
+              <p>Use Integrations → event feed so SmartStart can pull IT events.</p>
             </div>
           </div>
         </section>

@@ -1,15 +1,14 @@
 /* Mock ServiceNow frontend — standalone ITSM (not SmartStart) */
 
 const TITLES = {
-  home: ["Home", "ITSM dashboard · synthetic cohort seed 42"],
   catalog: ["Service Catalog", "Published catalog items"],
-  requests: ["Requests", "New-hire RITMs — order, configure, deliver, grant access"],
+  requests: ["Requests", "Source RITMs — SmartStart pulls these via API"],
   incidents: ["Incidents", "SLA risk and desk incidents"],
   hardware: ["Hardware", "Laptop provisioning queue"],
   access: ["Access", "Software entitlement queue"],
   sla: ["SLA", "Breached and at-risk onboarding requests"],
-  reports: ["Reports", "Synthetic summaries"],
-  integrations: ["Integrations", "External onboarding platform feed"],
+  reports: ["Reports", "Source-system notes only"],
+  integrations: ["Integrations", "Event feed for SmartStart to consume"],
   settings: ["Settings", "Demo environment"],
 };
 
@@ -97,8 +96,7 @@ function showSection(name) {
 async function loadSection(name) {
   showError("");
   try {
-    if (name === "home") await renderHome();
-    else if (name === "catalog") await renderCatalog();
+    if (name === "catalog") await renderCatalog();
     else if (name === "requests") await renderRequests();
     else if (name === "incidents") await renderIncidents();
     else if (name === "hardware") await renderHardware();
@@ -108,41 +106,6 @@ async function loadSection(name) {
   } catch (e) {
     showError(String(e.message || e));
   }
-}
-
-async function renderHome() {
-  const d = await api("/api/dashboard");
-  const kpis = [
-    ["Open Requests", d.open_requests],
-    ["Hardware Pending", d.hardware_pending],
-    ["Configured", d.hardware_configured],
-    ["Access Pending", d.access_pending],
-    ["SLA Breached", d.sla_breached],
-    ["Closed Complete", d.closed_complete],
-  ];
-  document.getElementById("home-kpis").innerHTML = kpis
-    .map(([l, v]) => `<div class="kpi"><span>${esc(l)}</span><strong>${esc(v)}</strong></div>`)
-    .join("");
-
-  document.querySelector("#urgent-table tbody").innerHTML = (d.urgent || [])
-    .map(
-      (r) => `<tr data-ritm="${esc(r.number)}">
-      <td class="mono">${esc(r.number)}</td>
-      <td>${esc(r.requested_for)}</td>
-      <td>${chip(r.hardware_status, toneFor(r.hardware_status))}</td>
-      <td>${esc(r.state)}</td>
-      <td class="mono">${esc(r.lead_time_days)}d</td>
-      <td>${r.sla_breached ? chip("Breached", "bad") : chip("OK", "ok")}</td>
-    </tr>`
-    )
-    .join("") || `<tr><td colspan="6" class="muted">No urgent items</td></tr>`;
-
-  document.querySelectorAll("#urgent-table tr[data-ritm]").forEach((tr) => {
-    tr.onclick = () => {
-      showSection("requests");
-      openRequest(tr.getAttribute("data-ritm"));
-    };
-  });
 }
 
 async function renderCatalog() {
@@ -389,7 +352,7 @@ if (session) {
     btn.addEventListener("click", () => showSection(btn.getAttribute("data-section")));
   });
   document.getElementById("refresh-btn").onclick = () => {
-    const active = document.querySelector(".nav-btn.active")?.getAttribute("data-section") || "home";
+    const active = document.querySelector(".nav-btn.active")?.getAttribute("data-section") || "requests";
     loadSection(active);
   };
   document.getElementById("sign-out").onclick = () => {
@@ -399,7 +362,7 @@ if (session) {
   document.getElementById("reseed-btn").onclick = async () => {
     await api("/api/admin/reseed?seed=42", { method: "POST" });
     toast("Cohort reseeded (seed 42)");
-    showSection("home");
+    showSection("requests");
   };
   ["req-q", "f-hw", "f-sla"].forEach((id) => {
     const el = document.getElementById(id);
@@ -409,5 +372,5 @@ if (session) {
       }
     });
   });
-  showSection("home");
+  showSection("requests");
 }

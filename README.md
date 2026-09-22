@@ -12,8 +12,11 @@ All data is **100% synthetic** — no real PII, production logs, or live HR/IT s
 | **Mock iCIMS** (standalone HR/ATS) | `8100` | `uvicorn icims.backend.main:app --reload --port 8100` |
 | **Mock ServiceNow** (standalone ITSM) | `8200` | `uvicorn servicenow.backend.main:app --reload --port 8200` |
 | **Mock Jira** (standalone boards) | `8300` | `uvicorn jira.backend.main:app --reload --port 8300` |
+| **IRA** (desktop companion — not a website) | — | `python -m pip install -e ".[ira]" && python -m ira` |
 
-See [`icims/README.md`](icims/README.md), [`servicenow/README.md`](servicenow/README.md), [`jira/README.md`](jira/README.md).
+See [`icims/README.md`](icims/README.md), [`servicenow/README.md`](servicenow/README.md), [`jira/README.md`](jira/README.md), [`ira/README.md`](ira/README.md).
+
+**IRA** is an independent PySide6 floating widget. It is **not** a SmartStart page or embedded chatbot — it sits on the desktop and calls SmartStart `/api/ira/*` APIs.
 
 Demo logins: iCIMS `hr.demo` / `hr-demo-2026` · ServiceNow `it.demo` / `it-demo-2026` · Jira `mgr.demo` / `mgr-demo-2026`.
 

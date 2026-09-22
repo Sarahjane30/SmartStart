@@ -10,7 +10,11 @@ from backend.main import app
 def test_layer4_chatbot_predict_recommendations():
     with TestClient(app) as client:
         joiners = client.get("/api/joiners").json()
-        intern = next(j for j in joiners if j["role_type"] == "INTERN")
+        intern = next(
+            j
+            for j in joiners
+            if j["role_type"] == "INTERN" and j.get("department_track") == "Technical"
+        )
         fte = next(j for j in joiners if j["role_type"] == "FTE")
 
         chat = client.get(f"/api/chatbot/{intern['id']}")

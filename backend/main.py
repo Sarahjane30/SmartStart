@@ -29,6 +29,7 @@ from backend.employee_experience import (
     submit_feedback,
 )
 from backend.integrations import build_integrations
+from backend.ira_api import build_ira_context, list_ira_employees
 from backend.owners import build_assignable_owners
 from backend.models import (
     AssignOwnersResponse,
@@ -362,6 +363,63 @@ def integrations(session: EmployerSession):
     """Mock iCIMS / ServiceNow / Jira connector snapshots (synthetic)."""
     _ = session
     return build_integrations()
+
+
+# --- IRA desktop companion (API only — IRA is not a SmartStart page) -------
+
+
+@app.get("/api/ira/employees")
+def ira_employees() -> dict:
+    """Employee picker list for the IRA desktop companion."""
+    return list_ira_employees()
+
+
+@app.get("/api/ira/{joiner_id}/context")
+def ira_context(joiner_id: str) -> dict:
+    """Aggregated onboarding context for IRA (employee / IT / learning / readiness)."""
+    try:
+        return build_ira_context(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Employee not found") from None
+
+
+@app.get("/api/ira/{joiner_id}/onboarding")
+def ira_onboarding(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {"employee_id": joiner_id, "onboarding": ctx["onboarding"], "synthetic": True}
+
+
+@app.get("/api/ira/{joiner_id}/tasks")
+def ira_tasks(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {
+        "employee_id": joiner_id,
+        "open_tasks": ctx["onboarding"]["open_tasks"],
+        "assigned_tasks": ctx["onboarding"]["assigned_tasks"],
+        "synthetic": True,
+    }
+
+
+@app.get("/api/ira/{joiner_id}/it-status")
+def ira_it_status(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {"employee_id": joiner_id, "it": ctx["it"], "synthetic": True}
+
+
+@app.get("/api/ira/{joiner_id}/learning")
+def ira_learning(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {"employee_id": joiner_id, "learning": ctx["learning"], "synthetic": True}
+
+
+@app.get("/api/ira/{joiner_id}/notifications")
+def ira_notifications(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {
+        "employee_id": joiner_id,
+        "notifications": ctx["notifications"],
+        "synthetic": True,
+    }
 
 
 # --- Layer 3: Employee Experience ------------------------------------------

@@ -7,7 +7,7 @@ This is a **separate website** from SmartStart. It simulates an HR / recruiting
 |-----|------|------|
 | **iCIMS (this app)** | `8100` | HR / Talent Acquisition |
 | SmartStart | `8000` | Onboarding orchestration |
-| Mock ServiceNow | `8200` | ITSM (separate) |
+| **ServiceNow** | `8200` | ITSM (`uvicorn servicenow.backend.main:app --port 8200`) |
 
 Open them in **different browser tabs**. Actions in iCIMS emit events via REST;
 SmartStart can consume them independently. This app never navigates to SmartStart.
@@ -33,11 +33,11 @@ Signed in as **Jordan Blake · HR Business Partner**.
 
 ## Demo action
 
-1. Sign in → **Offers**
-2. Click **Mark Accepted** on a Sent offer
+1. Sign in → lands on **Candidates** (no Home dashboard — that lives in SmartStart)
+2. Go to **Offers** → click **Mark Accepted**
 3. iCIMS updates offer + candidate stage and creates a New Hire
 4. Emits `OFFER_ACCEPTED` on `GET /api/events`
-5. Stay in iCIMS — switch tabs manually to SmartStart to show ingest
+5. Stay in iCIMS — switch tabs to **SmartStart** to show the interactive dashboard after ingest
 
 ## Event feed (for SmartStart / external consumers)
 

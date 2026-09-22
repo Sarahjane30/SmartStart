@@ -10,8 +10,9 @@ All data is **100% synthetic** — no real PII, production logs, or live HR/IT s
 |-----|------|-------|
 | **SmartStart** (this app) | `8000` | `uvicorn backend.main:app --reload --port 8000` |
 | **Mock iCIMS** (standalone HR/ATS) | `8100` | `uvicorn icims.backend.main:app --reload --port 8100` |
+| **Mock ServiceNow** (standalone ITSM) | `8200` | `uvicorn servicenow.backend.main:app --reload --port 8200` |
 
-See [`icims/README.md`](icims/README.md). Demo login: `hr.demo` / `hr-demo-2026`.
+Demo logins: iCIMS `hr.demo` / `hr-demo-2026` · ServiceNow `it.demo` / `it-demo-2026`.
 
 ## Layers
 

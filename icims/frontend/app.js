@@ -1,16 +1,15 @@
 /* Mock iCIMS frontend — standalone HR ATS (not SmartStart) */
 
 const TITLES = {
-  home: ["Home", "HR dashboard · synthetic cohort seed 42"],
   requisitions: ["Job Requisitions", "Open roles and candidate volume"],
-  candidates: ["Candidates", "Searchable talent database"],
+  candidates: ["Candidates", "Source records — SmartStart pulls these via API"],
   interviews: ["Interviews", "Interview history across candidates"],
-  offers: ["Offers", "Send, accept, or decline — updates live state"],
+  offers: ["Offers", "Send, accept, or decline — emits events for SmartStart"],
   newhires: ["New Hires", "Post–offer-acceptance employee records"],
   documents: ["Documents", "HR document verification"],
   readiness: ["Readiness", "Preboarding checklist"],
-  reports: ["Reports", "Synthetic summary views"],
-  integrations: ["Integrations", "External onboarding platform feed"],
+  reports: ["Reports", "Source-system notes only"],
+  integrations: ["Integrations", "Event feed for SmartStart to consume"],
   settings: ["Settings", "Demo environment"],
 };
 
@@ -97,8 +96,7 @@ function showSection(name) {
 async function loadSection(name) {
   showError("");
   try {
-    if (name === "home") await renderHome();
-    else if (name === "requisitions") await renderRequisitions();
+    if (name === "requisitions") await renderRequisitions();
     else if (name === "candidates") await renderCandidates();
     else if (name === "interviews") await renderInterviews();
     else if (name === "offers") await renderOffers();
@@ -109,48 +107,6 @@ async function loadSection(name) {
   } catch (e) {
     showError(String(e.message || e));
   }
-}
-
-async function renderHome() {
-  const d = await api("/api/dashboard");
-  const kpis = [
-    ["Active Candidates", d.active_candidates],
-    ["Interviews This Week", d.interviews_this_week],
-    ["Offers Pending", d.offers_pending],
-    ["Offers Accepted", d.offers_accepted],
-    ["New Hires", d.new_hires],
-    ["Starting Soon", d.starting_soon],
-  ];
-  document.getElementById("home-kpis").innerHTML = kpis
-    .map(([l, v]) => `<div class="kpi"><span>${esc(l)}</span><strong>${esc(v)}</strong></div>`)
-    .join("");
-
-  const order = ["Applied", "Screening", "Interview", "Offer", "Offer Accepted", "Hired"];
-  const pipe = document.getElementById("pipeline");
-  pipe.innerHTML = order
-    .map((s, i) => {
-      const n = (d.pipeline && d.pipeline[s]) || 0;
-      const arrow = i < order.length - 1 ? `<span class="pipe-arrow">→</span>` : "";
-      return `<div class="pipe-step"><strong>${n}</strong><span>${esc(s)}</span></div>${arrow}`;
-    })
-    .join("");
-
-  const tbody = document.querySelector("#upcoming-table tbody");
-  tbody.innerHTML = (d.upcoming_starts || [])
-    .map(
-      (r) => `<tr data-hire="${esc(r.employee_id)}">
-      <td>${esc(r.employee)}</td><td>${esc(r.position)}</td><td>${esc(r.department)}</td>
-      <td>${esc(r.manager)}</td><td>${esc(r.start_date)}</td>
-      <td>${chip(r.status, r.status === "Ready" ? "ok" : "warn")}</td>
-    </tr>`
-    )
-    .join("") || `<tr><td colspan="6" class="muted">No upcoming starts</td></tr>`;
-  tbody.querySelectorAll("tr[data-hire]").forEach((tr) => {
-    tr.addEventListener("click", () => {
-      showSection("newhires");
-      openHire(tr.getAttribute("data-hire"));
-    });
-  });
 }
 
 async function renderRequisitions() {
@@ -640,7 +596,7 @@ if (session) {
     btn.addEventListener("click", () => showSection(btn.getAttribute("data-section")));
   });
   document.getElementById("refresh-btn").onclick = () => {
-    const active = document.querySelector(".nav-btn.active")?.getAttribute("data-section") || "home";
+    const active = document.querySelector(".nav-btn.active")?.getAttribute("data-section") || "candidates";
     loadSection(active);
   };
   document.getElementById("sign-out").onclick = () => {
@@ -650,7 +606,7 @@ if (session) {
   document.getElementById("reseed-btn").onclick = async () => {
     await api("/api/admin/reseed?seed=42", { method: "POST" });
     toast("Cohort reseeded (seed 42)");
-    showSection("home");
+    showSection("candidates");
   };
 
   ["cand-q", "f-dept", "f-pos", "f-mgr", "f-type", "f-stage"].forEach((id) => {
@@ -662,5 +618,5 @@ if (session) {
     });
   });
 
-  showSection("home");
+  showSection("candidates");
 }

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ServiceNow — ITSM (Mock)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=1" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">SN</span>
+        <div>
+          <div class="brand-name">ServiceNow</div>
+          <div class="brand-sub">Mock IT Service Management</div>
+        </div>
+      </div>
+
+      <div class="nav-group">Service Desk</div>
+      <button type="button" class="nav-btn" data-section="catalog">Service Catalog</button>
+      <button type="button" class="nav-btn active" data-section="requests">Requests</button>
+      <button type="button" class="nav-btn" data-section="incidents">Incidents</button>
+
+      <div class="nav-group">Onboarding IT</div>
+      <button type="button" class="nav-btn" data-section="hardware">Hardware</button>
+      <button type="button" class="nav-btn" data-section="access">Access</button>
+      <button type="button" class="nav-btn" data-section="sla">SLA</button>
+
+      <div class="nav-group">Administration</div>
+      <button type="button" class="nav-btn" data-section="reports">Reports</button>
+      <button type="button" class="nav-btn" data-section="integrations">Integrations</button>
+      <button type="button" class="nav-btn" data-section="settings">Settings</button>
+
+      <div class="sidebar-foot">
+        <span class="muted tiny">Logged in as</span>
+        <strong id="user-name">Riley Chen</strong>
+        <span class="tiny" id="user-title">IT Service Desk Analyst</span>
+        <div class="synth-pill">SYNTHETIC DEMO ENVIRONMENT</div>
+        <button type="button" class="btn-secondary" id="sign-out" style="margin-top:0.75rem;width:100%;color:#1b2838">Sign out</button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="page-title">Requests</h1>
+          <p class="muted tiny" id="page-sub">Source system RITMs · SmartStart pulls these via API</p>
+        </div>
+        <div class="topbar-actions">
+          <span class="chip warn">Synthetic Demo</span>
+          <button type="button" class="btn-secondary" id="refresh-btn">Refresh</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div id="global-error" class="load-error" hidden></div>
+
+        <section id="section-catalog" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Service Catalog</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="catalog-table">
+                <thead>
+                  <tr><th>ID</th><th>Name</th><th>Category</th><th>Description</th><th>Active</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-requests" class="section active">
+          <div class="filters">
+            <input type="search" id="req-q" placeholder="Search RITM / name" />
+            <select id="f-hw">
+              <option value="">All hardware</option>
+              <option>Pending</option><option>Ordered</option>
+              <option>Configured</option><option>Delivered</option>
+            </select>
+            <select id="f-sla">
+              <option value="">SLA any</option>
+              <option value="true">Breached</option>
+              <option value="false">Within SLA</option>
+            </select>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Catalog Requests (RITM)</h2>
+              <span class="muted tiny">Deliver / grant access emits events for external systems</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data" id="req-table">
+                <thead>
+                  <tr>
+                    <th>Number</th><th>Short description</th><th>State</th>
+                    <th>Hardware</th><th>Access</th><th>Lead time</th><th>SLA</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel" id="req-detail" hidden></div>
+        </section>
+
+        <section id="section-incidents" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Incidents</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="inc-table">
+                <thead>
+                  <tr>
+                    <th>Number</th><th>Short description</th><th>Caller</th>
+                    <th>Priority</th><th>State</th><th>Related RITM</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-hardware" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Hardware queue</h2><span class="muted tiny">Not yet delivered</span></div>
+            <div class="table-wrap">
+              <table class="data" id="hw-table">
+                <thead>
+                  <tr>
+                    <th>Number</th><th>Requested for</th><th>Status</th><th>Department</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-access" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Access queue</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="access-table">
+                <thead>
+                  <tr>
+                    <th>Number</th><th>Requested for</th><th>Software</th><th>Granted</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-sla" class="section">
+          <div class="kpi-row" id="sla-kpis" style="grid-template-columns:repeat(2,1fr)"></div>
+          <div class="panel">
+            <div class="panel-head"><h2>Breached</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="sla-breach-table">
+                <thead>
+                  <tr><th>Number</th><th>Requested for</th><th>Lead / Target</th><th>Hardware</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>At risk</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="sla-risk-table">
+                <thead>
+                  <tr><th>Number</th><th>Requested for</th><th>Lead / Target</th><th>Hardware</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-reports" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Reports</h2></div>
+            <div class="panel-body muted">
+              <p>This is a source system — interactive onboarding analytics live in SmartStart after ingest.</p>
+              <p>Use Integrations → event feed so SmartStart can pull IT events.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-integrations" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Integrations</h2><span class="muted tiny">Admin view · not SmartStart UI</span></div>
+            <div class="panel-body" id="integ-status"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Integration activity</h2></div>
+            <div class="table-wrap">
+              <table class="data" id="integ-log">
+                <thead>
+                  <tr><th>Time</th><th>Kind</th><th>Event</th><th>Record</th><th>Delivery</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="section-settings" class="section">
+          <div class="panel">
+            <div class="panel-head"><h2>Settings</h2></div>
+            <div class="panel-body">
+              <p class="muted">Demo environment. This application is independent of SmartStart and iCIMS.</p>
+              <p><button type="button" class="btn-secondary" id="reseed-btn">Reseed cohort (seed 42)</button></p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <script src="/static/session.js?v=1"></script>
+  <script src="/static/app.js?v=1"></script>
+</body>
+</html>

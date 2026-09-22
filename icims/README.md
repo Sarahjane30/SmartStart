@@ -7,7 +7,7 @@ This is a **separate website** from SmartStart. It simulates an HR / recruiting
 |-----|------|------|
 | **iCIMS (this app)** | `8100` | HR / Talent Acquisition |
 | SmartStart | `8000` | Onboarding orchestration |
-| Mock ServiceNow | `8200` | ITSM (separate) |
+| **ServiceNow** | `8200` | ITSM (`uvicorn servicenow.backend.main:app --port 8200`) |
 
 Open them in **different browser tabs**. Actions in iCIMS emit events via REST;
 SmartStart can consume them independently. This app never navigates to SmartStart.

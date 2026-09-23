@@ -7,10 +7,10 @@ import re
 FAQ: list[tuple[str, str, tuple[str, ...]]] = [
     (
         "What can IRA help with?",
-        "IRA is Waters’ governed AI knowledge layer. Ask about applications, teams, "
-        "processes, and approved documentation. Answers stay evidence-backed from "
-        "approved / synthetic sources — IRA never changes production systems.",
-        ("what can ira", "what do you", "who are you", "knowledge layer", "help with"),
+        "I’m IRA — I know Waters. Ask about apps, teams, processes, docs, and how "
+        "things connect. Answers stay evidence-backed from approved / synthetic sources — "
+        "I never change production systems.",
+        ("what can ira", "what do you", "who are you", "know everything", "help with", "know waters"),
     ),
     (
         "Which apps should I use?",

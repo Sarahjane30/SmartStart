@@ -16,7 +16,7 @@ All data is **100% synthetic** — no real PII, production logs, or live HR/IT s
 
 See [`icims/README.md`](icims/README.md), [`servicenow/README.md`](servicenow/README.md), [`jira/README.md`](jira/README.md), [`ira/README.md`](ira/README.md).
 
-**IRA** is Waters’ governed AI knowledge layer as an independent PySide6 floating widget. It helps navigate apps, teams, processes, and approved docs from sandbox sources — it does **not** replace enterprise systems or take production actions. It sits on the desktop and calls SmartStart `/api/ira/*` APIs.
+**IRA** is an independent PySide6 floating widget that **knows Waters** (apps, teams, processes, docs) from sandbox sources — it does **not** replace enterprise systems or take production actions. It sits on the desktop and calls SmartStart `/api/ira/*` APIs.
 
 Demo logins: iCIMS `hr.demo` / `hr-demo-2026` · ServiceNow `it.demo` / `it-demo-2026` · Jira `mgr.demo` / `mgr-demo-2026`.
 
@@ -27,7 +27,7 @@ Demo logins: iCIMS `hr.demo` / `hr-demo-2026` · ServiceNow `it.demo` / `it-demo
 | **1** | Done | Synthetic data + 5-stage state engine |
 | **2** | Done | Employer Command Center (HR / IT / Manager) |
 | **3** | Done | Employee Experience (Intern / FTE dashboard) |
-| **4** | Done | Prototype AI (IRA knowledge layer / predict / recommend) |
+| **4** | Done | Prototype AI (IRA · knows Waters / predict / recommend) |
 
 ### State machine
 

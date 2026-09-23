@@ -392,7 +392,7 @@ class ChatbotResponse(BaseModel):
     turns: list[ChatTurn] = Field(default_factory=list)
     query: Optional[str] = None
     synthetic: bool = True
-    note: str = "IRA — governed knowledge layer over approved synthetic sources (not a live LLM; no production actions)."
+    note: str = "IRA — knows Waters from approved synthetic sources (not a live LLM; no production actions)."
 
 
 class PredictiveAlert(BaseModel):

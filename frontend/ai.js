@@ -65,7 +65,7 @@ function render() {
 function renderChat() {
   const data = state.chatbot;
   if (!data) return;
-  document.getElementById("chat-role").textContent = `${data.role_type} · IRA knowledge layer`;
+  document.getElementById("chat-role").textContent = `${data.role_type} · IRA · knows Waters`;
   document.getElementById("chat-log").innerHTML = (data.turns || [])
     .map((t) => {
       const label = t.role === "user" ? "You" : "IRA";

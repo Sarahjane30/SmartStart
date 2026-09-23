@@ -85,8 +85,8 @@ def test_brain_no_hallucination_without_context():
     assert "orientation" in faq.lower()
     assert "2026" not in faq
     about = answer("What can IRA help with?", None, online=True)
-    assert "knowledge" in about.lower()
-    assert "production" in about.lower() or "govern" in about.lower()
+    assert "know" in about.lower() or "waters" in about.lower()
+    assert "production" in about.lower() or "system" in about.lower()
     apps = answer("Which apps should I use?", None, online=True)
     assert "smartstart" in apps.lower() and "servicenow" in apps.lower()
 
@@ -120,7 +120,7 @@ def test_greeting_and_progress_snapshot():
     g = greeting(ctx)
     assert "Hi Sarah" in g
     assert "IRA" in g
-    assert "knowledge" in g.lower()
+    assert "know" in g.lower() or "Waters" in g or "waters" in g.lower()
     snap = progress_snapshot(ctx)
     assert snap is not None
     assert isinstance(snap["pct"], int)

@@ -12,7 +12,7 @@ from typing import Optional
 
 from ira.faq import match_faq
 
-# Knowledge-layer prompts (apps · teams · processes · docs · personal record)
+# Prompts — IRA knows apps · teams · processes · docs · your record
 SUGGESTIONS_DEFAULT = [
     "What can IRA help with?",
     "Which apps should I use?",
@@ -60,11 +60,9 @@ _DISCLAIMER = (
 
 def _what_is_ira() -> str:
     return (
-        "I’m IRA — Waters’ governed AI knowledge layer. I help employees, new joiners, "
-        "contractors, and authorized partners navigate applications, teams, processes, "
-        "and approved documentation in one place. Answers are role-aware and grounded in "
-        "approved / synthetic sources only. I don’t replace existing systems, approvals, "
-        "or governance — I make them easier to find and understand."
+        "I’m IRA — I know Waters. Apps, teams, processes, docs, owners, how things connect. "
+        "Ask me anything about getting around the company. I answer from your approved "
+        "sandbox sources only, and I never change production systems."
         + _DISCLAIMER
     )
 
@@ -97,7 +95,7 @@ def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
             "permissioned record."
         )
 
-    # Product / knowledge-layer intents (always available)
+    # “What do you know?” intents
     if any(
         k in q
         for k in (
@@ -107,8 +105,8 @@ def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
             "what is ira",
             "help with",
             "what can you",
-            "knowledge layer",
-            "knowledge twin",
+            "know everything",
+            "know waters",
         )
     ):
         return _what_is_ira()
@@ -312,13 +310,12 @@ def greeting(ctx: Optional[dict]) -> str:
         role = (ctx["employee"].get("role_type") or "").upper()
         role_label = "Intern" if role == "INTERN" else ("FTE" if role == "FTE" else "team member")
         return (
-            f"Hi {name} — I’m IRA, Waters’ governed knowledge layer for your {role_label} profile. "
-            "Ask about apps, teams, processes, approved docs, or your own record. "
-            "I stay evidence-backed and never change production systems."
+            f"Hi {name} — I’m IRA. I know Waters for your {role_label} profile — "
+            "apps, teams, processes, docs, and your own record. Ask me anything."
         )
     return (
-        "Hi — I’m IRA, Waters’ governed AI knowledge layer. "
-        "Sign in to get role-aware answers from approved sandbox sources."
+        "Hi — I’m IRA. I know Waters. "
+        "Sign in and I’ll answer from your profile and approved sources."
     )
 
 

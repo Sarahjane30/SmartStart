@@ -1,10 +1,8 @@
-# IRA — Waters governed knowledge layer (desktop)
+# IRA — I know Waters (desktop)
 
 **IRA is not a website.** It is a lightweight **desktop** knowledge companion that floats above your wallpaper and talks to SmartStart over HTTP APIs.
 
-IRA is Waters’ **governed AI-powered company knowledge layer**. It helps employees, new joiners, contractors, and authorized partners navigate applications, teams, processes, and approved documentation through a single interface. Using only approved tools and synthetic / publicly available data for the hackathon, IRA connects sandboxed knowledge sources and understands relationships between applications, teams, processes, owners, and documents.
-
-It provides **role- and permission-aware** answers grounded in approved sources, while preventing access to sensitive or unauthorized information. IRA does **not** replace existing enterprise systems, approvals, or governance — it makes them easier to navigate. All AI-generated knowledge remains **evidence-backed and human-controlled**, with **no autonomous production actions** or system modifications.
+IRA **knows Waters** — apps, teams, processes, docs, owners, and how they connect. Employees, new joiners, contractors, and authorized partners ask one place instead of hunting across systems. Hackathon build: approved tools + synthetic / public data only. Role-aware answers from sandbox sources; never invents facts, never changes production systems.
 
 ```text
 Windows / Linux desktop

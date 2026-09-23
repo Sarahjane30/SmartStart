@@ -11,12 +11,11 @@ _BASE_FAQS: list[tuple[str, str, str, str, tuple[str, ...]]] = [
     (
         "ira",
         "What can IRA help with?",
-        "IRA is Waters’ governed AI knowledge layer. Ask about applications, teams, "
-        "processes, and approved documentation. Answers are role-aware and grounded in "
-        "sandbox sources only — IRA does not replace enterprise systems or take "
-        "production actions.",
+        "I’m IRA — I know Waters. Ask about apps, teams, processes, docs, owners, "
+        "and how things connect. Answers come from your approved sandbox sources only — "
+        "I don’t replace enterprise systems or take production actions.",
         "IRA",
-        ("what can ira", "what do you", "who are you", "knowledge layer", "help with"),
+        ("what can ira", "what do you", "who are you", "know everything", "help with", "know waters"),
     ),
     (
         "apps",
@@ -195,9 +194,8 @@ def build_chatbot(
 
     first = joiner.name.split()[0]
     greeting = (
-        f"Hi {first} — I’m IRA, Waters’ governed knowledge layer for your "
-        f"{joiner.role_type.value} profile. Ask about apps, teams, processes, "
-        f"approved docs, or your own record. Evidence-backed only — no production changes."
+        f"Hi {first} — I’m IRA. I know Waters for your {joiner.role_type.value} profile. "
+        f"Ask me anything about apps, teams, processes, docs, or your own record."
     )
 
     turns: list[ChatTurn] = [ChatTurn(role="assistant", text=greeting, synthetic=True)]

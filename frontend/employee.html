@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=17" />
+  <link rel="stylesheet" href="/static/style.css?v=19" />
 </head>
 <body class="employee-page">
   <div id="workspace" class="wx">
@@ -45,12 +45,7 @@
             <div class="muted tiny" id="workspace-sub">Loading workspace…</div>
           </div>
         </div>
-        <div class="wx-controls">
-          <div class="session-locked" id="session-locked">
-            <span class="muted tiny">Signed in as</span>
-            <strong id="session-name">—</strong>
-          </div>
-        </div>
+        <div class="wx-today muted tiny" id="wx-today"></div>
       </header>
 
       <div id="load-error" class="load-error" hidden></div>
@@ -58,49 +53,65 @@
       <section class="emp-tab active" id="tab-home">
         <div class="wx-hero" id="profile-card">
           <div class="wx-hero-copy">
-            <p class="wx-kicker"><span class="badge" id="role-badge">—</span> Onboarding home</p>
-            <h1 id="emp-name">—</h1>
-            <p class="muted" id="emp-email"></p>
-            <p class="wx-next" id="next-action">Your next step will appear here.</p>
+            <p class="wx-kicker"><span class="badge" id="role-badge">—</span> Your next step</p>
+            <h1 id="next-headline">—</h1>
+            <p class="wx-next-detail" id="next-detail"></p>
+            <p class="wx-meta" id="emp-meta"></p>
             <div class="wx-hero-actions">
               <button type="button" class="btn-primary" data-goto="learning">Continue learning</button>
-              <button type="button" class="btn-secondary" data-goto="ask">Ask IRA</button>
+              <button type="button" class="btn-secondary" id="hero-ask">Ask IRA</button>
             </div>
           </div>
-          <dl class="wx-facts">
-            <div><dt>Department</dt><dd id="emp-dept">—</dd></div>
-            <div><dt>Track</dt><dd id="emp-track">—</dd></div>
-            <div><dt>State</dt><dd id="emp-state">—</dd></div>
-            <div><dt>Join date</dt><dd id="emp-join">—</dd></div>
-            <div id="mentor-row"><dt>Mentor</dt><dd id="emp-mentor">—</dd></div>
-            <div><dt>Days in pipeline</dt><dd id="emp-days">—</dd></div>
-          </dl>
+          <div class="wx-hero-stats">
+            <div class="wx-stat">
+              <span class="wx-stat-label">Learning</span>
+              <strong id="stat-learning">—</strong>
+              <div class="wx-stat-bar"><span id="stat-learning-bar"></span></div>
+              <span class="muted tiny" id="stat-learning-sub"></span>
+            </div>
+            <div class="wx-stat">
+              <span class="wx-stat-label">Open tasks</span>
+              <strong id="stat-tasks">—</strong>
+              <span class="muted tiny" id="stat-tasks-sub"></span>
+            </div>
+          </div>
+          <ol class="wx-stages" id="wx-stages" aria-label="Onboarding stages"></ol>
         </div>
 
         <div class="wx-split">
+          <section class="wx-panel">
+            <div class="wx-panel-head">
+              <h2 id="tasks-title">To do</h2>
+              <span class="muted tiny" id="tasks-count"></span>
+            </div>
+            <ul id="task-list" class="wx-checklist"></ul>
+          </section>
+
           <section class="wx-panel">
             <div class="wx-panel-head">
               <h2>Notifications</h2>
               <span class="notif-badge" id="unread-badge">0</span>
             </div>
             <div id="notifications-list" class="notifications-list"></div>
-          </section>
-
-          <section class="wx-panel">
-            <div class="wx-panel-head">
-              <h2 id="tasks-title">Focus tasks</h2>
-            </div>
-            <div id="tasks-block">
-              <ul id="task-list" class="wx-task-list"></ul>
-            </div>
-            <p class="muted tiny" id="home-recs"></p>
-            <div class="wx-jump">
-              <button type="button" class="jump-link" data-goto="people">People →</button>
-              <button type="button" class="jump-link" data-goto="team">Team →</button>
-              <button type="button" class="jump-link" data-goto="feedback">Feedback →</button>
-            </div>
+            <button type="button" class="btn-link wx-more" id="notif-more" hidden></button>
           </section>
         </div>
+
+        <section class="wx-panel wx-people-panel">
+          <div class="wx-panel-head">
+            <h2>Your people</h2>
+            <button type="button" class="btn-link wx-more" data-goto="people">See all contacts</button>
+          </div>
+          <div class="wx-people" id="home-people"></div>
+        </section>
+
+        <section class="wx-ira-strip">
+          <div>
+            <strong>Not sure where to go?</strong>
+            <span class="muted tiny">Ask IRA — policies, apps, people, or your own onboarding.</span>
+          </div>
+          <div class="wx-ira-chips" id="home-recs"></div>
+        </section>
       </section>
 
       <section class="emp-tab" id="tab-learning">
@@ -211,6 +222,6 @@
   <script src="/static/session.js?v=17"></script>
   <script src="/static/motion.js?v=17"></script>
   <script src="/static/ira-globe.js?v=18"></script>
-  <script src="/static/employee.js?v=18"></script>
+  <script src="/static/employee.js?v=19"></script>
 </body>
 </html>

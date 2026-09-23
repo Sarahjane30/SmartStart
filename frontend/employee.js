@@ -99,11 +99,67 @@ function renderAll() {
   setTab(state.tab || "home");
 }
 
+const STAGES = [
+  ["OFFER_ACCEPTED", "Offer"],
+  ["DOCS_SUBMITTED", "Documents"],
+  ["IT_PROVISIONED", "IT setup"],
+  ["DAY1_ORIENTED", "Day 1"],
+  ["PROJECT_READY", "Project ready"],
+];
+
+function askFromHome(question) {
+  setTab("ask");
+  askChat(question).catch((err) => showError(`Chat failed: ${err.message}`));
+}
+
 function renderHomeExtras() {
   const el = document.getElementById("home-recs");
-  if (!el) return;
-  const recs = state.workspace?.suggested_questions || [];
-  el.textContent = recs.length ? `Try asking: “${recs[0]}”` : "";
+  if (el) {
+    const recs = (state.workspace?.suggested_questions || []).slice(0, 3);
+    el.innerHTML = recs
+      .map((q) => `<button type="button" class="chip" data-q="${esc(q)}">${esc(q)}</button>`)
+      .join("");
+    el.querySelectorAll(".chip").forEach((btn) =>
+      btn.addEventListener("click", () => askFromHome(btn.dataset.q))
+    );
+  }
+
+  const people = document.getElementById("home-people");
+  if (people) {
+    const rows = (state.workspace?.consult || []).slice(0, 4);
+    people.innerHTML = rows
+      .map(
+        (c) => `<button type="button" class="wx-person" data-goto="people">
+        <span class="wx-person-avatar" aria-hidden="true">${initials(c.name)}</span>
+        <span class="wx-person-copy">
+          <strong>${esc(c.name)}</strong>
+          <span class="muted tiny">${esc(c.role_label)}</span>
+          <span class="wx-person-channel">${esc(c.channel)}</span>
+        </span>
+      </button>`
+      )
+      .join("");
+    people.querySelectorAll("[data-goto]").forEach((btn) =>
+      btn.addEventListener("click", () => setTab(btn.dataset.goto))
+    );
+  }
+
+  const t = state.track;
+  if (t) {
+    document.getElementById("stat-learning").textContent = `${Math.round(t.completion_pct)}%`;
+    document.getElementById("stat-learning-bar").style.width = `${t.completion_pct}%`;
+    document.getElementById("stat-learning-sub").textContent =
+      `${t.completed_count} of ${t.total_count} modules`;
+  }
+}
+
+function nextModule() {
+  const mods = state.track?.modules || [];
+  return (
+    mods.find((m) => m.status === "in_progress") ||
+    mods.find((m) => m.status === "available") ||
+    null
+  );
 }
 
 function renderProfile() {
@@ -114,46 +170,106 @@ function renderProfile() {
 
   const hello = document.getElementById("wx-hello");
   if (hello) hello.textContent = `Hi, ${first}`;
-  document.getElementById("emp-name").textContent = p.name || "—";
-  document.getElementById("emp-email").textContent = p.email || "";
-  document.getElementById("emp-dept").textContent = p.department || "—";
-  document.getElementById("emp-track").textContent =
-    `${p.department_track || ""} · ${p.learning_track || ""}`;
-  document.getElementById("emp-state").innerHTML = stateBadge(p.current_state);
-  document.getElementById("emp-join").textContent = p.joining_date || "—";
-  document.getElementById("emp-days").textContent = String(p.days_in_pipeline ?? "—");
-  document.getElementById("emp-mentor").textContent = p.mentor_name || "—";
-  const mentorDt = document.querySelector("#mentor-row dt");
-  if (mentorDt) mentorDt.textContent = isIntern ? "Mentor" : "Buddy / mentor";
+  const today = document.getElementById("wx-today");
+  if (today) {
+    today.textContent = new Date().toLocaleDateString(undefined, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  }
+
+  const [headline, ...rest] = String(p.next_action || "Welcome to Waters").split(" — ");
+  document.getElementById("next-headline").textContent = headline;
+  const detail = rest.join(" — ");
+  const detailEl = document.getElementById("next-detail");
+  detailEl.textContent = detail ? detail.charAt(0).toUpperCase() + detail.slice(1) : "";
+  detailEl.hidden = !detail;
+
+  const joined = p.joining_date
+    ? new Date(`${p.joining_date}T00:00:00`).toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
+  const meta = [
+    p.department,
+    p.mentor_name ? `${isIntern ? "Mentor" : "Buddy"}: ${p.mentor_name}` : "",
+    joined ? `Joined ${joined}` : "",
+    p.learning_track,
+  ].filter(Boolean);
+  document.getElementById("emp-meta").innerHTML = meta
+    .map((m) => `<span>${esc(m)}</span>`)
+    .join("");
 
   const badge = document.getElementById("role-badge");
   badge.textContent = p.role_type;
   badge.className = `badge role-${String(p.role_type).toLowerCase()}`;
 
+  const current = STAGES.findIndex(([key]) => key === p.current_state);
+  document.getElementById("wx-stages").innerHTML = STAGES.map(([, label], i) => {
+    const cls = i < current || current === STAGES.length - 1 ? "done" : i === current ? "current" : "";
+    return `<li class="${cls}"><span class="wx-stage-dot">${cls === "done" ? "✓" : i + 1}</span>${label}</li>`;
+  }).join("");
+
   document.getElementById("avatar").textContent = initials(p.name);
-  document.getElementById("next-action").textContent = p.next_action || "";
   document.getElementById("profile-card").dataset.role = p.role_type;
   const shell = document.getElementById("workspace");
   if (shell) shell.dataset.role = p.role_type;
 
-  const tasksBlock = document.getElementById("tasks-block");
-  const taskList = document.getElementById("task-list");
-  const tasksTitle = document.getElementById("tasks-title");
-  tasksTitle.textContent = isIntern
-    ? "Mentor check-ins & basics"
-    : "Project readiness tasks";
-  if (p.assigned_tasks && p.assigned_tasks.length) {
-    tasksBlock.hidden = false;
-    taskList.innerHTML = p.assigned_tasks.map((t) => `<li>${esc(t)}</li>`).join("");
-  } else if (!isIntern) {
-    tasksBlock.hidden = false;
-    taskList.innerHTML =
-      '<li class="muted">Complete department readiness modules to unlock project tasks.</li>';
-  } else {
-    tasksBlock.hidden = true;
-    taskList.innerHTML = "";
+  const tasks = (p.assigned_tasks || []).slice();
+  const mod = nextModule();
+  const items = [];
+  if (mod) {
+    items.push({
+      text: `${mod.status === "in_progress" ? "Continue" : "Start"} ${mod.title}`,
+      tag: `Learning · ${mod.duration_minutes} min`,
+      goto: "learning",
+    });
   }
+  tasks.forEach((t) => items.push({ text: t, tag: isIntern ? "Mentor" : "Readiness" }));
+  if (!items.length && !isIntern) {
+    items.push({ text: "Complete department readiness modules", tag: "Readiness", goto: "learning" });
+  }
+
+  document.getElementById("tasks-count").textContent = items.length ? `${items.length} open` : "";
+  document.getElementById("stat-tasks").textContent = String(items.length);
+  document.getElementById("stat-tasks-sub").textContent = items.length
+    ? "on your checklist"
+    : "Nothing waiting on you";
+
+  const list = document.getElementById("task-list");
+  list.innerHTML = items.length
+    ? items
+        .map(
+          (it) => `<li${it.goto ? ` data-goto="${it.goto}" class="is-link"` : ""}>
+          <span class="wx-check" aria-hidden="true"></span>
+          <span class="wx-check-text">${esc(it.text)}</span>
+          <span class="wx-check-tag">${esc(it.tag)}</span>
+        </li>`
+        )
+        .join("")
+    : `<li class="muted">You're all caught up.</li>`;
+  list.querySelectorAll("[data-goto]").forEach((li) =>
+    li.addEventListener("click", () => setTab(li.dataset.goto))
+  );
 }
+
+function relTime(iso) {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const mins = Math.round((Date.now() - then) / 60000);
+  if (mins < 0) return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  if (mins < 60) return `${Math.max(1, mins)}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+const NOTE_PREVIEW = 3;
 
 function renderNotifications() {
   const data = state.notifications;
@@ -162,22 +278,30 @@ function renderNotifications() {
   badge.textContent = String(data.unread_count || 0);
   badge.hidden = !data.unread_count;
   const list = document.getElementById("notifications-list");
-  if (!data.notifications || !data.notifications.length) {
-    list.innerHTML = `<p class="muted">No notifications.</p>`;
+  const more = document.getElementById("notif-more");
+  const all = data.notifications || [];
+  if (!all.length) {
+    list.innerHTML = `<p class="muted">No updates right now.</p>`;
+    more.hidden = true;
     return;
   }
-  list.innerHTML = data.notifications
+  const shown = state.notesExpanded ? all : all.slice(0, NOTE_PREVIEW);
+  list.innerHTML = shown
     .map(
       (n) => `<article class="note kind-${n.kind} ${n.read ? "read" : "unread"}">
-      <div class="note-top">
-        <strong>${esc(n.title)}</strong>
-        <time datetime="${esc(n.created_at)}">${fmt(n.created_at)}</time>
+      <span class="note-dot" aria-hidden="true"></span>
+      <div class="note-body">
+        <div class="note-top">
+          <strong>${esc(n.title)}</strong>
+          <time datetime="${esc(n.created_at)}" title="${esc(fmt(n.created_at))}">${relTime(n.created_at)}</time>
+        </div>
+        <p>${esc(n.message)}</p>
       </div>
-      <p>${esc(n.message)}</p>
-      <span class="note-kind">${esc(n.kind)}</span>
     </article>`
     )
     .join("");
+  more.hidden = all.length <= NOTE_PREVIEW;
+  more.textContent = state.notesExpanded ? "Show less" : `View all ${all.length} notifications`;
   revealAll(list, ".note", 40);
 }
 
@@ -436,6 +560,13 @@ function wireUI() {
   });
   document.querySelectorAll("[data-goto]").forEach((btn) => {
     btn.addEventListener("click", () => setTab(btn.dataset.goto));
+  });
+  document.getElementById("hero-ask")?.addEventListener("click", () =>
+    askFromHome("What should I do now?")
+  );
+  document.getElementById("notif-more")?.addEventListener("click", () => {
+    state.notesExpanded = !state.notesExpanded;
+    renderNotifications();
   });
 
   document.getElementById("chat-form").addEventListener("submit", async (e) => {

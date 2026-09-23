@@ -73,7 +73,7 @@ class ProgressCard(QWidget):
         super().__init__(parent)
         self._pct = 0
         self._milestones = {"laptop": False, "mentor": False, "day1": False}
-        self.setFixedHeight(78)
+        self.setFixedHeight(84)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def set_progress(self, pct: int, *, laptop: bool, mentor: bool, day1: bool) -> None:
@@ -135,7 +135,7 @@ class ProgressCard(QWidget):
         gap = track_w // 3
         for i, (kind, label, done) in enumerate(milestones):
             cx = track_x + gap // 2 + i * gap
-            cy = 48
+            cy = 52
             p.setPen(Qt.PenStyle.NoPen)
             if done:
                 glow = QRadialGradient(cx, cy - 2, 14)
@@ -149,7 +149,7 @@ class ProgressCard(QWidget):
             p.drawEllipse(cx - 9, cy - 9, 18, 18)
             self._draw_icon(p, kind, cx, cy, done)
             p.setPen(QColor(TEXT if done else MUTED))
-            p.drawText(cx - 22, cy + 10, 44, 16, Qt.AlignmentFlag.AlignHCenter, label)
+            p.drawText(cx - 26, cy + 12, 52, 16, Qt.AlignmentFlag.AlignHCenter, label)
 
 
 class _SendOrb(QPushButton):

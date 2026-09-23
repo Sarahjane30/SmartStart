@@ -12,9 +12,14 @@ def companion_window_flags() -> Qt.WindowType:
 
     Qt.Tool + WindowStaysOnTopHint keeps the orb/panel above browsers and
     editors so it stays useful as a desktop companion (especially Windows).
+    NoDropShadowWindowHint avoids a rectangular DWM shadow that reads as
+    square corners around the circular bubble.
     """
-    return (
+    flags = (
         Qt.WindowType.FramelessWindowHint
         | Qt.WindowType.WindowStaysOnTopHint
         | Qt.WindowType.Tool
     )
+    if sys.platform.startswith("win"):
+        flags |= Qt.WindowType.NoDropShadowWindowHint
+    return flags

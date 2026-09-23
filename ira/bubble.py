@@ -17,6 +17,7 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import (
+    QBitmap,
     QBrush,
     QColor,
     QEnterEvent,
@@ -28,6 +29,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
+from ira.platform_ui import IS_WINDOWS
 from ira.winflags import companion_window_flags
 
 SIZE = 72  # px — resting visual diameter
@@ -57,11 +59,20 @@ class IraBubble(QWidget):
         # Fixed HWND size = max hover size. Scale is paint-only (no resize flicker).
         self.setFixedSize(HOVER_SIZE, HOVER_SIZE)
         self.setToolTip("IRA — click to open")
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setAutoFillBackground(False)
         self.setStyleSheet("background: transparent; border: 0;")
+
+        # Windows: translucency + setMask fight each other — layered windows
+        # ignore the region mask and leave opaque square corners. Use a hard
+        # circular mask with an opaque navy fill instead (same approach as ChatPanel).
+        if IS_WINDOWS:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+            self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        else:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+            self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+
         self._apply_circle_mask()
 
         self._drag_offset: QPoint | None = None
@@ -91,8 +102,26 @@ class IraBubble(QWidget):
     hoverAmount = Property(float, _get_hover, _set_hover)
 
     def _apply_circle_mask(self) -> None:
-        s = HOVER_SIZE
-        self.setMask(QRegion(0, 0, s, s, QRegion.RegionType.Ellipse))
+        """Clip HWND to a circle — this is what kills square corners on Windows."""
+        s = max(1, self.width())
+        if IS_WINDOWS:
+            # QBitmap mask is more reliable than QRegion on Win10/11 DWM
+            bmp = QBitmap(s, s)
+            bmp.fill(Qt.GlobalColor.color0)  # color0 = outside (clipped away)
+            mp = QPainter(bmp)
+            mp.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            mp.setPen(Qt.PenStyle.NoPen)
+            mp.setBrush(Qt.GlobalColor.color1)  # color1 = visible
+            mp.drawEllipse(0, 0, s - 1, s - 1)
+            mp.end()
+            self.setMask(bmp)
+        else:
+            self.setMask(QRegion(0, 0, s, s, QRegion.RegionType.Ellipse))
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        # Tool windows on Windows often need the mask re-applied after show
+        self._apply_circle_mask()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -109,7 +138,6 @@ class IraBubble(QWidget):
         super().enterEvent(event)
 
     def leaveEvent(self, event) -> None:
-        # Don't collapse mid-drag — cursor may leave the circle while moving
         if self._drag_offset is None:
             self._animate_hover(0.0)
         super().leaveEvent(event)
@@ -156,23 +184,40 @@ class IraBubble(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        canvas = HOVER_SIZE
-        # Clear full window to transparent — never paint a square
-        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-        p.fillRect(0, 0, canvas, canvas, QColor(0, 0, 0, 0))
-        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
-
-        # Paint-only scale (window stays fixed → no HWND flicker)
-        w = self._visual_size()
+        canvas = float(self.width())
         cx = cy = canvas / 2
+
+        if IS_WINDOWS:
+            # Opaque circular fill — mask already clipped the HWND to a circle,
+            # so this never shows square corners. Keep the disc fully painted.
+            base = QRadialGradient(cx, cy, canvas * 0.5)
+            base.setColorAt(0.0, QColor(18, 28, 64))
+            base.setColorAt(0.65, QColor(8, 13, 29))
+            base.setColorAt(1.0, QColor(4, 6, 15))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(base))
+            p.drawEllipse(QPointF(cx, cy), canvas * 0.5 - 0.5, canvas * 0.5 - 0.5)
+        else:
+            # Per-pixel alpha path (Linux/mac)
+            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+            p.fillRect(0, 0, int(canvas), int(canvas), QColor(0, 0, 0, 0))
+            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+
+        w = self._visual_size()
         R = w * 0.34
 
         flash_boost = 40 if self._flash else 0
         wash = QRadialGradient(cx, cy, R * 1.7)
-        wash.setColorAt(0.0, QColor(18, 28, 64, 160 + flash_boost))
-        wash.setColorAt(0.55, QColor(8, 13, 29, 110))
-        wash.setColorAt(0.85, QColor(6, 10, 24, 35))
-        wash.setColorAt(1.0, QColor(0, 0, 0, 0))
+        if IS_WINDOWS:
+            # Opaque wash (no alpha holes that would flash system chrome)
+            wash.setColorAt(0.0, QColor(23, 34, 72))
+            wash.setColorAt(0.55, QColor(10, 16, 36))
+            wash.setColorAt(1.0, QColor(4, 6, 15))
+        else:
+            wash.setColorAt(0.0, QColor(18, 28, 64, 160 + flash_boost))
+            wash.setColorAt(0.55, QColor(8, 13, 29, 110))
+            wash.setColorAt(0.85, QColor(6, 10, 24, 35))
+            wash.setColorAt(1.0, QColor(0, 0, 0, 0))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(wash))
         p.drawEllipse(QPointF(cx, cy), R * 1.7, R * 1.7)
@@ -181,8 +226,6 @@ class IraBubble(QWidget):
         tilt = -0.2
         cos_y, sin_y = math.cos(spin), math.sin(spin)
         cos_x, sin_x = math.cos(tilt), math.sin(tilt)
-
-        # Particle scale tracks visual size so density stays consistent
         particle_scale = 0.55 * (w / SIZE)
 
         projected: list[tuple[_Pt, float, float, float, float]] = []
@@ -256,7 +299,6 @@ class IraBubble(QWidget):
             else:
                 self.clicked.emit()
             self._drag_offset = None
-            # If cursor left during drag, ease back down now
             if not self.rect().contains(event.position().toPoint()):
                 self._animate_hover(0.0)
             event.accept()

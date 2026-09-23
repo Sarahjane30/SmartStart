@@ -1645,10 +1645,8 @@ canvas {
 .notif-badge {
   display: inline-grid; place-items: center; min-width: 1.55rem; height: 1.55rem;
   padding: 0 0.42rem; border-radius: 999px;
-  background: linear-gradient(120deg, var(--rose), #be123c); color: #fff;
+  background: var(--navy-700); color: #fff;
   font-size: 0.75rem; font-weight: 750;
-  box-shadow: 0 6px 16px rgba(244, 63, 94, 0.32);
-  animation: breathe 3s ease-in-out infinite;
 }
 .notifications-list { display: flex; flex-direction: column; gap: 0.68rem; max-height: 420px; overflow: auto; }
 .note {

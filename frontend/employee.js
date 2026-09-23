@@ -446,70 +446,104 @@ function renderConsult() {
 function renderTeam() {
   const ws = state.workspace;
   if (!ws) return;
+  const members = ws.members || [];
   document.getElementById("team-title").textContent = ws.team_name;
-  document.getElementById("team-count").textContent =
-    `${ws.team.length} people in your department pod`;
-  document.getElementById("team-blurb").textContent =
-    String(state.profile?.role_type).toUpperCase() === "INTERN"
-      ? "Your department pod only — not the full company roster."
-      : "Your department cohort only — not the full company roster.";
+  document.getElementById("team-count").textContent = `${members.length} people · ${ws.department}`;
+
+  const term = (state.teamSearch || "").trim().toLowerCase();
+  const shown = term
+    ? members.filter((m) =>
+        [m.name, m.title, m.relationship, m.ask_about, ...m.expertise]
+          .join(" ")
+          .toLowerCase()
+          .includes(term)
+      )
+    : members;
   const teamList = document.getElementById("team-list");
-  teamList.innerHTML = (ws.team || [])
+  if (!shown.length) {
+    teamList.innerHTML = `<p class="muted">No one matches “${esc(term)}”. Try asking IRA who handles it.</p>`;
+    return;
+  }
+  teamList.innerHTML = shown
     .map(
-      (m) => `<div class="team-row ${m.is_self ? "is-self" : ""}">
-      <div>
-        <strong>${esc(m.name)}${m.is_self ? " (you)" : ""}</strong>
-        <div class="muted tiny">${m.role_type} · mentor ${esc(m.mentor_name)}</div>
-      </div>
-      <div>${stateBadge(m.current_state)}</div>
-      <div class="muted tiny">${m.days_in_pipeline}d in pipeline</div>
-    </div>`
+      (m) => `<article class="wx-member ${m.is_self ? "is-self" : ""}">
+      <header>
+        <span class="wx-person-avatar" aria-hidden="true">${initials(m.name)}</span>
+        <div class="wx-member-id">
+          <strong>${esc(m.name)}</strong>
+          <span class="muted tiny">${esc(m.title)}</span>
+        </div>
+        ${m.relationship ? `<span class="wx-member-rel">${esc(m.relationship)}</span>` : ""}
+      </header>
+      ${
+        m.expertise.length
+          ? `<ul class="wx-member-tags">${m.expertise.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>`
+          : ""
+      }
+      ${m.ask_about ? `<p class="wx-member-ask"><span>Ask about</span>${esc(m.ask_about)}</p>` : ""}
+      ${
+        m.is_self
+          ? `<p class="wx-member-ask muted">This is you — your expertise will grow here.</p>`
+          : `<footer class="muted tiny">${esc(m.channel)}</footer>`
+      }
+    </article>`
     )
     .join("");
-  revealAll(teamList, ".team-row", 40);
+  revealAll(teamList, ".wx-member", 40);
 }
+
+const RATING_LABELS = ["", "Very poor", "Poor", "Okay", "Good", "Great"];
 
 function renderFeedbackHistory() {
   const box = document.getElementById("feedback-history");
   if (!box) return;
   if (!state.feedback.length) {
-    box.innerHTML = `<p class="muted tiny">No feedback submitted yet for this joiner.</p>`;
+    box.innerHTML = `<p class="muted tiny">Nothing yet — your first note will show here, only to you.</p>`;
     return;
   }
-  box.innerHTML =
-    `<h3>Your submissions</h3>` +
-    state.feedback
-      .map(
-        (f) => `<div class="fb-item">
-        <strong>${esc(f.step)}</strong>
-        <span class="stars">${"★".repeat(f.rating)}${"☆".repeat(5 - f.rating)}</span>
-        <span class="muted tiny">${fmt(f.submitted_at)}</span>
+  box.innerHTML = state.feedback
+    .slice()
+    .reverse()
+    .map(
+      (f) => `<div class="wx-fb-item">
+        <div class="wx-fb-item-top">
+          <strong>${esc(f.step)}</strong>
+          <span class="wx-fb-score r${f.rating}">${f.rating} · ${RATING_LABELS[f.rating]}</span>
+        </div>
         ${f.comment ? `<p>${esc(f.comment)}</p>` : ""}
+        <span class="muted tiny">${f.anonymous ? "Anonymous" : "Shared with your name"} · ${relTime(
+          f.submitted_at
+        )}</span>
       </div>`
-      )
-      .join("");
+    )
+    .join("");
 }
 
 async function submitFeedback(event) {
   event.preventDefault();
   const status = document.getElementById("feedback-status");
-  status.textContent = "Submitting…";
+  status.textContent = "Sending…";
   const rating = Number(
     document.querySelector('input[name="rating"]:checked')?.value || 3
   );
+  const step =
+    document.querySelector('input[name="step"]:checked')?.value || "Day-1 orientation";
+  const anonymous = document.getElementById("feedback-anon").checked;
   try {
-    const res = await fetchJSON("/api/feedback", {
+    await fetchJSON("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         joiner_id: state.employeeId,
-        step: document.getElementById("feedback-step").value,
+        step,
         rating,
         comment: document.getElementById("feedback-comment").value.trim(),
+        anonymous,
       }),
     });
-    status.textContent = res.message || "Feedback recorded.";
+    status.textContent = anonymous ? "Thanks — sent anonymously." : "Thanks — feedback sent.";
     document.getElementById("feedback-comment").value = "";
+    document.getElementById("feedback-count").textContent = "0 / 500";
     const refreshed = await fetchJSON(
       `/api/feedback?joiner_id=${encodeURIComponent(state.employeeId)}`
     );
@@ -583,6 +617,13 @@ function wireUI() {
   });
 
   document.getElementById("feedback-form").addEventListener("submit", submitFeedback);
+  document.getElementById("team-search").addEventListener("input", (e) => {
+    state.teamSearch = e.target.value;
+    renderTeam();
+  });
+  document.getElementById("feedback-comment").addEventListener("input", (e) => {
+    document.getElementById("feedback-count").textContent = `${e.target.value.length} / 500`;
+  });
 }
 
 async function boot() {

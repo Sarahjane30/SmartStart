@@ -557,8 +557,12 @@ def feedback(payload: FeedbackCreate) -> FeedbackResponse:
 
 @app.get("/api/feedback")
 def feedback_list(joiner_id: str | None = Query(default=None)):
-    """List synthetic feedback records (demo/debug)."""
+    """List synthetic feedback. Anonymous entries only reveal their author to that author."""
     rows = list_feedback(joiner_id)
+    if joiner_id is None:
+        rows = [
+            r.model_copy(update={"joiner_id": "anonymous"}) if r.anonymous else r for r in rows
+        ]
     return {"total": len(rows), "feedback": rows, "synthetic": True}
 
 

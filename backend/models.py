@@ -341,6 +341,7 @@ class FeedbackCreate(BaseModel):
     step: str = Field(min_length=1, max_length=80)
     rating: int = Field(ge=1, le=5)
     comment: str = Field(default="", max_length=500)
+    anonymous: bool = True
 
 
 class FeedbackRecord(BaseModel):
@@ -350,6 +351,7 @@ class FeedbackRecord(BaseModel):
     rating: int
     comment: str
     submitted_at: datetime
+    anonymous: bool = True
     synthetic: bool = True
 
 
@@ -467,6 +469,20 @@ class TeamMember(BaseModel):
     synthetic: bool = True
 
 
+class Colleague(BaseModel):
+    """Synthetic member of the joiner's department team."""
+
+    id: str
+    name: str
+    title: str
+    relationship: str = ""
+    expertise: list[str] = Field(default_factory=list)
+    ask_about: str = ""
+    channel: str = ""
+    is_self: bool = False
+    synthetic: bool = True
+
+
 class TeamWorkspaceResponse(BaseModel):
     """Employee workspace helpers: consult network + department team."""
 
@@ -476,6 +492,7 @@ class TeamWorkspaceResponse(BaseModel):
     team_name: str
     consult: list[ConsultContact]
     team: list[TeamMember]
+    members: list[Colleague] = Field(default_factory=list)
     suggested_questions: list[str]
     synthetic: bool = True
     note: str = "Synthetic consult network and team roster — demo only."

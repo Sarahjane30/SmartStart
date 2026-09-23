@@ -26,6 +26,7 @@ from backend.models import (
     TeamWorkspaceResponse,
 )
 from backend.synthetic_engine import days_in_pipeline, infer_bottleneck
+from backend.team_directory import build_colleagues
 
 AS_OF = datetime(2026, 9, 15, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -350,6 +351,7 @@ def submit_feedback(payload: FeedbackCreate) -> FeedbackResponse:
         step=payload.step,
         rating=payload.rating,
         comment=payload.comment,
+        anonymous=payload.anonymous,
         submitted_at=AS_OF + timedelta(minutes=_stable_int(payload.joiner_id + payload.step, 50)),
         synthetic=True,
     )
@@ -371,7 +373,7 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
 
     hr = hr_names[_stable_int(joiner_id + ":hr", len(hr_names))]
     it = it_names[_stable_int(joiner_id + ":it", len(it_names))]
-    mgr = mgr_names[_stable_int(joiner_id + ":mgr", len(mgr_names))]
+    mgr = joiner.manager_name or mgr_names[_stable_int(joiner_id + ":mgr", len(mgr_names))]
 
     consult = [
         ConsultContact(
@@ -453,13 +455,23 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
             "How does IRA stay governed?",
         ]
 
+    team_name, members = build_colleagues(
+        joiner_id=joiner_id,
+        joiner_name=joiner.name,
+        role_type=joiner.role_type,
+        department=joiner.department,
+        manager_name=mgr,
+        mentor_name=joiner.mentor_name,
+    )
+
     return TeamWorkspaceResponse(
         joiner_id=joiner_id,
         role_type=joiner.role_type,
         department=joiner.department,
-        team_name=f"{joiner.department} onboarding pod",
+        team_name=team_name,
         consult=consult,
         team=team,
+        members=members,
         suggested_questions=suggested,
         synthetic=True,
     )

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=20" />
+  <link rel="stylesheet" href="/static/style.css?v=22" />
 </head>
 <body class="employee-page">
   <div id="workspace" class="wx">
@@ -167,54 +167,88 @@
         <header class="wx-section-head">
           <div>
             <h1 id="team-title">Team</h1>
-            <p class="muted" id="team-blurb">Department onboarding pod</p>
+            <p class="muted" id="team-blurb">The people you'll work with and what they know best</p>
           </div>
           <span class="muted tiny" id="team-count"></span>
         </header>
-        <div id="team-list" class="team-list"></div>
+        <div class="wx-team-search">
+          <input id="team-search" type="search" placeholder="Search by name, role or skill — e.g. payroll, Workday" autocomplete="off" />
+        </div>
+        <div id="team-list" class="wx-team-grid"></div>
       </section>
 
       <section class="emp-tab" id="tab-feedback">
         <header class="wx-section-head">
           <div>
             <h1>Feedback</h1>
-            <p class="muted">Rate an onboarding step — demo only</p>
+            <p class="muted">Tell us honestly how onboarding is going</p>
           </div>
         </header>
-        <div class="wx-feedback">
-          <form id="feedback-form" class="feedback-form">
-            <label>
-              Step
-              <select id="feedback-step" required>
-                <option value="Offer acceptance">Offer acceptance</option>
-                <option value="Document packet">Document packet</option>
-                <option value="IT provisioning">IT provisioning</option>
-                <option value="Day-1 orientation">Day-1 orientation</option>
-                <option value="Learning modules">Learning modules</option>
-                <option value="Mentor intro">Mentor intro</option>
-                <option value="Project readiness">Project readiness</option>
-              </select>
-            </label>
-            <fieldset class="rating-field">
-              <legend>Rating</legend>
-              <div class="rating-row" id="rating-row">
-                <label><input type="radio" name="rating" value="1" required /> 1</label>
-                <label><input type="radio" name="rating" value="2" /> 2</label>
-                <label><input type="radio" name="rating" value="3" checked /> 3</label>
-                <label><input type="radio" name="rating" value="4" /> 4</label>
-                <label><input type="radio" name="rating" value="5" /> 5</label>
+        <div class="wx-fb">
+          <form id="feedback-form" class="wx-fb-form">
+            <div class="wx-fb-anon">
+              <span class="wx-fb-lock" aria-hidden="true"></span>
+              <div>
+                <strong>Your feedback is anonymous</strong>
+                <span class="muted tiny">Your name isn't attached. People Operations only sees feedback grouped by step.</span>
+              </div>
+            </div>
+
+            <fieldset class="wx-fb-field">
+              <legend>Which part of onboarding?</legend>
+              <div class="wx-fb-pills" id="feedback-steps">
+                <label><input type="radio" name="step" value="Offer acceptance" required /><span>Offer</span></label>
+                <label><input type="radio" name="step" value="Document packet" /><span>Documents</span></label>
+                <label><input type="radio" name="step" value="IT provisioning" /><span>IT setup</span></label>
+                <label><input type="radio" name="step" value="Day-1 orientation" checked /><span>Day 1</span></label>
+                <label><input type="radio" name="step" value="Learning modules" /><span>Learning</span></label>
+                <label><input type="radio" name="step" value="Mentor intro" /><span>Mentor</span></label>
+                <label><input type="radio" name="step" value="Project readiness" /><span>Project</span></label>
               </div>
             </fieldset>
-            <label>
-              Comment
-              <textarea id="feedback-comment" maxlength="500" rows="3" placeholder="What helped or blocked you?"></textarea>
+
+            <fieldset class="wx-fb-field">
+              <legend>How did it go?</legend>
+              <div class="wx-fb-scale" id="rating-row">
+                <label><input type="radio" name="rating" value="1" required /><span><b>1</b>Very poor</span></label>
+                <label><input type="radio" name="rating" value="2" /><span><b>2</b>Poor</span></label>
+                <label><input type="radio" name="rating" value="3" /><span><b>3</b>Okay</span></label>
+                <label><input type="radio" name="rating" value="4" checked /><span><b>4</b>Good</span></label>
+                <label><input type="radio" name="rating" value="5" /><span><b>5</b>Great</span></label>
+              </div>
+            </fieldset>
+
+            <label class="wx-fb-field">
+              <span class="wx-fb-legend">Anything we should know? <span class="muted">(optional)</span></span>
+              <textarea id="feedback-comment" maxlength="500" rows="4" placeholder="What helped, what got in the way, what would you change?"></textarea>
+              <span class="muted tiny wx-fb-count" id="feedback-count">0 / 500</span>
             </label>
+
+            <label class="wx-fb-toggle">
+              <input type="checkbox" id="feedback-anon" checked />
+              <span>Submit anonymously</span>
+            </label>
+
             <div class="form-actions">
-              <button type="submit" class="btn-primary">Submit feedback</button>
+              <button type="submit" class="btn-primary">Send feedback</button>
               <span class="muted tiny" id="feedback-status" role="status"></span>
             </div>
           </form>
-          <div id="feedback-history" class="feedback-history"></div>
+
+          <aside class="wx-fb-side">
+            <section class="wx-panel">
+              <h2>What happens next</h2>
+              <ol class="wx-fb-steps">
+                <li>People Operations reviews feedback every week.</li>
+                <li>Themes are shared with onboarding owners, never individual names.</li>
+                <li>Fixes show up in the next onboarding cohort.</li>
+              </ol>
+            </section>
+            <section class="wx-panel">
+              <h2>Your submissions</h2>
+              <div id="feedback-history" class="wx-fb-history"></div>
+            </section>
+          </aside>
         </div>
       </section>
     </div>
@@ -222,6 +256,6 @@
   <script src="/static/session.js?v=17"></script>
   <script src="/static/motion.js?v=17"></script>
   <script src="/static/ira-globe.js?v=18"></script>
-  <script src="/static/employee.js?v=19"></script>
+  <script src="/static/employee.js?v=22"></script>
 </body>
 </html>

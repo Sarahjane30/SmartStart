@@ -15,8 +15,12 @@ from backend.models import (
     FeedbackCreate,
     FeedbackRecord,
     FeedbackResponse,
+    KnowledgeCheck,
     LearningModule,
+    LearningModuleDetail,
+    LearningResource,
     LearningTrackResponse,
+    LessonStep,
     ModuleStatus,
     NotificationKind,
     NotificationsResponse,
@@ -26,15 +30,20 @@ from backend.models import (
     TeamWorkspaceResponse,
 )
 from backend.synthetic_engine import days_in_pipeline, infer_bottleneck
+from backend.learning_content import content_for
+from backend.team_directory import build_colleagues, work_email
 
 AS_OF = datetime(2026, 9, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 # In-memory synthetic feedback ledger (cleared on cohort regenerate).
 _FEEDBACK: list[FeedbackRecord] = []
+# joiner_id -> module suffixes the joiner finished in the Learning tab.
+_COMPLETED: dict[str, set[str]] = {}
 
 
 def clear_feedback() -> None:
     _FEEDBACK.clear()
+    _COMPLETED.clear()
 
 
 def list_feedback(joiner_id: str | None = None) -> list[FeedbackRecord]:
@@ -161,15 +170,26 @@ def build_learning_track(joiner_id: str, db: DataStore | None = None) -> Learnin
 
     catalog = _module_catalog(joiner.role_type, joiner.department_track)
     stage_i = _stage_index(joiner.current_state)
+    done = _COMPLETED.get(joiner_id, set())
     modules: list[LearningModule] = []
     for idx, (suffix, title, description, minutes, category) in enumerate(catalog):
+        status = _status_for_module(idx, stage_i, len(catalog))
+        if suffix in done:
+            status = ModuleStatus.COMPLETE
+        elif (
+            done
+            and status == ModuleStatus.LOCKED
+            and modules
+            and modules[-1].status == ModuleStatus.COMPLETE
+        ):
+            status = ModuleStatus.AVAILABLE
         modules.append(
             LearningModule(
                 id=f"{joiner_id}-MOD-{suffix}",
                 title=title,
                 description=description,
                 duration_minutes=minutes,
-                status=_status_for_module(idx, stage_i, len(catalog)),
+                status=status,
                 category=category,
                 required=True,
                 synthetic=True,
@@ -189,6 +209,57 @@ def build_learning_track(joiner_id: str, db: DataStore | None = None) -> Learnin
         total_count=total,
         synthetic=True,
     )
+
+
+def _module_suffix(joiner_id: str, module_id: str) -> str:
+    prefix = f"{joiner_id}-MOD-"
+    return module_id[len(prefix):] if module_id.startswith(prefix) else module_id
+
+
+def build_module_detail(
+    joiner_id: str, module_id: str, db: DataStore | None = None
+) -> LearningModuleDetail:
+    track = build_learning_track(joiner_id, db=db)
+    suffix = _module_suffix(joiner_id, module_id)
+    idx = next(
+        (i for i, m in enumerate(track.modules) if _module_suffix(joiner_id, m.id) == suffix),
+        None,
+    )
+    if idx is None:
+        raise KeyError(module_id)
+    module = track.modules[idx]
+    content = content_for(suffix) or {}
+    check = content.get("check")
+    unlock_hint = ""
+    if module.status == ModuleStatus.LOCKED:
+        prev = track.modules[idx - 1].title if idx else "earlier onboarding steps"
+        unlock_hint = f"Unlocks after you finish “{prev}”. You can preview the material now."
+    return LearningModuleDetail(
+        module=module,
+        summary=content.get("summary", module.description),
+        lessons=[LessonStep(title=t, body=b) for t, b in content.get("lessons", [])],
+        takeaways=list(content.get("takeaways", [])),
+        resources=[LearningResource(**r) for r in content.get("resources", [])],
+        check=KnowledgeCheck(**check) if check else None,
+        ask_ira=list(content.get("ask_ira", [])),
+        unlock_hint=unlock_hint,
+    )
+
+
+def complete_module(
+    joiner_id: str, module_id: str, db: DataStore | None = None
+) -> LearningTrackResponse:
+    track = build_learning_track(joiner_id, db=db)
+    suffix = _module_suffix(joiner_id, module_id)
+    module = next(
+        (m for m in track.modules if _module_suffix(joiner_id, m.id) == suffix), None
+    )
+    if module is None:
+        raise KeyError(module_id)
+    if module.status == ModuleStatus.LOCKED:
+        raise ValueError("Module is locked — finish the previous module first.")
+    _COMPLETED.setdefault(joiner_id, set()).add(suffix)
+    return build_learning_track(joiner_id, db=db)
 
 
 def build_notifications(joiner_id: str, db: DataStore | None = None) -> NotificationsResponse:
@@ -350,7 +421,9 @@ def submit_feedback(payload: FeedbackCreate) -> FeedbackResponse:
         step=payload.step,
         rating=payload.rating,
         comment=payload.comment,
-        submitted_at=AS_OF + timedelta(minutes=_stable_int(payload.joiner_id + payload.step, 50)),
+        tags=[t.strip() for t in payload.tags if t.strip()],
+        anonymous=payload.anonymous,
+        submitted_at=datetime.now(timezone.utc),
         synthetic=True,
     )
     _FEEDBACK.append(record)
@@ -371,7 +444,7 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
 
     hr = hr_names[_stable_int(joiner_id + ":hr", len(hr_names))]
     it = it_names[_stable_int(joiner_id + ":it", len(it_names))]
-    mgr = mgr_names[_stable_int(joiner_id + ":mgr", len(mgr_names))]
+    mgr = joiner.manager_name or mgr_names[_stable_int(joiner_id + ":mgr", len(mgr_names))]
 
     consult = [
         ConsultContact(
@@ -385,6 +458,7 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
                 if is_intern
                 else "Department norms, project readiness, stakeholders"
             ),
+            email=work_email(joiner.mentor_name),
             synthetic=True,
         ),
         ConsultContact(
@@ -394,6 +468,9 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
             channel="iCIMS / email",
             availability="Same-day reply on docs questions",
             focus="Document packet, compliance forms, Day-1 checklist",
+            email=work_email(hr),
+            portal="icims",
+            portal_label="HR portal (iCIMS)",
             synthetic=True,
         ),
         ConsultContact(
@@ -403,6 +480,9 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
             channel="ServiceNow ticket",
             availability="SLA target 3 business days",
             focus="Laptop, VPN, Okta, software access",
+            email=work_email(it),
+            portal="servicenow",
+            portal_label="IT portal (ServiceNow)",
             synthetic=True,
         ),
         ConsultContact(
@@ -416,6 +496,9 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
                 if is_intern
                 else "Project assignment and readiness sign-off"
             ),
+            email=work_email(mgr),
+            portal="jira",
+            portal_label="Project board (Jira)",
             synthetic=True,
         ),
     ]
@@ -453,13 +536,23 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
             "How does IRA stay governed?",
         ]
 
+    team_name, members = build_colleagues(
+        joiner_id=joiner_id,
+        joiner_name=joiner.name,
+        role_type=joiner.role_type,
+        department=joiner.department,
+        manager_name=mgr,
+        mentor_name=joiner.mentor_name,
+    )
+
     return TeamWorkspaceResponse(
         joiner_id=joiner_id,
         role_type=joiner.role_type,
         department=joiner.department,
-        team_name=f"{joiner.department} onboarding pod",
+        team_name=team_name,
         consult=consult,
         team=team,
+        members=members,
         suggested_questions=suggested,
         synthetic=True,
     )

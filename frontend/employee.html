@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=17" />
+  <link rel="stylesheet" href="/static/style.css?v=27" />
 </head>
 <body class="employee-page">
   <div id="workspace" class="wx">
@@ -24,6 +24,7 @@
         <button type="button" class="wx-nav-btn active" data-tab="home">Home</button>
         <button type="button" class="wx-nav-btn" data-tab="learning">Learning</button>
         <button type="button" class="wx-nav-btn" data-tab="ask">IRA</button>
+        <button type="button" class="wx-nav-btn" data-tab="basics">Basics</button>
         <button type="button" class="wx-nav-btn" data-tab="people">People</button>
         <button type="button" class="wx-nav-btn" data-tab="team">Team</button>
         <button type="button" class="wx-nav-btn" data-tab="feedback">Feedback</button>
@@ -45,12 +46,7 @@
             <div class="muted tiny" id="workspace-sub">Loading workspace…</div>
           </div>
         </div>
-        <div class="wx-controls">
-          <div class="session-locked" id="session-locked">
-            <span class="muted tiny">Signed in as</span>
-            <strong id="session-name">—</strong>
-          </div>
-        </div>
+        <div class="wx-today muted tiny" id="wx-today"></div>
       </header>
 
       <div id="load-error" class="load-error" hidden></div>
@@ -58,49 +54,66 @@
       <section class="emp-tab active" id="tab-home">
         <div class="wx-hero" id="profile-card">
           <div class="wx-hero-copy">
-            <p class="wx-kicker"><span class="badge" id="role-badge">—</span> Onboarding home</p>
-            <h1 id="emp-name">—</h1>
-            <p class="muted" id="emp-email"></p>
-            <p class="wx-next" id="next-action">Your next step will appear here.</p>
+            <p class="wx-kicker"><span class="badge" id="role-badge">—</span> Your next step</p>
+            <h1 id="next-headline">—</h1>
+            <p class="wx-next-detail" id="next-detail"></p>
+            <p class="wx-meta" id="emp-meta"></p>
             <div class="wx-hero-actions">
               <button type="button" class="btn-primary" data-goto="learning">Continue learning</button>
-              <button type="button" class="btn-secondary" data-goto="ask">Ask IRA</button>
+              <button type="button" class="btn-secondary" id="hero-ask">Ask IRA</button>
             </div>
           </div>
-          <dl class="wx-facts">
-            <div><dt>Department</dt><dd id="emp-dept">—</dd></div>
-            <div><dt>Track</dt><dd id="emp-track">—</dd></div>
-            <div><dt>State</dt><dd id="emp-state">—</dd></div>
-            <div><dt>Join date</dt><dd id="emp-join">—</dd></div>
-            <div id="mentor-row"><dt>Mentor</dt><dd id="emp-mentor">—</dd></div>
-            <div><dt>Days in pipeline</dt><dd id="emp-days">—</dd></div>
-          </dl>
+          <div class="wx-hero-stats">
+            <div class="wx-stat">
+              <span class="wx-stat-label">Learning</span>
+              <strong id="stat-learning">—</strong>
+              <div class="wx-stat-bar"><span id="stat-learning-bar"></span></div>
+              <span class="muted tiny" id="stat-learning-sub"></span>
+            </div>
+            <div class="wx-stat">
+              <span class="wx-stat-label">Open tasks</span>
+              <strong id="stat-tasks">—</strong>
+              <span class="muted tiny" id="stat-tasks-sub"></span>
+            </div>
+          </div>
+          <ol class="wx-stages" id="wx-stages" aria-label="Onboarding stages"></ol>
         </div>
 
         <div class="wx-split">
+          <section class="wx-panel">
+            <div class="wx-panel-head">
+              <h2 id="tasks-title">To do</h2>
+              <span class="muted tiny" id="tasks-count"></span>
+            </div>
+            <ul id="task-list" class="wx-checklist"></ul>
+          </section>
+
           <section class="wx-panel">
             <div class="wx-panel-head">
               <h2>Notifications</h2>
               <span class="notif-badge" id="unread-badge">0</span>
             </div>
             <div id="notifications-list" class="notifications-list"></div>
-          </section>
-
-          <section class="wx-panel">
-            <div class="wx-panel-head">
-              <h2 id="tasks-title">Focus tasks</h2>
-            </div>
-            <div id="tasks-block">
-              <ul id="task-list" class="wx-task-list"></ul>
-            </div>
-            <p class="muted tiny" id="home-recs"></p>
-            <div class="wx-jump">
-              <button type="button" class="jump-link" data-goto="people">People →</button>
-              <button type="button" class="jump-link" data-goto="team">Team →</button>
-              <button type="button" class="jump-link" data-goto="feedback">Feedback →</button>
-            </div>
+            <button type="button" class="btn-link wx-more" id="notif-more" hidden></button>
           </section>
         </div>
+
+        <section class="wx-panel wx-people-panel">
+          <div class="wx-panel-head">
+            <h2>Your people</h2>
+            <button type="button" class="btn-link wx-more" data-goto="people">See all contacts</button>
+          </div>
+          <div class="wx-people" id="home-people"></div>
+        </section>
+
+        <section class="wx-ira-strip">
+          <div>
+            <strong>Not sure where to go?</strong>
+            <span class="muted tiny">Ask IRA — policies, apps, people, or your own onboarding.
+              New to office life? <button type="button" class="btn-link wx-inline-link" data-goto="basics">Workplace Basics →</button></span>
+          </div>
+          <div class="wx-ira-chips" id="home-recs"></div>
+        </section>
       </section>
 
       <section class="emp-tab" id="tab-learning">
@@ -126,11 +139,20 @@
         <header class="wx-section-head">
           <div>
             <h1>IRA</h1>
-            <p class="muted">I know Waters — apps, teams, processes, docs</p>
+            <p class="muted">I know Waters — and I learn how to help you</p>
+          </div>
+          <div class="wx-head-actions">
+            <button type="button" class="btn-secondary" id="ira-practice">Practice mode</button>
+            <button type="button" class="btn-secondary" id="ira-personalise">Personalise IRA</button>
           </div>
         </header>
         <div class="wx-ask">
-          <div id="chat-log" class="chat-log" aria-live="polite"></div>
+          <div class="cx-banner" id="coach-banner" hidden></div>
+          <div class="ira-stage">
+            <canvas id="ira-globe" class="ira-globe" aria-hidden="true"></canvas>
+            <div id="chat-log" class="chat-log" aria-live="polite"></div>
+            <div id="ira-onboard" class="gk-overlay" hidden></div>
+          </div>
           <div class="faq-chips" id="faq-chips"></div>
           <form id="chat-form" class="chat-form">
             <input id="chat-input" type="text" maxlength="240" placeholder="Ask me anything about Waters…" autocomplete="off" />
@@ -139,11 +161,22 @@
         </div>
       </section>
 
+      <section class="emp-tab" id="tab-basics">
+        <header class="wx-section-head">
+          <div>
+            <h1>Workplace Basics</h1>
+            <p class="muted">The unwritten rules nobody tells you — what to say, and why it works</p>
+          </div>
+          <button type="button" class="btn-secondary" data-goto="ask" id="basics-ask">Ask IRA instead</button>
+        </header>
+        <div id="basics-list" class="bx-list"></div>
+      </section>
+
       <section class="emp-tab" id="tab-people">
         <header class="wx-section-head">
           <div>
             <h1>People</h1>
-            <p class="muted">Who to contact for docs, IT, and mentoring</p>
+            <p class="muted">Who to contact for docs, IT, and mentoring — click anyone for their email, or let IRA draft one</p>
           </div>
         </header>
         <div id="consult-list" class="consult-grid"></div>
@@ -153,60 +186,111 @@
         <header class="wx-section-head">
           <div>
             <h1 id="team-title">Team</h1>
-            <p class="muted" id="team-blurb">Department onboarding pod</p>
+            <p class="muted" id="team-blurb">The people you'll work with and what they know best</p>
           </div>
           <span class="muted tiny" id="team-count"></span>
         </header>
-        <div id="team-list" class="team-list"></div>
+        <div class="wx-team-search">
+          <input id="team-search" type="search" placeholder="Search by name, role or skill — e.g. payroll, Workday" autocomplete="off" />
+        </div>
+        <div id="team-list" class="wx-team-grid"></div>
       </section>
 
       <section class="emp-tab" id="tab-feedback">
         <header class="wx-section-head">
           <div>
             <h1>Feedback</h1>
-            <p class="muted">Rate an onboarding step — demo only</p>
+            <p class="muted">Two minutes, anonymous, and it shapes onboarding for the next person who joins</p>
           </div>
         </header>
-        <div class="wx-feedback">
-          <form id="feedback-form" class="feedback-form">
-            <label>
-              Step
-              <select id="feedback-step" required>
-                <option value="Offer acceptance">Offer acceptance</option>
-                <option value="Document packet">Document packet</option>
-                <option value="IT provisioning">IT provisioning</option>
-                <option value="Day-1 orientation">Day-1 orientation</option>
-                <option value="Learning modules">Learning modules</option>
-                <option value="Mentor intro">Mentor intro</option>
-                <option value="Project readiness">Project readiness</option>
-              </select>
-            </label>
-            <fieldset class="rating-field">
-              <legend>Rating</legend>
-              <div class="rating-row" id="rating-row">
-                <label><input type="radio" name="rating" value="1" required /> 1</label>
-                <label><input type="radio" name="rating" value="2" /> 2</label>
-                <label><input type="radio" name="rating" value="3" checked /> 3</label>
-                <label><input type="radio" name="rating" value="4" /> 4</label>
-                <label><input type="radio" name="rating" value="5" /> 5</label>
+        <div class="fb">
+          <div class="fb-main">
+            <section class="wx-panel fb-journey">
+              <div class="fb-kicker"><span>1</span>Pick a moment from your onboarding</div>
+              <div id="fb-steps" class="fb-steps" role="radiogroup" aria-label="Onboarding step"></div>
+            </section>
+
+            <form id="feedback-form" class="wx-panel fb-form" novalidate>
+              <div class="fb-kicker"><span>2</span>Tell us how it went</div>
+              <h2 id="fb-question">How was it?</h2>
+              <p class="muted fb-context" id="fb-context"></p>
+
+              <div class="fb-scale" id="rating-row" role="radiogroup" aria-label="Rating"></div>
+
+              <div class="fb-block" id="fb-tags-wrap" hidden>
+                <span class="fb-label">What stood out? <span class="muted">Pick any</span></span>
+                <div id="fb-tags" class="fb-tags"></div>
               </div>
-            </fieldset>
-            <label>
-              Comment
-              <textarea id="feedback-comment" maxlength="500" rows="3" placeholder="What helped or blocked you?"></textarea>
-            </label>
-            <div class="form-actions">
-              <button type="submit" class="btn-primary">Submit feedback</button>
-              <span class="muted tiny" id="feedback-status" role="status"></span>
-            </div>
-          </form>
-          <div id="feedback-history" class="feedback-history"></div>
+
+              <label class="fb-block">
+                <span class="fb-label" id="fb-note-label">Anything else? <span class="muted">Optional</span></span>
+                <textarea id="feedback-comment" maxlength="500" rows="3" placeholder="What helped, what got in the way, what would you change?"></textarea>
+                <span class="muted tiny fb-count" id="feedback-count">0 / 500</span>
+              </label>
+
+              <div class="fb-submit">
+                <label class="fb-switch">
+                  <input type="checkbox" id="feedback-anon" checked />
+                  <span class="fb-switch-ui" aria-hidden="true"></span>
+                  <span class="fb-switch-copy">
+                    <strong id="fb-anon-title">Anonymous</strong>
+                    <span class="muted tiny" id="fb-anon-sub">Your name isn't attached to this response</span>
+                  </span>
+                </label>
+                <button type="submit" class="btn-primary" id="fb-submit" disabled>Send feedback</button>
+              </div>
+              <span class="muted tiny fb-status" id="feedback-status" role="status"></span>
+            </form>
+
+            <section class="wx-panel fb-thanks" id="fb-thanks" hidden>
+              <span class="fb-thanks-ic" aria-hidden="true">✓</span>
+              <h2 id="fb-thanks-title">Thanks — that really helps</h2>
+              <p class="muted" id="fb-thanks-sub"></p>
+              <div class="fb-thanks-actions" id="fb-thanks-actions"></div>
+            </section>
+          </div>
+
+          <aside class="fb-side">
+            <section class="wx-panel fb-privacy">
+              <h2>How anonymity works</h2>
+              <ul>
+                <li><span class="fb-dot">1</span><div><strong>No name attached</strong><span class="muted tiny">People Operations sees the step, rating and your words — not who wrote them.</span></div></li>
+                <li><span class="fb-dot">2</span><div><strong>Grouped before anyone reads it</strong><span class="muted tiny">Results are shown by onboarding step, only once at least 5 people have answered.</span></div></li>
+                <li><span class="fb-dot">3</span><div><strong>Only you see your history</strong><span class="muted tiny">Your list on this page is private to your account.</span></div></li>
+              </ul>
+            </section>
+            <section class="wx-panel fb-wedid">
+              <h2>You said, we did</h2>
+              <ul>
+                <li><span class="fb-said">“The document packet was confusing”</span><span class="fb-did">iCIMS now lists exactly which forms are still missing.</span><span class="muted tiny">Aug 2026</span></li>
+                <li><span class="fb-said">“I waited days for my laptop”</span><span class="fb-did">Laptops are now ordered the day your documents are complete.</span><span class="muted tiny">Jul 2026</span></li>
+                <li><span class="fb-said">“I didn't know who to ask”</span><span class="fb-did">Every joiner gets a mentor or buddy and IRA before Day 1.</span><span class="muted tiny">Jun 2026</span></li>
+              </ul>
+            </section>
+            <section class="wx-panel">
+              <h2>Your submissions</h2>
+              <div id="feedback-history" class="fb-history"></div>
+            </section>
+          </aside>
         </div>
       </section>
     </div>
   </div>
+
+  <div class="wx-drawer-backdrop" id="wx-drawer-backdrop" hidden></div>
+  <aside class="wx-drawer" id="wx-drawer" role="dialog" aria-modal="true" aria-labelledby="wx-drawer-title" hidden>
+    <div class="wx-drawer-bar">
+      <button type="button" class="wx-drawer-back" id="wx-drawer-back" hidden>← Back</button>
+      <button type="button" class="wx-drawer-close" id="wx-drawer-close" aria-label="Close">×</button>
+    </div>
+    <div class="wx-drawer-body" id="wx-drawer-body"></div>
+  </aside>
+  <div class="wx-toast" id="wx-toast" role="status" hidden></div>
+
   <script src="/static/session.js?v=17"></script>
   <script src="/static/motion.js?v=17"></script>
-  <script src="/static/employee.js?v=17"></script>
+  <script src="/static/ira-globe.js?v=18"></script>
+  <script src="/static/ira-personal.js?v=27"></script>
+  <script src="/static/employee.js?v=27"></script>
 </body>
 </html>

@@ -1,8 +1,22 @@
 # SmartStart
 
-Sandboxed **employee onboarding orchestration** for Interns and FTEs.
+**SmartStart** is an intelligent employee experience platform that combines onboarding
+orchestration, enterprise navigation, personalized guidance, and predictive readiness.
 
 All data is **100% synthetic** — no real PII, production logs, or live HR/IT systems.
+
+**IRA** is the employee’s always-available AI companion. It helps answer:
+
+1. **WHAT?** — What’s this application / term?
+2. **WHERE?** — Where do I do this?
+3. **WHO?** — Who can help me?
+4. **WHAT NEXT?** — What should I do now?
+5. **WHY?** — Why am I blocked?
+6. **WHAT IF?** — What happens if this isn’t completed?
+
+IRA reasons across personal onboarding context + a governed synthetic knowledge layer
+(apps, teams, processes, docs) and cross-system sandbox signals (iCIMS / ServiceNow / Jira).
+It recommends and navigates — humans keep approvals and production changes.
 
 ## Companion systems (separate websites)
 
@@ -16,7 +30,9 @@ All data is **100% synthetic** — no real PII, production logs, or live HR/IT s
 
 See [`icims/README.md`](icims/README.md), [`servicenow/README.md`](servicenow/README.md), [`jira/README.md`](jira/README.md), [`ira/README.md`](ira/README.md).
 
-**IRA** is an independent PySide6 floating widget that **knows Waters** (apps, teams, processes, docs) from sandbox sources — it does **not** replace enterprise systems or take production actions. It sits on the desktop and calls SmartStart `/api/ira/*` APIs.
+**IRA** is an independent PySide6 companion for enterprise navigation + personal
+onboarding guidance. It calls SmartStart `/api/ira/*` only — it does **not** replace
+enterprise systems or take production actions.
 
 Demo logins: iCIMS `hr.demo` / `hr-demo-2026` · ServiceNow `it.demo` / `it-demo-2026` · Jira `mgr.demo` / `mgr-demo-2026`.
 
@@ -27,7 +43,8 @@ Demo logins: iCIMS `hr.demo` / `hr-demo-2026` · ServiceNow `it.demo` / `it-demo
 | **1** | Done | Synthetic data + 5-stage state engine |
 | **2** | Done | Employer Command Center (HR / IT / Manager) |
 | **3** | Done | Employee Experience (Intern / FTE dashboard) |
-| **4** | Done | Prototype AI (IRA · knows Waters / predict / recommend) |
+| **4** | Done | IRA intelligence (knowledge · context · action · predictive · orchestration) |
+| **IRA desktop** | Done | Independent PySide6 companion over `/api/ira/*` |
 
 ### State machine
 

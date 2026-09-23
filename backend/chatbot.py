@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from backend.database import DataStore, store
-from backend.models import ChatbotResponse, ChatFAQ, ChatTurn, RoleType
+from backend.models import ChatbotResponse, ChatFAQ, ChatTurn, EmailDraft, RoleType
 
 _BASE_FAQS: list[tuple[str, str, str, str, tuple[str, ...]]] = [
     (
@@ -174,8 +174,12 @@ def build_chatbot(
     joiner_id: str,
     query: str | None = None,
     db: DataStore | None = None,
+    asked: list[str] | None = None,
 ) -> ChatbotResponse:
     db = db or store
+    suggestions: list[str] = []
+    draft: EmailDraft | None = None
+    mode, coach, basics = "ask", None, None
     joiner = db.get_joiner(joiner_id)
     if joiner is None:
         raise KeyError(joiner_id)
@@ -194,37 +198,57 @@ def build_chatbot(
 
     first = joiner.name.split()[0]
     greeting = (
-        f"Hi {first} — I’m IRA. I know Waters for your {joiner.role_type.value} profile. "
-        f"Ask me anything about apps, teams, processes, docs, or your own record."
+        f"Hi {first} — I’m IRA, your intelligent onboarding companion. "
+        f"Ask What / Where / Who / What next for your {joiner.role_type.value} profile."
     )
 
     turns: list[ChatTurn] = [ChatTurn(role="assistant", text=greeting, synthetic=True)]
 
     if query:
         turns.append(ChatTurn(role="user", text=query.strip(), synthetic=True))
-        matched = _match_faq(query, catalog)
-        if matched:
-            fid, _q, answer = matched
-            turns.append(
-                ChatTurn(
-                    role="assistant",
-                    text=answer,
-                    matched_faq_id=f"{joiner_id}-FAQ-{fid}",
-                    synthetic=True,
+        # Prefer shared IRA intelligence (knowledge + personal context)
+        try:
+            from backend.ira_api import build_ira_context
+            from backend.ira_profile import record_observation
+            from ira.brain import followups_for, respond
+
+            from ira.email_draft import draft_email, is_draft_request
+
+            ctx = build_ira_context(joiner_id, db=db)
+            history = [("user", a) for a in (asked or [])]
+            result = respond(query, ctx, online=True, history=history)
+            text = result["text"]
+            mode, coach, basics = result["mode"], result["coach"], result["basics"]
+            record_observation(joiner_id, query, flavour=result["flavour"])
+            turns.append(ChatTurn(role="assistant", text=text, synthetic=True))
+            suggestions = followups_for(query, text, ctx, asked=set(asked or []))
+            if is_draft_request(query):
+                found = draft_email(query, ctx)
+                draft = EmailDraft(**found) if found else None
+        except Exception:
+            matched = _match_faq(query, catalog)
+            if matched:
+                fid, _q, answer = matched
+                turns.append(
+                    ChatTurn(
+                        role="assistant",
+                        text=answer,
+                        matched_faq_id=f"{joiner_id}-FAQ-{fid}",
+                        synthetic=True,
+                    )
                 )
-            )
-        else:
-            turns.append(
-                ChatTurn(
-                    role="assistant",
-                    text=(
-                        "I don’t have that in the approved synthetic sources yet. Try apps, "
-                        "teams, processes, documents, mentor, hardware, learning, or "
-                        "governance — or open the owning system for a change. I won’t invent an answer."
-                    ),
-                    synthetic=True,
+            else:
+                turns.append(
+                    ChatTurn(
+                        role="assistant",
+                        text=(
+                            "I don’t have that in the approved synthetic sources yet. Try apps, "
+                            "teams, processes, documents, mentor, hardware, learning, or "
+                            "governance — or open the owning system for a change. I won’t invent an answer."
+                        ),
+                        synthetic=True,
+                    )
                 )
-            )
 
     return ChatbotResponse(
         joiner_id=joiner_id,
@@ -233,5 +257,10 @@ def build_chatbot(
         faqs=faqs,
         turns=turns,
         query=query,
+        suggestions=suggestions,
+        draft=draft,
+        mode=mode,
+        coach=coach,
+        basics=basics,
         synthetic=True,
     )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
-from typing import Optional
+from typing import Annotated, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -277,6 +277,39 @@ class LearningModule(BaseModel):
     synthetic: bool = True
 
 
+class LessonStep(BaseModel):
+    title: str
+    body: str
+
+
+class LearningResource(BaseModel):
+    """Something a module links to: a policy, a mock portal, a person, or an IRA question."""
+
+    label: str
+    kind: str  # policy | portal | person | ira
+    target: str
+    note: str = ""
+
+
+class KnowledgeCheck(BaseModel):
+    question: str
+    options: list[str]
+    answer_index: int
+    explanation: str
+
+
+class LearningModuleDetail(BaseModel):
+    module: LearningModule
+    summary: str
+    lessons: list[LessonStep]
+    takeaways: list[str]
+    resources: list[LearningResource]
+    check: Optional[KnowledgeCheck] = None
+    ask_ira: list[str] = Field(default_factory=list)
+    unlock_hint: str = ""
+    synthetic: bool = True
+
+
 class LearningTrackResponse(BaseModel):
     joiner_id: str
     track_name: str
@@ -341,6 +374,8 @@ class FeedbackCreate(BaseModel):
     step: str = Field(min_length=1, max_length=80)
     rating: int = Field(ge=1, le=5)
     comment: str = Field(default="", max_length=500)
+    tags: list[Annotated[str, Field(max_length=40)]] = Field(default_factory=list, max_length=6)
+    anonymous: bool = True
 
 
 class FeedbackRecord(BaseModel):
@@ -349,7 +384,9 @@ class FeedbackRecord(BaseModel):
     step: str
     rating: int
     comment: str
+    tags: list[str] = Field(default_factory=list)
     submitted_at: datetime
+    anonymous: bool = True
     synthetic: bool = True
 
 
@@ -384,6 +421,14 @@ class ChatTurn(BaseModel):
     synthetic: bool = True
 
 
+class EmailDraft(BaseModel):
+    to_name: str
+    to_email: str
+    subject: str
+    body: str
+    synthetic: bool = True
+
+
 class ChatbotResponse(BaseModel):
     joiner_id: str
     role_type: RoleType
@@ -391,6 +436,11 @@ class ChatbotResponse(BaseModel):
     faqs: list[ChatFAQ]
     turns: list[ChatTurn] = Field(default_factory=list)
     query: Optional[str] = None
+    suggestions: list[str] = Field(default_factory=list)
+    draft: Optional["EmailDraft"] = None
+    mode: str = "ask"
+    coach: Optional[dict] = None
+    basics: Optional[str] = None
     synthetic: bool = True
     note: str = "IRA — knows Waters from approved synthetic sources (not a live LLM; no production actions)."
 
@@ -450,6 +500,9 @@ class ConsultContact(BaseModel):
     channel: str
     availability: str
     focus: str
+    email: str = ""
+    portal: str = ""  # icims | servicenow | jira | ""
+    portal_label: str = ""
     synthetic: bool = True
 
 
@@ -466,6 +519,21 @@ class TeamMember(BaseModel):
     synthetic: bool = True
 
 
+class Colleague(BaseModel):
+    """Synthetic member of the joiner's department team."""
+
+    id: str
+    name: str
+    title: str
+    relationship: str = ""
+    expertise: list[str] = Field(default_factory=list)
+    ask_about: str = ""
+    channel: str = ""
+    email: str = ""
+    is_self: bool = False
+    synthetic: bool = True
+
+
 class TeamWorkspaceResponse(BaseModel):
     """Employee workspace helpers: consult network + department team."""
 
@@ -475,6 +543,7 @@ class TeamWorkspaceResponse(BaseModel):
     team_name: str
     consult: list[ConsultContact]
     team: list[TeamMember]
+    members: list[Colleague] = Field(default_factory=list)
     suggested_questions: list[str]
     synthetic: bool = True
     note: str = "Synthetic consult network and team roster — demo only."

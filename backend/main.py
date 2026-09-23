@@ -22,12 +22,15 @@ from backend.database import store
 from backend.employee_experience import (
     build_employee_profile,
     build_learning_track,
+    build_module_detail,
+    complete_module,
     build_notifications,
     build_team_workspace,
     clear_feedback,
     list_feedback,
     submit_feedback,
 )
+from backend import ira_profile
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -54,6 +57,7 @@ from backend.models import (
     FeedbackResponse,
     Joiner,
     JoinerDetail,
+    LearningModuleDetail,
     LearningTrackResponse,
     MetricsSummary,
     NotificationsResponse,
@@ -183,6 +187,72 @@ def joiner_owners(joiner_id: str, session: EmployerSession) -> AssignOwnersRespo
         return build_assignable_owners(joiner_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Joiner not found") from exc
+
+
+@app.get("/api/joiners/{joiner_id}/intelligence")
+def joiner_intelligence(joiner_id: str, session: EmployerSession) -> dict:
+    """Explain risk / blockers / next actions for Command Center (synthetic)."""
+    _ = session
+    from backend.intelligence import employer_at_risk_explanation
+
+    try:
+        return employer_at_risk_explanation(joiner_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Joiner not found") from exc
+
+
+@app.get("/api/employer/at-risk")
+def employer_at_risk(
+    session: EmployerSession,
+    role_view: EmployerRole = Query(default=EmployerRole.ALL),
+    limit: int = Query(default=8, ge=1, le=30),
+) -> dict:
+    """Joiners with elevated synthetic risk + explained drivers for HR/IT/Manager queues."""
+    from backend.intelligence import employer_at_risk_explanation
+    from backend.predictor import build_predictions
+
+    _ = session
+    rows = []
+    for j in store.list_joiners():
+        docs = store.get_documents(j.id)
+        ticket = store.get_ticket_for_joiner(j.id)
+        if docs is None or ticket is None:
+            continue
+        bn = infer_bottleneck(j.current_state, docs, ticket)
+        if not joiner_in_role_view(
+            j,
+            docs.status,
+            ticket.hardware_status,
+            ticket.sla_breached,
+            role_view,
+            bottleneck=bn,
+        ):
+            continue
+        try:
+            pred = build_predictions(j.id)
+        except KeyError:
+            continue
+        if pred.overall_risk_score < 45:
+            continue
+        expl = employer_at_risk_explanation(j.id)
+        rows.append(
+            {
+                "id": j.id,
+                "name": j.name,
+                "department": j.department,
+                "role_type": j.role_type.value,
+                "manager_name": j.manager_name,
+                "current_state": j.current_state.value,
+                "risk_score": expl["risk_score"],
+                "risk_level": expl["risk_level"],
+                "headline": expl["headline"],
+                "why": expl["why"],
+                "recommended": expl["recommended"],
+                "primary_blocker": (expl["blockers"][0]["title"] if expl["blockers"] else None),
+            }
+        )
+    rows.sort(key=lambda r: r["risk_score"], reverse=True)
+    return {"total": len(rows[:limit]), "joiners": rows[:limit], "synthetic": True}
 
 
 @app.get("/api/metrics/summary", response_model=MetricsSummary)
@@ -450,6 +520,59 @@ def ira_notifications(joiner_id: str) -> dict:
     }
 
 
+@app.get("/api/ira/{joiner_id}/profile")
+def ira_profile_get(joiner_id: str) -> dict:
+    """Get to know me questionnaire, saved answers and what IRA has noticed."""
+    return ira_profile.profile_payload(joiner_id, ira_context(joiner_id))
+
+
+@app.put("/api/ira/{joiner_id}/profile")
+def ira_profile_put(joiner_id: str, body: ira_profile.ProfileUpdate) -> dict:
+    ira_context(joiner_id)
+    ira_profile.save_answers(joiner_id, body.answers, onboarded=body.onboarded)
+    return ira_profile.profile_payload(joiner_id, ira_context(joiner_id))
+
+
+@app.post("/api/ira/{joiner_id}/profile/forget")
+def ira_profile_forget(joiner_id: str, body: ira_profile.ForgetRequest) -> dict:
+    ira_context(joiner_id)
+    ira_profile.forget(joiner_id, what=body.what)
+    return ira_profile.profile_payload(joiner_id, ira_context(joiner_id))
+
+
+@app.post("/api/ira/{joiner_id}/observe")
+def ira_observe(joiner_id: str, body: dict) -> dict:
+    """Desktop IRA reports each question so observed preferences stay in sync."""
+    ira_context(joiner_id)
+    query = str(body.get("query") or "")[:500]
+    prof = ira_profile.record_observation(joiner_id, query, flavour=bool(body.get("flavour")))
+    return {"employee_id": joiner_id, "observed": prof["observed"], "synthetic": True}
+
+
+@app.post("/api/ira/{joiner_id}/coach")
+def ira_coach(joiner_id: str, body: ira_profile.CoachRequest) -> dict:
+    """Practice mode: start a scenario (no message) or get IRA's in-role reply + feedback."""
+    ctx = ira_context(joiner_id)
+    try:
+        return ira_profile.coach_turn(joiner_id, body, ctx)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Practice scenario not found") from None
+
+
+@app.get("/api/ira/{joiner_id}/basics")
+def ira_basics(joiner_id: str) -> dict:
+    """Workplace Basics catalogue, with topics recommended from Get to know me."""
+    return ira_profile.basics_payload(joiner_id, ira_context(joiner_id))
+
+
+@app.get("/api/ira/{joiner_id}/basics/{topic_id}")
+def ira_basics_topic(joiner_id: str, topic_id: str) -> dict:
+    try:
+        return ira_profile.basics_topic(joiner_id, topic_id, ira_context(joiner_id))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Topic not found") from None
+
+
 # --- Layer 3: Employee Experience ------------------------------------------
 
 
@@ -469,6 +592,71 @@ def learning_track(joiner_id: str) -> LearningTrackResponse:
         return build_learning_track(joiner_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Learning track not found") from None
+
+
+@app.get(
+    "/api/learningtrack/{joiner_id}/modules/{module_id}",
+    response_model=LearningModuleDetail,
+)
+def learning_module(joiner_id: str, module_id: str) -> LearningModuleDetail:
+    """Lessons, resources and a knowledge check for one learning module."""
+    try:
+        return build_module_detail(joiner_id, module_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Module not found") from None
+
+
+@app.post(
+    "/api/learningtrack/{joiner_id}/modules/{module_id}/complete",
+    response_model=LearningTrackResponse,
+)
+def learning_module_complete(joiner_id: str, module_id: str) -> LearningTrackResponse:
+    """Mark a module complete (synthetic, in-memory) and return the updated track."""
+    try:
+        return complete_module(joiner_id, module_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Module not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+
+
+@app.get("/api/policies")
+def policies_index() -> dict:
+    """Approved policy library (HR, Finance, Legal, Information Security)."""
+    from ira.policy_kb import load_policies
+
+    return {
+        "policies": [
+            {
+                "slug": d.slug,
+                "title": d.title,
+                "category": d.category,
+                "owner": d.owner,
+                "updated": d.updated,
+            }
+            for d in load_policies()
+        ],
+        "synthetic": True,
+    }
+
+
+@app.get("/api/policies/{slug}")
+def policy_detail(slug: str) -> dict:
+    """Full text of one approved policy, split into sections."""
+    from ira.policy_kb import load_policies
+
+    doc = next((d for d in load_policies() if d.slug == slug), None)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    return {
+        "slug": doc.slug,
+        "title": doc.title,
+        "category": doc.category,
+        "owner": doc.owner,
+        "updated": doc.updated,
+        "sections": [{"heading": s.heading, "body": s.body} for s in doc.sections],
+        "synthetic": True,
+    }
 
 
 @app.get("/api/notifications/{joiner_id}", response_model=NotificationsResponse)
@@ -491,8 +679,12 @@ def feedback(payload: FeedbackCreate) -> FeedbackResponse:
 
 @app.get("/api/feedback")
 def feedback_list(joiner_id: str | None = Query(default=None)):
-    """List synthetic feedback records (demo/debug)."""
+    """List synthetic feedback. Anonymous entries only reveal their author to that author."""
     rows = list_feedback(joiner_id)
+    if joiner_id is None:
+        rows = [
+            r.model_copy(update={"joiner_id": "anonymous"}) if r.anonymous else r for r in rows
+        ]
     return {"total": len(rows), "feedback": rows, "synthetic": True}
 
 
@@ -508,10 +700,14 @@ def employee_workspace(joiner_id: str) -> TeamWorkspaceResponse:
 # --- Layer 4: Prototype AI Features ------------------------------------
 
 @app.get("/api/chatbot/{joiner_id}", response_model=ChatbotResponse)
-def chatbot(joiner_id: str, q: str | None = Query(default=None)) -> ChatbotResponse:
-    """Synthetic rule-based onboarding FAQ guidance for a joiner."""
+def chatbot(
+    joiner_id: str,
+    q: str | None = Query(default=None),
+    asked: list[str] = Query(default=[]),
+) -> ChatbotResponse:
+    """IRA answer for a joiner plus follow-up suggestions (skips ``asked`` questions)."""
     try:
-        return build_chatbot(joiner_id, query=q)
+        return build_chatbot(joiner_id, query=q, asked=asked)
     except KeyError:
         raise HTTPException(status_code=404, detail="Chatbot context not found") from None
 

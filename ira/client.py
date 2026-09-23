@@ -37,6 +37,22 @@ class SmartStartClient:
     def context(self, employee_id: str) -> dict:
         return self._get(f"/api/ira/{employee_id}/context")
 
+    def save_profile(self, employee_id: str, answers: dict) -> Optional[dict]:
+        try:
+            with httpx.Client(base_url=self.base_url, timeout=self.timeout) as client:
+                res = client.put(f"/api/ira/{employee_id}/profile", json={"answers": answers, "onboarded": True})
+                res.raise_for_status()
+                return res.json()
+        except Exception:
+            return None
+
+    def observe(self, employee_id: str, query: str, *, flavour: bool = False) -> None:
+        try:
+            with httpx.Client(base_url=self.base_url, timeout=self.timeout) as client:
+                client.post(f"/api/ira/{employee_id}/observe", json={"query": query, "flavour": flavour})
+        except Exception:
+            pass
+
     def active_session(self) -> dict:
         try:
             return self._get("/api/ira/session")

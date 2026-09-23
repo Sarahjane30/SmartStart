@@ -11,11 +11,12 @@ from PySide6.QtCore import QTimer, Qt, QRect
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication, QWidget
 
-from ira.brain import answer, greeting, suggestions_for
+from ira.brain import greeting, suggestions_for
 from ira.bubble import IraBubble
 from ira.chat_panel import ChatPanel, PanelMode
 from ira.client import SmartStartClient
 from ira.config import load_config, update_config
+from ira.desktop_flow import DesktopConversation, wants_onboarding
 
 # Park unused windows here — NEVER hide() them on Windows (hide can kill Tool UIs)
 _PARK = QRect(-12000, -12000, 64, 64)
@@ -47,6 +48,8 @@ class IraApp:
 
         self.bubble = IraBubble()
         self.panel = ChatPanel()
+        self._history: list[tuple[str, str]] = []
+        self.flow = DesktopConversation()
 
         self.bubble.clicked.connect(self.open_panel)
         self.bubble.moved_to.connect(self._persist_bubble_pos)
@@ -162,9 +165,16 @@ class IraApp:
 
         self.panel.set_locked(False, name=name, role=role, dept=dept)
         if changed or force_greet:
+            if changed:
+                self.flow = DesktopConversation()
             self.panel.clear_chat()
             self.panel.add_message(greeting(self.ctx), role="ira")
-            self.panel.set_suggestions(suggestions_for(self.ctx))
+            intro = self.flow.intro(self.ctx)
+            if intro:
+                self.panel.add_message(intro.reply, role="ira")
+                self.panel.set_suggestions(intro.chips, limit=intro.chip_limit)
+            else:
+                self.panel.set_suggestions(suggestions_for(self.ctx))
 
     def open_panel(self) -> None:
         if self._panel_open:
@@ -216,19 +226,35 @@ class IraApp:
             self.panel.set_locked(True)
             return
         self.panel.add_message(text, role="user")
+        self._history.append(("user", text))
         tip = self.panel.show_typing()
 
         def _reply() -> None:
-            tip.deleteLater()
+            self.panel.hide_typing(tip)
             if self.online and self._session_id:
                 try:
                     self.ctx = self.client.context(self._session_id)
                 except Exception:
                     pass
-            reply = answer(text, self.ctx, online=self.online and bool(self.ctx))
-            self.panel.add_message(reply, role="ira")
+            if wants_onboarding(text) and self.flow.onboarding is None and self.flow.coach is None:
+                turn = self.flow.restart_onboarding()
+            else:
+                turn = self.flow.handle(
+                    text,
+                    self.ctx,
+                    online=self.online and bool(self.ctx),
+                    history=list(self._history[-8:]),
+                )
+            self.panel.add_message(turn.reply, role="ira")
+            self._history.append(("ira", turn.reply))
+            self.panel.set_suggestions(turn.chips, limit=turn.chip_limit)
+            if self.online and self._session_id:
+                if turn.save_answers is not None:
+                    self.client.save_profile(self._session_id, turn.save_answers)
+                if turn.observe:
+                    self.client.observe(self._session_id, text, flavour=turn.flavour)
 
-        QTimer.singleShot(300, _reply)
+        QTimer.singleShot(900, _reply)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -245,9 +271,10 @@ def main(argv: list[str] | None = None) -> int:
         pkg = Path(_ira_pkg.__file__).resolve().parent
         print()
         print("=" * 52)
-        print("  IRA — I know Waters")
+        print("  IRA — intelligent onboarding companion")
         print(f"  {pkg}")
-        print("  – collapses to blue orb (stays on desktop)")
+        print("  – What / Where / Who / What next")
+        print("  – collapses to orb (stays on desktop)")
         print("  × quits   ·   click orb to reopen")
         print("=" * 52)
         print()

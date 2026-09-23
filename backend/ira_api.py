@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from backend.database import DataStore, store
 from backend.employee_experience import build_employee_profile, build_learning_track, build_notifications
+from backend.ira_profile import get_profile
 from backend.models import DocumentStatus, HardwareStatus, OnboardingState
 
 AS_OF = datetime(2026, 9, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -83,6 +84,41 @@ def list_ira_employees(db: DataStore | None = None) -> dict:
     return {"total": len(rows), "employees": rows, "synthetic": True}
 
 
+_CONSULT_ROLES = {"mentor": ["mentor"], "hr": ["hr"], "it": ["it"], "mgr": ["manager"]}
+
+
+def _directory_people(joiner_id: str, db: DataStore) -> list[dict]:
+    """Team + consult contacts IRA may address emails to (no one outside this list)."""
+    from backend.employee_experience import build_team_workspace
+
+    ws = build_team_workspace(joiner_id, db=db)
+    people: dict[str, dict] = {}
+    for m in ws.members:
+        if m.is_self or not m.email:
+            continue
+        rel = m.relationship.lower()
+        roles = ["manager"] if "manager" in rel else ["mentor", "buddy"] if rel else []
+        people[m.name] = {
+            "name": m.name,
+            "email": m.email,
+            "title": m.title,
+            "ask_about": m.ask_about,
+            "roles": roles,
+        }
+    for c in ws.consult:
+        if not c.email:
+            continue
+        key = c.id.rsplit("-C-", 1)[-1]
+        entry = people.setdefault(
+            c.name,
+            {"name": c.name, "email": c.email, "title": c.role_label, "ask_about": c.focus, "roles": []},
+        )
+        for r in _CONSULT_ROLES.get(key, []):
+            if r not in entry["roles"]:
+                entry["roles"].append(r)
+    return list(people.values())
+
+
 def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
     """Single payload IRA uses for context-aware answers."""
     db = db or store
@@ -93,6 +129,14 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
     docs = db.get_documents(joiner_id)
     ticket = db.get_ticket_for_joiner(joiner_id)
     assert joiner is not None and docs is not None and ticket is not None
+
+    from backend.intelligence import (
+        build_blockers,
+        build_briefing,
+        build_next_best_actions,
+        build_risk_summary,
+    )
+    from backend.knowledge import role_recommended_apps
 
     progress = _STATE_PROGRESS.get(joiner.current_state, 0)
     open_tasks = list(joiner.assigned_tasks)
@@ -118,6 +162,21 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
         "learning_started": learning.completion_pct > 0,
         "project_ready": project_ready,
     }
+
+    blockers = build_blockers(joiner_id, db=db)
+    next_best = build_next_best_actions(joiner_id, db=db)
+    briefing = build_briefing(joiner_id, db=db)
+    risk = build_risk_summary(joiner_id, db=db)
+    apps = [
+        {
+            "id": a.id,
+            "name": a.name,
+            "summary": a.summary,
+            "owner": a.owner,
+            "navigate_hint": a.navigate_hint,
+        }
+        for a in role_recommended_apps(joiner.role_type.value)
+    ]
 
     return {
         "employee": {
@@ -162,6 +221,15 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
             "completion_pct": learning.completion_pct,
             "completed_count": learning.completed_count,
             "total_count": learning.total_count,
+            "modules": [
+                {
+                    "title": m.title,
+                    "status": m.status.value,
+                    "duration_minutes": m.duration_minutes,
+                    "category": m.category,
+                }
+                for m in learning.modules
+            ],
             "next_modules": [
                 m.title
                 for m in learning.modules
@@ -180,6 +248,13 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
                 "projects": "Jira (via SmartStart onboarding state)",
             },
         },
+        "intelligence": {
+            "blockers": blockers,
+            "next_best_actions": next_best,
+            "briefing": briefing,
+            "risk": risk,
+            "recommended_apps": apps,
+        },
         "notifications": [
             {
                 "kind": n.kind.value,
@@ -189,7 +264,16 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
             }
             for n in notes.notifications[:6]
         ],
+        "people": _directory_people(joiner_id, db),
+        "profile": get_profile(joiner_id),
         "synthetic": True,
         "as_of": AS_OF.isoformat(),
-        "note": "Aggregated for IRA desktop companion — not a SmartStart UI page.",
+        "note": (
+            "Aggregated for IRA — enterprise navigation + personal onboarding context. "
+            "Not a SmartStart UI page."
+        ),
+        "positioning": (
+            "SmartStart is an intelligent employee experience platform. "
+            "IRA is the always-available companion for What / Where / Who / What next."
+        ),
     }

@@ -84,7 +84,17 @@ const CARD_FILTERS = {
   bottleneck: (s) => Boolean(s.bottleneck),
   project_pending: (s) => s.current_state === "DAY1_ORIENTED",
   project_ready: (s) => s.current_state === "PROJECT_READY",
+  ...Object.fromEntries(
+    PIPELINE_STAGES.map((st) => [`stage_${st}`, (s) => s.current_state === st])
+  ),
 };
+
+function filterLabel(key) {
+  const card = state.workspace?.cards.find((c) => c.filter === key);
+  if (card) return card.label;
+  const stage = PIPELINE_STAGES.find((st) => key === `stage_${st}`);
+  return stage ? `Stage · ${STAGE_LABELS[stage]}` : null;
+}
 
 function isOps() {
   return state.userRole === "OPS";
@@ -317,10 +327,10 @@ function renderJoiners() {
   const pred = CARD_FILTERS[state.cardFilter] || CARD_FILTERS.all;
   const rows = ws.joiners.filter(pred);
   const chip = document.getElementById("joiners-filter");
-  const card = ws.cards.find((c) => c.filter === state.cardFilter);
-  if (card && state.cardFilter !== "all") {
+  const label = filterLabel(state.cardFilter);
+  if (label && state.cardFilter !== "all") {
     chip.hidden = false;
-    chip.innerHTML = `${esc(card.label)} <button type="button" class="chip-x" data-clear-filter aria-label="Clear filter">×</button>`;
+    chip.innerHTML = `${esc(label)} <button type="button" class="chip-x" data-clear-filter aria-label="Clear filter">×</button>`;
   } else {
     chip.hidden = true;
   }
@@ -437,6 +447,113 @@ function actionCell(row) {
   </div>`;
 }
 
+function emptyState(icon, title, sub = "") {
+  return `<div class="empty-state">
+    <span class="empty-ico" aria-hidden="true">${icon}</span>
+    <strong>${esc(title)}</strong>
+    ${sub ? `<span class="muted tiny">${esc(sub)}</span>` : ""}
+  </div>`;
+}
+
+function asOfDate() {
+  return new Date(state.workspace?.as_of || Date.now());
+}
+
+function daysUntil(iso) {
+  const ms = new Date(`${iso}T12:00:00Z`) - asOfDate();
+  return Math.round(ms / 86400000);
+}
+
+function flowPanel() {
+  const rows = state.workspace.joiners;
+  const counts = PIPELINE_STAGES.map((s) => rows.filter((r) => r.current_state === s).length);
+  const max = Math.max(...counts, 1);
+  const stuck = rows.filter((r) => r.health !== "on_track").length;
+  return `<div class="card flow-card">
+    <div class="card-head">
+      <h2>Onboarding flow</h2>
+      <span class="muted tiny">${rows.length} joiner(s)</span>
+    </div>
+    <div class="flow">
+      ${PIPELINE_STAGES.map((s, i) => {
+        const n = counts[i];
+        const risky = rows.filter((r) => r.current_state === s && r.health !== "on_track").length;
+        return `<button type="button" class="flow-row ${n ? "" : "zero"}" data-card-filter="stage_${s}" title="Show joiners at ${STAGE_LABELS[s]}">
+          <span class="flow-label">${STAGE_LABELS[s]}</span>
+          <span class="flow-track"><span class="flow-fill s${i}" style="width:${(n / max) * 100}%"></span></span>
+          <span class="flow-n">${n}${risky ? `<em title="${risky} blocked or at risk">${risky}⚠</em>` : ""}</span>
+        </button>`;
+      }).join("")}
+    </div>
+    <p class="muted tiny flow-foot">${stuck} joiner(s) blocked or at risk · click a stage to filter</p>
+  </div>`;
+}
+
+function startingSoonPanel() {
+  const byId = new Map((state.dashboard?.rows || []).map((r) => [r.id, r]));
+  const upcoming = state.workspace.joiners
+    .map((s) => ({ s, date: byId.get(s.id)?.joining_date }))
+    .filter((x) => x.date)
+    .map((x) => ({ ...x, d: daysUntil(x.date) }))
+    .sort((a, b) => (a.d < 0) - (b.d < 0) || Math.abs(a.d) - Math.abs(b.d))
+    .slice(0, 5);
+  return `<div class="card">
+    <div class="card-head">
+      <h2>Start dates</h2>
+      <span class="muted tiny">nearest first</span>
+    </div>
+    ${
+      upcoming.length
+        ? `<ul class="soon-list">${upcoming
+            .map(
+              ({ s, date, d }) => `<li class="soon-row">
+                <span class="soon-when ${d < 0 ? "past" : d <= 7 ? "near" : ""}">${
+                  d === 0 ? "Today" : d > 0 ? `in ${d}d` : `${Math.abs(d)}d ago`
+                }</span>
+                <span class="soon-who">
+                  <button type="button" class="joiner-open" data-open="${esc(s.id)}">${esc(s.name)}</button>
+                  <span class="muted tiny">${esc(date)} · ${esc(STAGE_LABELS[s.current_state])}</span>
+                </span>
+                <span class="health-dot ${esc(s.health)}" title="${esc(s.bottleneck || "On track")}"></span>
+              </li>`
+            )
+            .join("")}</ul>`
+        : emptyState("📅", "No start dates in view")
+    }
+  </div>`;
+}
+
+function watchlistPanel() {
+  const rows = state.workspace.joiners
+    .filter((s) => s.health !== "on_track")
+    .sort((a, b) => b.risk_score - a.risk_score)
+    .slice(0, 5);
+  return `<div class="card">
+    <div class="card-head">
+      <h2>Watchlist</h2>
+      <span class="muted tiny">highest risk</span>
+    </div>
+    ${
+      rows.length
+        ? `<ul class="watch-list">${rows
+            .map(
+              (s) => `<li class="watch-row">
+                <span class="watch-who">
+                  <button type="button" class="joiner-open" data-open="${esc(s.id)}">${esc(s.name)}</button>
+                  <span class="muted tiny">${esc(shortBottleneck(s.bottleneck) || "—")} · ${esc(s.queue)} queue</span>
+                </span>
+                <span class="watch-score ${esc(s.health)}">
+                  <span class="watch-bar"><span style="width:${Math.min(100, s.risk_score)}%"></span></span>
+                  <strong>${Math.round(s.risk_score)}</strong>
+                </span>
+              </li>`
+            )
+            .join("")}</ul>`
+        : emptyState("👍", "Nobody is at risk", "Everyone in your view is on track.")
+    }
+  </div>`;
+}
+
 function renderDashboard() {
   const data = state.dashboard;
   if (!data || !state.workspace) return;
@@ -446,19 +563,29 @@ function renderDashboard() {
   const ops = isOps();
   document.getElementById("pipeline-card").hidden = !ops;
   document.getElementById("dash-split").hidden = ops;
+  document.getElementById("dash-extra").hidden = ops;
   if (!ops) {
     const ws = state.workspace;
-    const top = ws.action_queue.slice(0, 5);
+    const top = ws.action_queue.slice(0, 4);
     document.getElementById("needs-now-title").textContent =
       state.userRole === "IT" ? "IT requests needing you" : "Needs you now";
+    document.getElementById("needs-now-more").hidden = ws.action_queue.length <= top.length;
     document.getElementById("needs-now").innerHTML = top.length
-      ? top.map((s) => actionCard(s, true)).join("")
-      : `<p class="muted">You're all caught up.</p>`;
-    const alerts = (state.alerts?.alerts || []).filter((a) => a.action_required).slice(0, 4);
+      ? top.map((s) => actionCard(s, true)).join("") +
+        (ws.action_queue.length > top.length
+          ? `<button type="button" class="more-row" data-goto="actions">+ ${
+              ws.action_queue.length - top.length
+            } more in your queue →</button>`
+          : "")
+      : emptyState("✓", "You're all caught up", "Nothing in your queue needs action right now.");
+    const alerts = (state.alerts?.alerts || []).filter((a) => a.action_required).slice(0, 3);
     document.getElementById("dash-alerts").innerHTML = alerts.length
       ? alerts.map((a) => alertCard(a, true)).join("")
-      : `<p class="muted">No alerts need your action.</p>`;
+      : emptyState("🔔", "No alerts need your action", "Cross-team delays still show under Alerts.");
+    document.getElementById("dash-extra").innerHTML =
+      flowPanel() + startingSoonPanel() + watchlistPanel();
     revealAll(document.getElementById("needs-now"), ".action-card", 30);
+    revealAll(document.getElementById("dash-extra"), ".card", 40);
     return;
   }
 
@@ -467,8 +594,8 @@ function renderDashboard() {
     const s = summaryById(r.id);
     return s ? pred(s) : true;
   });
-  const card = state.workspace.cards.find((c) => c.filter === state.cardFilter);
-  const filterNote = card && state.cardFilter !== "all" ? ` · filtered: ${card.label}` : "";
+  const label = filterLabel(state.cardFilter);
+  const filterNote = label && state.cardFilter !== "all" ? ` · filtered: ${label}` : "";
   document.getElementById("dashboard-count").textContent =
     `${rows.length} joiners · split across 4 hiring managers · each has their own mentor${filterNote}`;
   document.querySelector("#joiners-table tbody").innerHTML = rows

@@ -114,7 +114,8 @@ def test_greeting_and_progress_snapshot():
         ctx = client.get(f"/api/ira/{sid}/context").json()
     g = greeting(ctx)
     assert "Hey Sarah" in g
-    assert "onboarding update" in g.lower() or "IRA" in g
+    assert "IRA" in g
+    assert "onboarding" in g.lower()
     snap = progress_snapshot(ctx)
     assert snap is not None
     assert isinstance(snap["pct"], int)

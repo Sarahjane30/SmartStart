@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 
 from PySide6.QtCore import Qt, QTimer, Signal, QSize, QPoint, QRect
-from PySide6.QtGui import QCursor, QKeyEvent, QMouseEvent, QFontMetrics, QPainter, QColor, QBrush, QPen
+from PySide6.QtGui import QCursor, QKeyEvent, QMouseEvent, QFontMetrics, QPainter, QColor, QBrush, QPen, QTextDocument
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -680,13 +680,15 @@ class ChatPanel(QWidget):
         bubble.setProperty("msgRole", role)
         bubble.setWordWrap(True)
         bubble.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+        bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         bubble.setFixedWidth(bubble_w)
         bubble.setStyleSheet(self._bubble_style(role, latest=True))
-
-        fm = QFontMetrics(bubble.font())
-        text_h = fm.boundingRect(0, 0, bubble_w - 28, 5000, Qt.TextFlag.TextWordWrap, text).height()
-        bubble.setMinimumHeight(text_h + 28)
+        doc = QTextDocument()
+        doc.setDefaultFont(bubble.font())
+        doc.setDocumentMargin(0)
+        doc.setPlainText(text)
+        doc.setTextWidth(max(80, bubble_w - 28))
+        bubble.setFixedHeight(int(doc.size().height()) + 36)
         wrap.addWidget(bubble, alignment=align)
 
         stamp = QLabel(datetime.now().strftime("%H:%M"))

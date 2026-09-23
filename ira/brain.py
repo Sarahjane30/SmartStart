@@ -206,8 +206,7 @@ def greeting(ctx: Optional[dict]) -> str:
         role = (ctx["employee"].get("role_type") or "").upper()
         role_label = "INTERN" if role == "INTERN" else ("FTE" if role == "FTE" else "onboarding")
         return (
-            f"Hey {name} — here’s your onboarding update! "
-            f"I’m IRA, your SmartStart companion for {role_label}. "
+            f"Hey {name} — I’m IRA, your SmartStart companion for {role_label} onboarding. "
             "Ask about documents, IT, VPN, learning, or pick a suggested question."
         )
     return (

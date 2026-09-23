@@ -71,13 +71,13 @@ IRA appears as a tiny always-on-top bubble (default: bottom-right). Click to exp
 ### Sign-in flow (required)
 
 1. Start SmartStart on port 8000.
-2. Launch IRA — compact navy panel (~380×540) with **Connect SmartStart**.
+2. Launch IRA — Ask-style light panel with navy chrome header (~400×560).
 3. Sign in as Employee (Intern/FTE) in the portal.
-4. Return — chat unlocks for that identity; progress bar shows Laptop / Mentor / Day 1.
+4. Return — chat unlocks; progress bar shows Laptop / Mentor / Day 1.
 
-**Look:** deep navy `#0B1A33` shell, white IRA bubbles, soft-navy user bubbles, ice `#E8F0FF` accents, pill suggestion chips.
+**Look:** Matches SmartStart Employee **Ask** — light chat surface, `ASSISTANT` bubbles (`#F3F6FB`), white pill chips, solid navy **Ask** button, navy chrome header.
 
-**Sizes:** collapsed bubble → normal (~380px) → expanded (~560px via ⤢). Drag edges to resize (340–680px wide, up to 90vh tall).
+**Sizes:** collapsed bubble → normal (~400px) → expanded (~560px via ⤢). Drag edges to resize (360–700px wide, up to 90vh tall).
 
 IRA polls `GET /api/ira/session`. The portal writes the session on employee sign-in.
 

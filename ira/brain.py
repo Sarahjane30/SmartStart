@@ -203,9 +203,15 @@ def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
 def greeting(ctx: Optional[dict]) -> str:
     if ctx and ctx.get("employee"):
         name = (ctx["employee"].get("name") or "there").split()[0]
-        return f"Hey {name}, here’s your onboarding update!"
+        role = (ctx["employee"].get("role_type") or "").upper()
+        role_label = "INTERN" if role == "INTERN" else ("FTE" if role == "FTE" else "onboarding")
+        return (
+            f"Hey {name} — here’s your onboarding update! "
+            f"I’m IRA, your SmartStart companion for {role_label}. "
+            "Ask about documents, IT, VPN, learning, or pick a suggested question."
+        )
     return (
-        "Hey — I’m IRA, your onboarding companion. "
+        "Hey — I’m IRA, your SmartStart onboarding companion. "
         "Connect SmartStart and sign in to get started."
     )
 

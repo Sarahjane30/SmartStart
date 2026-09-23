@@ -41,7 +41,7 @@ Demo logins: iCIMS `hr.demo` / `hr-demo-2026` · ServiceNow `it.demo` / `it-demo
 | Layer | Status | Role |
 |------:|:------:|------|
 | **1** | Done | Synthetic data + 5-stage state engine |
-| **2** | Done | Employer Command Center (HR / IT / Manager) |
+| **2** | Done | Role-aware Employer Command Center (HR / IT / Manager / Ops) |
 | **3** | Done | Employee Experience (Intern / FTE dashboard) |
 | **4** | Done | IRA intelligence (knowledge · context · action · predictive · orchestration) |
 | **IRA desktop** | Done | Independent PySide6 companion over `/api/ira/*` |
@@ -88,16 +88,46 @@ Open AI Features UI: http://127.0.0.1:8000/ai
 
 **Role differentiation:** Interns get mentor-focused modules (e.g. Git Basics); FTEs get department + project-readiness tasks.
 
-## Layer 2 API
+## Layer 2 — role-aware Command Center
+
+One shared cohort (seed 42, 30 joiners), one state machine, one bottleneck + risk engine.
+The signed-in role only changes **scope** (which joiners you may see), **actions** (what you act on)
+and **framing** (alert wording, cards, analytics). `backend/role_context.py` builds that context:
+
+```text
+{ user, role, visible_joiners, actionable_joiners, relevant_bottlenecks, permissions, priorities }
+```
+
+| Role | Demo login | Scope | Nav | Cards |
+|------|-----------|-------|-----|-------|
+| HR | `hr.jordan` (Jordan Hale) | Cohort | Dashboard · My Actions · Joiners · Alerts · Analytics | Joiners in view · Documents pending · Document rework · HR actions · At risk |
+| IT | `it.riley` (Riley Chen) | Cohort | Dashboard · IT Requests · Joiners · Alerts · Analytics | Joiners in view · Pending hardware · SLA breaches · Access requests · IT risks |
+| Manager | `mgr.chen` / `mgr.park` / `mgr.singh` / `mgr.cole` | Own team only | Dashboard · My Joiners · My Actions · Alerts | My Joiners · On Track · Need My Action · Project Assignment Pending · Project Ready |
+| Ops | `ops.admin` (Sam Ortiz) | Cohort + All/HR/IT/Manager filters | Dashboard · Alerts · Analytics · Roles & systems | Total Joiners · On Track · At Risk · Blocked · Active Bottlenecks |
+
+Every joiner has the same journey strip for every role (**HR** docs → **IT** laptop & access →
+**Manager** Day 1 & mentor → **Project**). Only the action area changes (HR: docs / handoff;
+IT: laptop / VPN / access / SLA; Manager: Day 1 / mentor / project; Ops: route & unblock).
+Alerts keep the same event id and severity; wording and "action required vs awareness" follow the role.
+
+**Backend enforcement (not just hidden UI):**
+
+- Manager sessions only receive their team from `/api/dashboard`, `/api/alerts` (rollups rescoped to the team — no other teams' names), `/api/analytics`, `/api/employer/*`, and `/api/joiners` (when a token is sent).
+- `/api/joiners/{id}`, `/owners` and `/intelligence` require an employer session and return **404** outside the caller's scope.
+- Non-Ops roles get **403** for other queue lenses (e.g. HR asking for `role_view=IT`).
+- `/api/admin/regenerate` is Ops-only.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/dashboard` | Joiner table + states (`?role_view=All\|HR\|IT\|Manager`) |
-| GET | `/api/alerts` | Synthetic SLA / pending-task alerts |
-| GET | `/api/analytics` | KPIs, bottlenecks, onboarding trend |
+| GET | `/api/employer/context` | Role context contract (reused by future assistants) |
+| GET | `/api/employer/workspace` | Nav, cards, action queue, per-joiner journeys for the signed-in role |
+| GET | `/api/dashboard` | Joiner table + states + journey (`?role_view=` — Ops: All/HR/IT/Manager) |
+| GET | `/api/alerts` | Role-worded SLA / pending-task alerts |
+| GET | `/api/analytics` | KPIs + `role_insights` (HR / IT / Manager / Ops panels) |
+| GET | `/api/joiners/{id}` | Joiner detail + `journey`, `role_actions`, `access` (employer session) |
 | GET | `/api/integrations` | Mock iCIMS / ServiceNow / Jira snapshots |
 
-Layer 1 endpoints (`/api/joiners`, `/api/metrics/summary`, etc.) remain available.
+`/api/joiners` (roster) and `/api/metrics/summary` (aggregates) stay public for the synthetic sign-in picker.
 
 ## Project layout
 
@@ -111,6 +141,7 @@ backend/
   synthetic_engine.py     # Faker cohort generator
   database.py             # In-memory store
   analytics.py            # KPI calculations
+  role_context.py         # Role scope, actions, alert wording, role analytics
   alerts.py               # Synthetic alert generator
   integrations.py         # Mock system connectors
   employee_experience.py  # Profile / learning / notifications / feedback

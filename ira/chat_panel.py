@@ -641,7 +641,7 @@ class ChatPanel(QWidget):
         tip.deleteLater()
         self.set_thinking(False)
 
-    def set_suggestions(self, items: list[str]) -> None:
+    def set_suggestions(self, items: list[str], limit: int = 3) -> None:
         while self.suggest_grid.count():
             item = self.suggest_grid.takeAt(0)
             w = item.widget() if item else None
@@ -649,7 +649,7 @@ class ChatPanel(QWidget):
                 w.deleteLater()
         show = bool(items) and self._unlocked
         if show:
-            for text in items[:3]:
+            for text in items[:limit]:
                 btn = QPushButton(text)
                 btn.setObjectName("chip")
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)

@@ -1,13 +1,38 @@
-"""Floating IRA bubble — glowing MindBot-inspired orb."""
+"""Floating IRA bubble — SmartStart portal particle globe (circular, no square)."""
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, Qt, QTimer, Signal, QRectF
-from PySide6.QtGui import QBrush, QColor, QMouseEvent, QPainter, QPainterPath, QRadialGradient
+import math
+import random
+from dataclasses import dataclass
+
+from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Signal, QRectF
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QMouseEvent,
+    QPainter,
+    QPen,
+    QRadialGradient,
+    QRegion,
+)
 from PySide6.QtWidgets import QWidget
 
-from ira.platform_ui import IS_WINDOWS
 from ira.winflags import companion_window_flags
+
+SIZE = 72  # px — circular hit target
+
+
+@dataclass
+class _Pt:
+    x: float
+    y: float
+    z: float
+    accent: bool
+    hue: str
+    pulse: float
+    pulse_rate: float
+    size: float
 
 
 class IraBubble(QWidget):
@@ -18,31 +43,67 @@ class IraBubble(QWidget):
         super().__init__(parent)
         self.setWindowTitle("IRA")
         self.setWindowFlags(companion_window_flags())
-        self.setFixedSize(64, 64)
-        self.setToolTip("IRA")
-        if IS_WINDOWS:
-            self.setStyleSheet("background:#04060f; border-radius:32px;")
-        else:
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedSize(SIZE, SIZE)
+        self.setToolTip("IRA — click to open")
+        # Transparent corners + hard circular mask = no black square on Windows
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        self.setStyleSheet("background: transparent; border: 0;")
+        self._apply_circle_mask()
 
         self._drag_offset: QPoint | None = None
         self._press_pos = QPoint()
         self._did_drag = False
-        self._pulse = 0.35
-        self._dir = 1
+        self._t = 0.0
         self._flash = 0
+        self._points = self._seed_points()
 
         t = QTimer(self)
         t.timeout.connect(self._tick)
-        t.start(50)
+        t.start(40)
         self._timer = t
 
+    def _apply_circle_mask(self) -> None:
+        # Ellipse mask clips the HWND to a circle — kills the square chrome
+        self.setMask(QRegion(0, 0, SIZE, SIZE, QRegion.RegionType.Ellipse))
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._apply_circle_mask()
+
+    def _seed_points(self) -> list[_Pt]:
+        # Same Fibonacci sphere as frontend/graphics.js (scaled for 72px)
+        rng = random.Random(7)
+        count = 220
+        golden = math.pi * (3 - math.sqrt(5))
+        pts: list[_Pt] = []
+        for i in range(count):
+            y = 1 - (i / (count - 1)) * 2
+            radius = math.sqrt(max(0.0, 1 - y * y))
+            theta = golden * i
+            accent = rng.random() < 0.11
+            if accent:
+                hue = "cyan" if rng.random() < 0.35 else "blue"
+                size = 1.8 + rng.random() * 2.2
+            else:
+                hue = "white"
+                size = 0.55 + rng.random() * 1.1
+            pts.append(
+                _Pt(
+                    x=math.cos(theta) * radius,
+                    y=y,
+                    z=math.sin(theta) * radius,
+                    accent=accent,
+                    hue=hue,
+                    pulse=rng.random() * math.pi * 2,
+                    pulse_rate=0.6 + rng.random() * 1.6,
+                    size=size,
+                )
+            )
+        return pts
+
     def _tick(self) -> None:
-        self._pulse += 0.035 * self._dir
-        if self._pulse >= 1.0:
-            self._pulse, self._dir = 1.0, -1
-        elif self._pulse <= 0.15:
-            self._pulse, self._dir = 0.15, 1
+        self._t += 0.04
         if self._flash:
             self._flash -= 1
         self.update()
@@ -50,30 +111,91 @@ class IraBubble(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        cx, cy = self.width() / 2, self.height() / 2
+        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+        p.fillRect(self.rect(), Qt.GlobalColor.transparent)
+        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
 
-        # Outer soft glow — SmartStart #1f3bff
-        glow_r = 30 + 6 * self._pulse + (4 if self._flash else 0)
-        glow = QRadialGradient(cx, cy, glow_r)
-        alpha = int(70 + 50 * self._pulse) + (30 if self._flash else 0)
-        glow.setColorAt(0.0, QColor(31, 59, 255, min(alpha, 140)))
-        glow.setColorAt(0.55, QColor(31, 59, 255, 28))
-        glow.setColorAt(1.0, QColor(31, 59, 255, 0))
+        w = h = SIZE
+        cx = cy = w / 2
+        R = w * 0.36  # match portal radius ratio
+
+        # Soft outer glow only — no filled square, no opaque disc rim
+        flash_boost = 50 if self._flash else 0
+        glow = QRadialGradient(cx, cy, w * 0.5)
+        glow.setColorAt(0.0, QColor(31, 59, 255, 55 + flash_boost))
+        glow.setColorAt(0.55, QColor(14, 22, 49, 90))
+        glow.setColorAt(0.82, QColor(8, 13, 29, 40))
+        glow.setColorAt(1.0, QColor(0, 0, 0, 0))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(glow))
-        p.drawEllipse(QRectF(0, 0, 64, 64))
+        p.drawEllipse(QRectF(0, 0, w, h))
 
-        # Core orb — navy → brand blue
-        core = QRadialGradient(cx - 4, cy - 6, 22)
-        core.setColorAt(0.0, QColor(157, 178, 255))   # #9db2ff
-        core.setColorAt(0.45, QColor(31, 59, 255))     # #1f3bff
-        core.setColorAt(1.0, QColor(11, 31, 74))       # #0b1f4a
+        # Deep navy core (portal depth, clipped by circle mask)
+        core = QRadialGradient(cx * 0.85, cy * 0.75, R * 1.55)
+        core.setColorAt(0.0, QColor(23, 34, 72, 230))
+        core.setColorAt(0.55, QColor(8, 13, 29, 245))
+        core.setColorAt(1.0, QColor(4, 6, 15, 255))
         p.setBrush(QBrush(core))
-        p.drawEllipse(QRectF(14, 14, 36, 36))
+        p.drawEllipse(QPointF(cx, cy), R * 1.15, R * 1.15)
 
-        # Specular highlight
-        p.setBrush(QBrush(QColor(255, 255, 255, 55)))
-        p.drawEllipse(QRectF(22, 20, 10, 7))
+        # Portal particle globe (same math as frontend/graphics.js)
+        spin = self._t * 0.16
+        tilt = -0.2
+        cos_y, sin_y = math.cos(spin), math.sin(spin)
+        cos_x, sin_x = math.cos(tilt), math.sin(tilt)
+
+        projected: list[tuple[_Pt, float, float, float, float]] = []
+        for pt in self._points:
+            x1 = pt.x * cos_y - pt.z * sin_y
+            z1 = pt.x * sin_y + pt.z * cos_y
+            y2 = pt.y * cos_x - z1 * sin_x
+            z2 = pt.y * sin_x + z1 * cos_x
+            perspective = 1 / (1.9 - z2 * 0.55)
+            sx = cx + x1 * R * perspective * 1.55
+            sy = cy + y2 * R * perspective * 1.55
+            depth = (z2 + 1) / 2
+            projected.append((pt, sx, sy, depth, z2))
+
+        projected.sort(key=lambda q: q[4])
+
+        # Faint accent links (front hemisphere)
+        accents = [q for q in projected if q[0].accent and q[4] > -0.15]
+        link_limit = R * 0.42
+        for i, a in enumerate(accents):
+            for b in accents[i + 1 :]:
+                dx, dy = a[1] - b[1], a[2] - b[2]
+                dist = math.hypot(dx, dy)
+                if dist > link_limit:
+                    continue
+                fade = (1 - dist / link_limit) * 0.22
+                p.setPen(QPen(QColor(110, 140, 255, int(fade * 255)), 0.6))
+                p.drawLine(QPointF(a[1], a[2]), QPointF(b[1], b[2]))
+
+        scan = (math.sin(self._t * 0.55) + 1) / 2
+        p.setPen(Qt.PenStyle.NoPen)
+        for pt, sx, sy, depth, _z in projected:
+            pulse = 0.7 + 0.3 * math.sin(self._t * pt.pulse_rate + pt.pulse)
+            near = 1 - min(1.0, abs(depth - scan) * 5.5)
+            boost = 1 + near * 1.1
+            size = pt.size * (0.45 + depth * 0.95) * pulse * (1 + near * 0.5)
+            # Scale particle size down for 72px bubble (portal uses larger canvas)
+            size *= 0.42
+            if pt.hue == "blue":
+                col = QColor(88, 118, 255)
+                base_a = 0.2 + depth * 0.85
+            elif pt.hue == "cyan":
+                col = QColor(60, 220, 245)
+                base_a = 0.2 + depth * 0.85
+            else:
+                col = QColor(232, 238, 255)
+                base_a = (0.2 + depth * 0.85) * 0.82
+            alpha = int(min(255, base_a * boost * 255))
+            if pt.accent:
+                a2 = int(min(255, base_a * 0.12 * boost * 255))
+                p.setBrush(QBrush(QColor(col.red(), col.green(), col.blue(), max(12, a2))))
+                p.drawEllipse(QPointF(sx, sy), size * 3.4, size * 3.4)
+            p.setBrush(QBrush(QColor(col.red(), col.green(), col.blue(), max(20, alpha))))
+            p.drawEllipse(QPointF(sx, sy), max(0.35, size), max(0.35, size))
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:

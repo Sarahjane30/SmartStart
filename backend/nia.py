@@ -215,6 +215,10 @@ def viewer_info(f: JoinerFacts, role: str) -> dict:
     return {**info, "issue": f.bottleneck or "No open blocker"}
 
 
+def poss(name: str) -> str:
+    return f"{name}'" if name.endswith("s") else f"{name}'s"
+
+
 def _cap(s: str) -> str:
     return s[:1].upper() + s[1:]
 
@@ -270,10 +274,10 @@ class Reply:
                 "stage": STAGE_LABELS[f.joiner.current_state],
                 "health": f.health,
                 "issue": info["issue"],
-                "overall": f.bottleneck if f.bottleneck and f.bottleneck != info["issue"] else None,
+                "overall": f.bottleneck if f.bottleneck and info["queue"] != f.queue else None,
                 "owner": info["owner"],
                 "source": info["source"] if f.bottleneck else None,
-                "risk_score": f.risk_score,
+                "risk_score": round(f.risk_score),
                 "note": note(f) if note else role_actions(f, role)[0]["label"],
                 "journey": f.journey,
             })
@@ -418,7 +422,7 @@ def proactive(ctx: RoleContext) -> list[dict]:
         for f in pending[:1]:
             days = (f.joiner.joining_date - ANALYTICS_AS_OF.date()).days
             text = (
-                f"{f.joiner.name}'s document packet is still pending and they {start_phrase(f)}."
+                f"{poss(f.joiner.name)} document packet is still pending and they {start_phrase(f)}."
                 if days >= 0 else
                 f"{f.joiner.name} {start_phrase(f)} but their document packet is still pending in iCIMS."
             )
@@ -426,7 +430,7 @@ def proactive(ctx: RoleContext) -> list[dict]:
     elif ctx.role == ROLE_IT:
         for f in sorted(c["sla"], key=lambda f: -f.ticket.lead_time_days)[:1]:
             out.append({"id": f"it-sla-{f.id}", "joiner_id": f.id,
-                        "text": f"{f.joiner.name}'s laptop has breached SLA and may affect their project readiness."})
+                        "text": f"{poss(f.joiner.name)} laptop has breached SLA and may affect their project readiness."})
     elif ctx.role == ROLE_MANAGER:
         for f in c["project"][:1]:
             out.append({"id": f"mgr-proj-{f.id}", "joiner_id": f.id,
@@ -446,10 +450,10 @@ def briefing(ctx: RoleContext) -> Reply:
     n = len(ctx.actionable)
     if ctx.role == ROLE_HR:
         r.text = f"**Your HR briefing.** {n} HR action(s) open across {len(ctx.visible)} joiners."
-        upcoming = [f"{f.joiner.name}'s packet has waited {f.docs.waiting_days}d — it counts as blocked at {DOCS_BLOCKED_DAYS}d." for f in c["docs_near"]]
+        upcoming = [f"{poss(f.joiner.name)} packet has waited {f.docs.waiting_days}d — it counts as blocked at {DOCS_BLOCKED_DAYS}d." for f in c["docs_near"]]
     elif ctx.role == ROLE_IT:
         r.text = f"**Your IT briefing.** {n} IT action(s): {len(c['sla'])} SLA breach(es), {len(c['hardware'])} laptop(s) not delivered."
-        upcoming = [f"{f.joiner.name}'s ticket is at {f.ticket.lead_time_days}d of a {f.ticket.sla_target_days}d target." for f in c["sla_near"]]
+        upcoming = [f"{poss(f.joiner.name)} ticket is at {f.ticket.lead_time_days}d of a {f.ticket.sla_target_days}d target." for f in c["sla_near"]]
     elif ctx.role == ROLE_MANAGER:
         r.text = f"**Your team briefing.** {n} of your {len(ctx.visible)} joiner(s) need action."
         upcoming = [f"{f.joiner.name} {start_phrase(f)} and is at {STAGE_LABELS[f.joiner.current_state]}." for f in ctx.visible
@@ -868,7 +872,7 @@ def prepare_assign(ctx: RoleContext, text: str, f: Optional[JoinerFacts], owner_
         r.suggestions = [f"Assign {first(f)}'s issue to {o.name}" for o in rec[:3]]
         return r
     r.text = (
-        f"You are about to assign **{f.joiner.name}'s** {f.queue} bottleneck "
+        f"You are about to assign **{poss(f.joiner.name)}** {f.queue} bottleneck "
         f"({f.bottleneck}) to **{match.name}** ({match.team})."
     )
     r.confirm({
@@ -894,7 +898,7 @@ def prepare_resolve(ctx: RoleContext, f: Optional[JoinerFacts]) -> Reply:
         r.text = f"{f.joiner.name} has no open bottleneck to resolve."
         return r
     info = blocker_info(f)
-    r.text = f"You are about to mark **{f.joiner.name}'s** bottleneck ({f.bottleneck}) as resolved in SmartStart."
+    r.text = f"You are about to mark **{poss(f.joiner.name)}** bottleneck ({f.bottleneck}) as resolved in SmartStart."
     r.confirm({
         "action": "resolve",
         "joiner_id": f.id,

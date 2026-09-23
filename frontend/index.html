@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=22" />
+  <link rel="stylesheet" href="/static/style.css?v=23" />
 </head>
 <body class="employer-page">
   <div class="app-shell" id="employer-shell">
@@ -227,9 +227,35 @@
     </div>
   </div>
 
+  <button type="button" id="nia-launcher" class="nia-launcher" aria-controls="nia-panel" aria-expanded="false" hidden>
+    <span class="nia-orb" aria-hidden="true">N</span>
+    <span class="nia-launcher-text"><strong>NIA</strong><span>Ask about your joiners</span></span>
+    <span id="nia-badge" class="nia-badge" hidden></span>
+  </button>
+  <section id="nia-panel" class="nia-panel" role="dialog" aria-modal="false" aria-labelledby="nia-title" hidden>
+    <header class="nia-head">
+      <span class="nia-orb" aria-hidden="true">N</span>
+      <div class="nia-head-text">
+        <h2 id="nia-title">NIA</h2>
+        <p>New-Hire Intelligence Assistant</p>
+      </div>
+      <span id="nia-role" class="nia-role-pill"></span>
+      <button type="button" id="nia-briefing-btn" class="nia-head-btn">My briefing</button>
+      <button type="button" id="nia-close" class="nia-head-btn nia-icon-btn" aria-label="Close NIA">✕</button>
+    </header>
+    <div id="nia-log" class="nia-log" aria-live="polite"></div>
+    <div id="nia-suggest" class="nia-suggest"></div>
+    <form id="nia-form" class="nia-form" autocomplete="off">
+      <input id="nia-input" type="text" maxlength="500" placeholder="Ask NIA anything…" aria-label="Ask NIA" />
+      <button type="submit" class="nia-send" aria-label="Send">↑</button>
+    </form>
+    <p class="nia-foot">Answers use your access level and synthetic SmartStart data only. Actions need your confirmation.</p>
+  </section>
+
   <div id="toast" class="toast" hidden role="status"></div>
-  <script src="/static/session.js?v=22"></script>
-  <script src="/static/motion.js?v=22"></script>
-  <script src="/static/app.js?v=22"></script>
+  <script src="/static/session.js?v=23"></script>
+  <script src="/static/motion.js?v=23"></script>
+  <script src="/static/app.js?v=23"></script>
+  <script src="/static/nia.js?v=23"></script>
 </body>
 </html>

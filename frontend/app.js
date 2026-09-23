@@ -882,6 +882,7 @@ async function openJoinerDrawer(id) {
                   }</span>`
                 : ""
           }
+          <button type="button" class="btn-mini nia-ask-btn" data-nia-ask="${esc(id)}" data-nia-name="${esc(j.name)}">Ask NIA</button>
           <a class="btn-link" href="/?need=employee">View as this joiner (portal) →</a>
         </div>
       </section>

@@ -132,6 +132,13 @@ Each file has front matter (`title`, `category`, `owner`, `updated`, `keywords`)
 Personal record answers (my manager, my laptop, my first day) still take priority, and individual
 balances or pay amounts are never estimated.
 
+## Emails and the team directory
+
+`ira/email_draft.py` lets IRA answer "Who is on my team?" and "What is Diego's email?" and draft
+emails such as "Draft an email to my mentor about reviewing my PR". Recipients come only from
+`ctx["people"]` (team roster + consult contacts built by SmartStart). IRA writes the draft; the
+employee edits and sends it from their own mail app — nothing is sent automatically.
+
 ## SmartStart APIs used
 
 | Method | Path |

@@ -118,7 +118,7 @@ def _template(topic: str, person: dict, me: dict) -> tuple[str, str]:
             f"project work ({topic}). Could we set up a short kickoff to agree goals, stakeholders and "
             "what success looks like?\n\n" + sign,
         )
-    if any(k in t for k in ("meet", "chat", "walkthrough", "join", "shadow", "call", "1:1", "sync")):
+    if any(k in t for k in ("meet", "chat", "walkthrough", "join", "shadow", "call", "1:1", "sync", "check-in", "checkin")):
         return (
             f"Could we find 30 minutes? — {topic}",
             f"{greeting}\n\n{intro} Would you have 30 minutes for {topic}? "

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=22" />
+  <link rel="stylesheet" href="/static/style.css?v=24" />
 </head>
 <body class="employee-page">
   <div id="workspace" class="wx">
@@ -157,7 +157,7 @@
         <header class="wx-section-head">
           <div>
             <h1>People</h1>
-            <p class="muted">Who to contact for docs, IT, and mentoring</p>
+            <p class="muted">Who to contact for docs, IT, and mentoring — click anyone for their email, or let IRA draft one</p>
           </div>
         </header>
         <div id="consult-list" class="consult-grid"></div>
@@ -253,9 +253,20 @@
       </section>
     </div>
   </div>
+
+  <div class="wx-drawer-backdrop" id="wx-drawer-backdrop" hidden></div>
+  <aside class="wx-drawer" id="wx-drawer" role="dialog" aria-modal="true" aria-labelledby="wx-drawer-title" hidden>
+    <div class="wx-drawer-bar">
+      <button type="button" class="wx-drawer-back" id="wx-drawer-back" hidden>← Back</button>
+      <button type="button" class="wx-drawer-close" id="wx-drawer-close" aria-label="Close">×</button>
+    </div>
+    <div class="wx-drawer-body" id="wx-drawer-body"></div>
+  </aside>
+  <div class="wx-toast" id="wx-toast" role="status" hidden></div>
+
   <script src="/static/session.js?v=17"></script>
   <script src="/static/motion.js?v=17"></script>
   <script src="/static/ira-globe.js?v=18"></script>
-  <script src="/static/employee.js?v=22"></script>
+  <script src="/static/employee.js?v=24"></script>
 </body>
 </html>

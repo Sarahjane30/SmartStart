@@ -17,7 +17,6 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -30,6 +29,7 @@ from PySide6.QtWidgets import (
     QApplication,
 )
 
+from ira.flow_layout import FlowLayout
 from ira.winflags import companion_window_flags
 
 EDGE = 8
@@ -108,8 +108,8 @@ class ChatPanel(QWidget):
               background: {CARD};
               color: {INK};
               border: 1px solid {LINE};
-              border-radius: 999px;
-              padding: 7px 12px;
+              border-radius: 13px;
+              padding: 0 11px;
               font-size: 11px;
               font-weight: 600;
             }}
@@ -266,10 +266,8 @@ class ChatPanel(QWidget):
         # Suggestion chips — pill row
         self.suggest_host = QWidget()
         self.suggest_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.suggest_grid = QGridLayout(self.suggest_host)
-        self.suggest_grid.setContentsMargins(0, 4, 0, 4)
-        self.suggest_grid.setHorizontalSpacing(6)
-        self.suggest_grid.setVerticalSpacing(4)
+        self.suggest_grid = FlowLayout(self.suggest_host, h_spacing=6, v_spacing=6)
+        self.suggest_grid.setContentsMargins(0, 2, 0, 2)
         self.suggest_host.hide()
         body_l.addWidget(self.suggest_host)
 
@@ -285,14 +283,14 @@ class ChatPanel(QWidget):
         self.input = QLineEdit()
         self.input.setObjectName("composer")
         self.input.setPlaceholderText("Ask about apps, teams, processes…")
-        self.input.setFixedHeight(38)
+        self.input.setFixedHeight(36)
         self.input.setStyleSheet(
             f"""
             QLineEdit#composer {{
               background: {CARD};
               color: {INK};
               border: 1px solid {LINE};
-              border-radius: 999px;
+              border-radius: 10px;
               padding: 0 14px;
               font-size: 12px;
               selection-background-color: #dbe4f5;
@@ -305,7 +303,7 @@ class ChatPanel(QWidget):
         self.send_btn = QPushButton("Ask")
         self.send_btn.setObjectName("askBtn")
         self.send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.send_btn.setFixedHeight(38)
+        self.send_btn.setFixedHeight(36)
         self.send_btn.clicked.connect(self._submit)
         comp_l.addWidget(self.input, 1)
         comp_l.addWidget(self.send_btn, 0)
@@ -328,6 +326,13 @@ class ChatPanel(QWidget):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        if hasattr(self, "suggest_host") and self.suggest_host.isVisible():
+            QTimer.singleShot(0, self._fit_suggestions)
+
+    def _fit_suggestions(self) -> None:
+        w = self.suggest_host.width()
+        if w > 0:
+            self.suggest_host.setFixedHeight(self.suggest_grid.heightForWidth(w))
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
@@ -580,17 +585,19 @@ class ChatPanel(QWidget):
                 w.deleteLater()
         show = bool(items) and self._unlocked
         if show:
-            # Up to 3 pills like the reference
-            for i, text in enumerate(items[:3]):
+            for text in items[:3]:
                 btn = QPushButton(text)
                 btn.setObjectName("chip")
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-                btn.setFixedHeight(30)
-                btn.setMinimumWidth(0)
+                btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+                btn.setFixedHeight(26)
                 btn.clicked.connect(lambda _=False, t=text: self._quick(t))
-                self.suggest_grid.addWidget(btn, 0, i)
+                self.suggest_grid.addWidget(btn)
             self.suggest_host.show()
+            self.suggest_host.setFixedHeight(
+                self.suggest_grid.heightForWidth(max(1, self.suggest_host.width() or self.width() - 24))
+            )
+            QTimer.singleShot(0, self._fit_suggestions)
         else:
             self.suggest_host.hide()
 

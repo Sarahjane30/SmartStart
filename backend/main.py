@@ -574,10 +574,14 @@ def employee_workspace(joiner_id: str) -> TeamWorkspaceResponse:
 # --- Layer 4: Prototype AI Features ------------------------------------
 
 @app.get("/api/chatbot/{joiner_id}", response_model=ChatbotResponse)
-def chatbot(joiner_id: str, q: str | None = Query(default=None)) -> ChatbotResponse:
-    """Synthetic rule-based onboarding FAQ guidance for a joiner."""
+def chatbot(
+    joiner_id: str,
+    q: str | None = Query(default=None),
+    asked: list[str] = Query(default=[]),
+) -> ChatbotResponse:
+    """IRA answer for a joiner plus follow-up suggestions (skips ``asked`` questions)."""
     try:
-        return build_chatbot(joiner_id, query=q)
+        return build_chatbot(joiner_id, query=q, asked=asked)
     except KeyError:
         raise HTTPException(status_code=404, detail="Chatbot context not found") from None
 

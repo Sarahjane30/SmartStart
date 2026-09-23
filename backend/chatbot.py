@@ -174,8 +174,10 @@ def build_chatbot(
     joiner_id: str,
     query: str | None = None,
     db: DataStore | None = None,
+    asked: list[str] | None = None,
 ) -> ChatbotResponse:
     db = db or store
+    suggestions: list[str] = []
     joiner = db.get_joiner(joiner_id)
     if joiner is None:
         raise KeyError(joiner_id)
@@ -206,10 +208,12 @@ def build_chatbot(
         try:
             from backend.ira_api import build_ira_context
             from ira.brain import answer as ira_answer
+            from ira.brain import followups_for
 
             ctx = build_ira_context(joiner_id, db=db)
             text = ira_answer(query, ctx, online=True)
             turns.append(ChatTurn(role="assistant", text=text, synthetic=True))
+            suggestions = followups_for(query, text, ctx, asked=set(asked or []))
         except Exception:
             matched = _match_faq(query, catalog)
             if matched:
@@ -242,5 +246,6 @@ def build_chatbot(
         faqs=faqs,
         turns=turns,
         query=query,
+        suggestions=suggestions,
         synthetic=True,
     )

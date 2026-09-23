@@ -391,6 +391,7 @@ class ChatbotResponse(BaseModel):
     faqs: list[ChatFAQ]
     turns: list[ChatTurn] = Field(default_factory=list)
     query: Optional[str] = None
+    suggestions: list[str] = Field(default_factory=list)
     synthetic: bool = True
     note: str = "IRA — knows Waters from approved synthetic sources (not a live LLM; no production actions)."
 

@@ -73,6 +73,7 @@ function setTab(name) {
   });
   const tab = document.getElementById(`tab-${name}`);
   if (tab) tab.classList.add("active");
+  if (name === "ask") window.iraGlobe?.start();
 }
 
 function renderAll() {
@@ -225,40 +226,70 @@ function renderLearning() {
 function renderChat() {
   const data = state.chatbot;
   if (!data) return;
-  document.getElementById("chat-log").innerHTML = (data.turns || [])
-    .map((t) => {
-      const label = t.role === "user" ? "You" : "IRA";
-      return `<div class="bubble ${t.role}"><div class="bubble-meta">${label}</div><p>${esc(
-        t.text
-      )}</p></div>`;
-    })
-    .join("");
+  if (!state.chatTurns) state.chatTurns = (data.turns || []).slice();
 
-  const suggested =
+  const bubbles = state.chatTurns.map((t) => {
+    const label = t.role === "user" ? "You" : "IRA";
+    return `<div class="bubble ${t.role}"><div class="bubble-meta">${label}</div><p>${esc(
+      t.text
+    )}</p></div>`;
+  });
+  if (state.chatThinking) {
+    bubbles.push(
+      `<div class="bubble assistant thinking"><div class="bubble-meta">IRA</div><p>IRA is thinking…</p></div>`
+    );
+  }
+  document.getElementById("chat-log").innerHTML = bubbles.join("");
+
+  const initial =
     state.workspace?.suggested_questions ||
     (data.faqs || []).slice(0, 6).map((f) => f.question);
+  const asked = new Set(
+    state.chatTurns.filter((t) => t.role === "user").map((t) => t.text.trim().toLowerCase())
+  );
+  const suggested = (state.chatSuggestions || initial)
+    .filter((q) => !asked.has(q.trim().toLowerCase()))
+    .slice(0, 3);
   document.getElementById("faq-chips").innerHTML = suggested
     .map(
       (q) =>
-        `<button type="button" class="chip" data-q="${esc(q)}">${esc(q)}</button>`
+        `<button type="button" class="chip" data-q="${esc(q)}" ${
+          state.chatThinking ? "disabled" : ""
+        }>${esc(q)}</button>`
     )
     .join("");
   document.querySelectorAll("#faq-chips .chip").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.getElementById("chat-input").value = btn.dataset.q;
-      askChat(btn.dataset.q);
-    });
+    btn.addEventListener("click", () => askChat(btn.dataset.q));
   });
   const log = document.getElementById("chat-log");
   log.scrollTop = log.scrollHeight;
 }
 
 async function askChat(query) {
+  if (state.chatThinking) return;
   const id = encodeURIComponent(state.employeeId);
-  state.chatbot = await fetchJSON(
-    `/api/chatbot/${id}?q=${encodeURIComponent(query)}`
-  );
+  if (!state.chatTurns) state.chatTurns = (state.chatbot?.turns || []).slice();
+  const asked = state.chatTurns.filter((t) => t.role === "user").map((t) => t.text);
+  state.chatTurns.push({ role: "user", text: query });
+  state.chatThinking = true;
+  window.iraGlobe?.setThinking(true);
   renderChat();
+
+  const qs = new URLSearchParams({ q: query });
+  asked.forEach((a) => qs.append("asked", a));
+  const started = performance.now();
+  try {
+    const data = await fetchJSON(`/api/chatbot/${id}?${qs.toString()}`);
+    const wait = 900 - (performance.now() - started);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    const reply = (data.turns || []).filter((t) => t.role === "assistant").pop();
+    if (reply) state.chatTurns.push(reply);
+    if (data.suggestions?.length) state.chatSuggestions = data.suggestions;
+  } finally {
+    state.chatThinking = false;
+    window.iraGlobe?.setThinking(false);
+    renderChat();
+  }
 }
 
 function renderConsult() {
@@ -412,9 +443,9 @@ function wireUI() {
     const input = document.getElementById("chat-input");
     const q = input.value.trim();
     if (!q) return;
+    input.value = "";
     try {
       await askChat(q);
-      input.value = "";
     } catch (err) {
       showError(`Chat failed: ${err.message}`);
     }

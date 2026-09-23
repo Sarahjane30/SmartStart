@@ -35,6 +35,23 @@ def test_unrelated_query_has_no_policy_hit():
     assert answer_from_policies("What is my badge number?", strict=False) is None
 
 
+def test_web_chatbot_returns_policy_answer_and_followups():
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    with TestClient(app) as client:
+        jid = client.get("/api/ira/employees").json()["employees"][0]["id"]
+        q = "When will I get my salary?"
+        body = client.get(
+            f"/api/chatbot/{jid}", params={"q": q, "asked": ["Give me my briefing"]}
+        ).json()
+        assert "Payroll & Salary Guide" in body["turns"][-1]["text"]
+        assert len(body["suggestions"]) == 3
+        assert q not in body["suggestions"]
+        assert "Give me my briefing" not in body["suggestions"]
+
+
 def test_followups_are_topical_and_skip_asked():
     q = "When will I get my salary?"
     nxt = followups_for(q, "Salary is paid monthly", None, asked={q})

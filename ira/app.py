@@ -219,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
     pkg = Path(_ira_pkg.__file__).resolve().parent
     print()
     print("=" * 52)
-    print("  IRA — SmartStart onboarding assistant")
+    print("  IRA — Waters governed knowledge layer")
     print(f"  {pkg}")
     print("  Dark MindBot-style panel · glow send · edge resize")
     print("  Connect via SmartStart employee sign-in")

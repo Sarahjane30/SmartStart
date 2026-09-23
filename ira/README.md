@@ -1,6 +1,10 @@
-# IRA — desktop onboarding companion
+# IRA — Waters governed knowledge layer (desktop)
 
-**IRA is not a website.** It is a lightweight **desktop** chatbot that floats above your wallpaper and talks to SmartStart over HTTP APIs.
+**IRA is not a website.** It is a lightweight **desktop** knowledge companion that floats above your wallpaper and talks to SmartStart over HTTP APIs.
+
+IRA is Waters’ **governed AI-powered company knowledge layer**. It helps employees, new joiners, contractors, and authorized partners navigate applications, teams, processes, and approved documentation through a single interface. Using only approved tools and synthetic / publicly available data for the hackathon, IRA connects sandboxed knowledge sources and understands relationships between applications, teams, processes, owners, and documents.
+
+It provides **role- and permission-aware** answers grounded in approved sources, while preventing access to sensitive or unauthorized information. IRA does **not** replace existing enterprise systems, approvals, or governance — it makes them easier to navigate. All AI-generated knowledge remains **evidence-backed and human-controlled**, with **no autonomous production actions** or system modifications.
 
 ```text
 Windows / Linux desktop
@@ -71,9 +75,9 @@ IRA appears as a tiny always-on-top bubble (default: bottom-right). Click to exp
 ### Sign-in flow (required)
 
 1. Start SmartStart on port 8000.
-2. Launch IRA — dark MindBot-inspired companion (~390×620) with **Get Started**.
+2. Launch IRA — navy knowledge companion (~400×720) with **Get Started**.
 3. Sign in as Employee (Intern/FTE) in the portal.
-4. Return — chat unlocks; progress bar shows Laptop / Mentor / Day 1.
+4. Return — chat unlocks with role-aware answers; readiness strip shows Laptop / Mentor / Day 1.
 
 **Look:** Clean navy + white glass UI with a soft blurred SmartStart glow behind content (no grid), electric-blue accents, soft chat bubbles, pill chips, glowing send orb.
 
@@ -86,9 +90,9 @@ IRA polls `GET /api/ira/session`. The portal writes the session on employee sign
 1. Open the desktop — IRA bubble is visible.
 2. Optionally open SmartStart / iCIMS / ServiceNow / Jira in browsers.
 3. In IRA, pick **Sarah Jane** (Data Engineering Intern) from the employee list.
-4. Ask: *What’s my onboarding status?*
-5. Ask: *Am I ready for Day 1?* — IRA combines iCIMS docs + ServiceNow laptop + Jira/project readiness.
-6. Update Sarah’s laptop ticket via SmartStart data (or ServiceNow mock flow), refresh (↻), ask: *Is my laptop ready?*
+4. Ask: *What can IRA help with?* / *Which apps should I use?*
+5. Ask: *Am I ready for Day 1?* — IRA combines iCIMS docs + ServiceNow laptop + Jira/project readiness from approved records.
+6. Ask: *What’s left on my record?* or *Is my laptop ready?* — answers stay evidence-backed; IRA never changes systems.
 
 Pinned demo facts (synthetic):
 
@@ -103,8 +107,9 @@ Pinned demo facts (synthetic):
 
 ## Behavior
 
-- **Online:** loads `/api/ira/*` context; answers from synthetic onboarding records only.
-- **Offline:** general FAQ (HR, IT, Day 1, learning, Jira). Never invents employee-specific facts.
+- **Online:** loads `/api/ira/*` context; role-aware answers from approved synthetic sources only.
+- **Offline:** general FAQ (apps, HR, IT, Day 1, learning). Never invents employee-specific facts.
+- **Governance:** no autonomous production actions; humans keep approvals and system changes.
 - **Proactive tips:** subtle pulse on the bubble when context suggests a useful nudge (not spammy).
 
 ## SmartStart APIs used

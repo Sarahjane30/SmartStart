@@ -78,12 +78,17 @@ def test_brain_context_answers():
 
 def test_brain_no_hallucination_without_context():
     msg = answer("What is my badge number?", None, online=True)
-    assert "select an employee" in msg.lower() or "settings" in msg.lower()
+    assert "sign in" in msg.lower() or "faq" in msg.lower()
     offline = answer("What is my badge number?", None, online=False)
     assert "smartstart" in offline.lower() or "reachable" in offline.lower()
     faq = answer("What happens on Day 1?", None, online=False)
     assert "orientation" in faq.lower()
     assert "2026" not in faq
+    about = answer("What can IRA help with?", None, online=True)
+    assert "knowledge" in about.lower()
+    assert "production" in about.lower() or "govern" in about.lower()
+    apps = answer("Which apps should I use?", None, online=True)
+    assert "smartstart" in apps.lower() and "servicenow" in apps.lower()
 
 
 def test_brain_missing_laptop_safe():
@@ -104,18 +109,18 @@ def test_faq_offline_match():
     assert match_faq("What should I learn first?")
     assert match_faq("What is my badge number?") is None
     assert suggestions_for(None)
-    assert "IRA" in greeting(None) or "onboarding" in greeting(None).lower()
+    assert "IRA" in greeting(None) or "knowledge" in greeting(None).lower()
 
 
 def test_greeting_and_progress_snapshot():
-    assert "Hey" in greeting(None)
+    assert "Hi" in greeting(None)
     with TestClient(app) as client:
         sid = _sarah_id(client)
         ctx = client.get(f"/api/ira/{sid}/context").json()
     g = greeting(ctx)
-    assert "Hey Sarah" in g
+    assert "Hi Sarah" in g
     assert "IRA" in g
-    assert "onboarding" in g.lower()
+    assert "knowledge" in g.lower()
     snap = progress_snapshot(ctx)
     assert snap is not None
     assert isinstance(snap["pct"], int)

@@ -1,4 +1,4 @@
-"""IRA companion APIs — aggregated onboarding context for the desktop assistant.
+"""IRA knowledge-layer APIs — aggregated approved context for the desktop assistant.
 
 IRA is a separate desktop app; these endpoints are consumed over HTTP only.
 """

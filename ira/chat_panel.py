@@ -1,4 +1,4 @@
-"""IRA chat panel — dark MindBot-inspired SmartStart companion."""
+"""IRA chat panel — governed Waters knowledge layer companion."""
 
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ class ProgressCard(QWidget):
         p.drawRoundedRect(0, 0, w - 1, h - 1, 18, 18)
 
         p.setPen(QColor(MUTED))
-        p.drawText(16, 16, "Onboarding progress")
+        p.drawText(16, 16, "Your readiness")
         p.setPen(QColor(BLUE_SOFT))
         p.drawText(w - 48, 16, f"{self._pct}%")
 
@@ -128,9 +128,9 @@ class ProgressCard(QWidget):
             p.drawRoundedRect(track_x, track_y, fill_w, track_h, 3, 3)
 
         milestones = [
-            ("laptop", "Laptop", self._milestones["laptop"]),
-            ("mentor", "Mentor", self._milestones["mentor"]),
-            ("day1", "Day 1", self._milestones["day1"]),
+            ("laptop", "Hardware", self._milestones["laptop"]),
+            ("mentor", "People", self._milestones["mentor"]),
+            ("day1", "Ready", self._milestones["day1"]),
         ]
         gap = track_w // 3
         for i, (kind, label, done) in enumerate(milestones):
@@ -332,7 +332,7 @@ class ChatPanel(QWidget):
         auth_l.setContentsMargins(8, 24, 8, 24)
         auth_l.setSpacing(12)
         auth_l.addStretch(1)
-        hero = QLabel("Meet your\nAI onboarding\ncompanion")
+        hero = QLabel("Waters knowledge\nlayer")
         hero.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hero.setStyleSheet(
             f"color:{TEXT}; font-size:26px; font-weight:800; letter-spacing:-0.03em; line-height:1.15;"
@@ -341,8 +341,8 @@ class ChatPanel(QWidget):
         self.auth_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.auth_status.setStyleSheet(f"color:{MUTED}; font-size:13px;")
         auth_copy = QLabel(
-            "Open SmartStart, choose Intern or FTE,\n"
-            "and select your profile. IRA unlocks automatically."
+            "Navigate apps, teams, processes, and approved docs.\n"
+            "Sign in via SmartStart — IRA unlocks with your role."
         )
         auth_copy.setAlignment(Qt.AlignmentFlag.AlignCenter)
         auth_copy.setWordWrap(True)
@@ -423,7 +423,7 @@ class ChatPanel(QWidget):
         comp_l.setSpacing(8)
         self.input = QLineEdit()
         self.input.setObjectName("composer")
-        self.input.setPlaceholderText("Ask anything…")
+        self.input.setPlaceholderText("Ask about apps, teams, docs…")
         self.input.setStyleSheet(
             f"QLineEdit#composer {{ background:transparent; border:0; color:{TEXT};"
             f" padding:10px 12px; font-size:13px; }}"
@@ -607,7 +607,7 @@ class ChatPanel(QWidget):
             self.hello.setText(f"Hi, {first}")
             role_disp = "FTE" if role.upper() == "FTE" else role.capitalize()
             parts = [p for p in (role_disp, dept) if p]
-            self.identity.setText(" · ".join(parts) if parts else "SmartStart onboarding")
+            self.identity.setText(" · ".join(parts) if parts else "Waters knowledge layer")
             self.status_line.setText("Connected to SmartStart")
             self.status_line.setStyleSheet(f"color:{GREEN}; font-size:11px;")
             if hasattr(self, "_net"):

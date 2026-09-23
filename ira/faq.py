@@ -5,6 +5,25 @@ from __future__ import annotations
 import re
 
 FAQ: list[tuple[str, str, tuple[str, ...]]] = [
+    (
+        "What can IRA help with?",
+        "IRA is Waters’ governed AI knowledge layer. Ask about applications, teams, "
+        "processes, and approved documentation. Answers stay evidence-backed from "
+        "approved / synthetic sources — IRA never changes production systems.",
+        ("what can ira", "what do you", "who are you", "knowledge layer", "help with"),
+    ),
+    (
+        "Which apps should I use?",
+        "In this sandbox: SmartStart (orchestration), iCIMS (documents), ServiceNow (IT), "
+        "and Jira (project access). IRA helps you navigate them; open the owning system to make changes.",
+        ("which app", "applications", "systems", "tools should", "navigate"),
+    ),
+    (
+        "How does IRA stay governed?",
+        "IRA only answers from approved sources tied to your signed-in profile. "
+        "It will not invent facts or modify production systems. Humans keep approvals.",
+        ("govern", "permission", "authorized", "sensitive", "autonomous"),
+    ),
     # HR / Documents / Payroll / Policies / Benefits / Hours
     (
         "How do I submit documents?",

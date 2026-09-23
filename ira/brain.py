@@ -11,8 +11,10 @@ from __future__ import annotations
 import re
 from typing import Optional
 
+from ira import coach, workplace_basics
 from ira.email_draft import directory_reply, draft_reply, is_draft_request
 from ira.faq import match_faq
+from ira.persona import first_name, flavour_line, traits
 from ira.policy_kb import answer_from_policies
 
 # Optional backend imports — desktop package may run with SmartStart on path
@@ -124,6 +126,20 @@ def followups_for(
     q = _norm(query)
     r = _norm(reply)
     picks: list[str] = []
+    profile = (ctx or {}).get("profile")
+    start = coach.scenario_from_chip(query) or (None if is_draft_request(query) else coach.detect_start(query))
+    if start == "menu":
+        return [c for c in coach.menu_chips()][: max(limit, 4)]
+    if start:
+        return []
+    topic = workplace_basics.match_topic(query, require_how=True)
+    if topic or _NERVOUS.search(query):
+        if topic and topic["practice"]:
+            picks.append(f"Practice: {coach.SCENARIOS[topic['practice']]['title']}")
+        if _NERVOUS.search(query):
+            picks.append(f"Practice: {coach.SCENARIOS['blocked']['title']}")
+        recs = [b["question"] for b in workplace_basics.catalogue(profile) if b["recommended"]]
+        picks.extend(recs + [workplace_basics.question(i) for i in ("ask_help", "clarify", "email", "one_on_one")])
     if is_draft_request(query):
         people = [p for p in (ctx or {}).get("people") or [] if p.get("email")]
         mentor = next((p for p in people if "mentor" in p.get("roles", [])), None)
@@ -140,6 +156,8 @@ def followups_for(
         if any(k in r for k in keys):
             picks.extend(items)
     picks.extend(suggestions_for(ctx))
+    if traits(profile)["nervous"]:
+        picks.extend(b["question"] for b in workplace_basics.catalogue(profile) if b["recommended"])
     picks.extend(SUGGESTIONS_DEFAULT)
     picks.extend(["What is the dress code?", "How do I report phishing?", "How do I claim expenses?"])
     out: list[str] = []
@@ -253,7 +271,125 @@ def progress_snapshot(ctx: Optional[dict]) -> dict | None:
     }
 
 
+_NERVOUS = re.compile(
+    r"\b(i'?m|i am|feeling|feel|so|really|bit|little)\s+(nervous|scared|anxious|overwhelmed|intimidated|worried|lost|out of my depth)\b"
+    r"|how to adult|don'?t know how (corporate|office|work) (life )?works|imposter|first job jitters|i don'?t know what i'?m doing",
+    re.I,
+)
+_MORE = {"more detail", "more details", "tell me more", "full answer", "full version", "explain more", "go on", "elaborate"}
+
+
+def _nervous_reply(ctx: Optional[dict]) -> str:
+    profile = (ctx or {}).get("profile")
+    t = traits(profile)
+    name = first_name(ctx)
+    worries = t["nervous"]
+    lines = [
+        f"That's completely normal, {name} — almost everyone feels like this at the start, "
+        "including people who look confident.",
+        "You don't need to already know how corporate life works. I'll teach you as you go.",
+        "",
+        "A few things that help most new joiners:",
+    ]
+    picks = [b for b in workplace_basics.catalogue(profile) if b["recommended"]][:3] or [
+        workplace_basics.catalogue()[i] for i in (2, 3, 13)
+    ]
+    for b in picks:
+        lines.append(f"• {b['title']}")
+    lines.append("")
+    if worries & {"manager", "questions"} or not worries:
+        lines.append("If talking to your manager feels scary, we can rehearse it first — I'll play them, you practise.")
+    else:
+        lines.append("We can also rehearse any tricky conversation — I'll play the other person.")
+    lines.append("Source: IRA Workplace Basics")
+    return "\n".join(lines)
+
+
+def _trim_concise(text: str) -> str:
+    lines = [ln for ln in text.split("\n") if ln.strip()]
+    source = [ln for ln in lines if ln.startswith("Source:")]
+    body = [ln for ln in lines if not ln.startswith("Source:")]
+    if len(body) <= 5:
+        return text
+    kept = body[:4] + ["(Kept it short — say “more detail” for the full answer.)"]
+    return "\n".join(kept + source)
+
+
+def respond(
+    query: str,
+    ctx: Optional[dict],
+    *,
+    online: bool,
+    history: list[tuple[str, str]] | None = None,
+) -> dict:
+    """Personal Profile + Enterprise Context → one answer, with the mode used (ask / guide / coach)."""
+    profile = (ctx or {}).get("profile")
+    t = traits(profile)
+    raw = query.strip()
+    q = _norm(raw)
+    out: dict = {"text": "", "mode": "ask", "coach": None, "basics": None, "flavour": False}
+
+    chip = coach.scenario_from_chip(raw)
+    start = chip or (None if is_draft_request(raw) else coach.detect_start(raw))
+    if start == "menu":
+        out.update(text=coach.menu_text(ctx), mode="coach")
+        return out
+    if start:
+        info = coach.start(start, ctx)
+        if info:
+            who = info["role"] if info["role"] != "your team" else "your team"
+            out.update(
+                mode="coach",
+                coach=info,
+                text=(
+                    f"Practice mode — I'll play {who}.\n{info['setup']}\n\n"
+                    f"“{info['opener']}”\n\n"
+                    "Write what you'd say, just like you would for real. I'll reply in role and then give you feedback."
+                ),
+            )
+            return out
+
+    if _NERVOUS.search(raw):
+        out.update(text=_nervous_reply(ctx), mode="guide")
+        return out
+
+    topic = workplace_basics.match_topic(raw, require_how=True)
+    wants_draft = is_draft_request(raw) and ("draft" in q or " about " in f" {q} " or "regarding" in q)
+    if topic and not wants_draft:
+        out.update(text=workplace_basics.as_text(topic["id"], profile, ctx), mode="guide", basics=topic["id"])
+        return out
+
+    if q in _MORE and history:
+        prior = next((txt for role, txt in reversed(history) if role == "user" and _norm(txt) not in _MORE), "")
+        if prior:
+            out["text"] = answer_core(prior, ctx, online=online, history=None)
+            return out
+
+    text = answer_core(raw, ctx, online=online, history=history)
+    if is_draft_request(raw) and t["first_job"] and "Subject:" in text:
+        tip = "Tip: read it once out loud before sending — if it sounds like you talking, it's right."
+        text = text.replace("\nSource:", f"\n{tip}\nSource:", 1) if "\nSource:" in text else f"{text}\n{tip}"
+    elif t["concise"] and not t["beginner"]:
+        text = _trim_concise(text)
+    flavour = flavour_line(raw, profile, ctx)
+    if flavour:
+        text = f"{text}\n{flavour}" if "Source:" not in text else text.replace("\nSource:", f"\n{flavour}\nSource:", 1)
+        out["flavour"] = True
+    out["text"] = text
+    return out
+
+
 def answer(
+    query: str,
+    ctx: Optional[dict],
+    *,
+    online: bool,
+    history: list[tuple[str, str]] | None = None,
+) -> str:
+    return respond(query, ctx, online=online, history=history)["text"]
+
+
+def answer_core(
     query: str,
     ctx: Optional[dict],
     *,
@@ -562,7 +698,7 @@ def answer(
                 except Exception:
                     pass
             # fallback checklist
-            return answer("Am I ready for Day 1?", ctx, online=online)
+            return answer_core("Am I ready for Day 1?", ctx, online=online)
 
         # What if
         if any(k in q for k in ("what if", "what happens if", "if i don't", "if i dont")):

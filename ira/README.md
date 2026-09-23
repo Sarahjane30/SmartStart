@@ -139,6 +139,40 @@ emails such as "Draft an email to my mentor about reviewing my PR". Recipients c
 `ctx["people"]` (team roster + consult contacts built by SmartStart). IRA writes the draft; the
 employee edits and sends it from their own mail app — nothing is sent automatically.
 
+## Personalisation — IRA knows how to help *you*
+
+```text
+Personal profile  ─┐
+(Get to know me +  │
+ observed signals) ├─►  IRA intelligence  ─►  ASK    answers from company sources
+Enterprise context ─┘   (ira/brain.respond)    GUIDE  Workplace Basics, tailored
+(record, policies,                             COACH  practise conversations first
+ people, learning)
+```
+
+- **Get to know me** (`ira/persona.py`) — experience, how you like to learn, communication
+  style, what feels new, and interests. Every question is skippable. It's asked once when IRA first opens
+  (web: a stepper card; desktop: in the chat with chips), and you can edit it any time in
+  "Personalise IRA".
+- **The profile changes the answer.** "How do I email my manager?" gets a warm, fully worked example
+  plus a tip for a first-job intern, and "Context → Question → Action needed" with a three-line template
+  for someone experienced who prefers short answers. Concise profiles get trimmed answers ("say more detail
+  for the full answer"); first-timers get an extra tip on drafts.
+- **What IRA has noticed** — simple counters only (asks for templates, asks for shorter answers,
+  practises, completed modules, current task), shown as plain sentences and resettable. Chat text is never
+  stored.
+- **Workplace Basics** (`ira/workplace_basics.py`) — 17 guides (introductions, asking for help and
+  clarification, leave, emails, Teams/Slack, follow-ups, meetings, 1:1s, "let's connect", disagreeing,
+  being blocked, feedback, mistakes, presenting). Each explains *why*, gives a template, and shows wording
+  swaps such as "I don't understand" → "Could you please clarify what you mean by X?".
+- **Coach / Practice mode** (`ira/coach.py`) — IRA plays your manager (or the team), replies in role, then
+  scores clarity, professional tone, confidence, whether you explained the blocker, what you tried and
+  whether you asked for a specific next step, and gives one improvement plus a better version.
+- **Interests** add at most one light analogy or progress line, only on explanation or progress questions,
+  and never more than once every few turns.
+
+Profiles are stored in `~/.smartstart/ira_profiles.json` (override with `SMARTSTART_PROFILE_PATH`).
+
 ## SmartStart APIs used
 
 | Method | Path |
@@ -150,6 +184,10 @@ employee edits and sends it from their own mail app — nothing is sent automati
 | GET | `/api/ira/{id}/it-status` |
 | GET | `/api/ira/{id}/learning` |
 | GET | `/api/ira/{id}/notifications` |
+| GET / PUT | `/api/ira/{id}/profile` |
+| POST | `/api/ira/{id}/profile/forget` · `/api/ira/{id}/observe` |
+| POST | `/api/ira/{id}/coach` |
+| GET | `/api/ira/{id}/basics` · `/api/ira/{id}/basics/{topic}` |
 
 IRA never loads SmartStart HTML pages.
 
@@ -165,6 +203,10 @@ ira/
   brain.py         # context-aware replies (no hallucination)
   faq.py           # offline knowledge base
   policy_kb.py     # policy library retrieval + citations
+  persona.py       # Get to know me, traits, observed preferences
+  workplace_basics.py  # 17 unwritten-rules guides, rendered per profile
+  coach.py         # practice scenarios + feedback rubric
+  desktop_flow.py  # desktop chat flow (questionnaire, practice mode)
   knowledge_base/  # HR / Finance / Legal / InfoSec policy Markdown
   config.py        # ~/.smartstart-ira/config.json
 ```

@@ -510,7 +510,7 @@ function renderAlerts() {
            (r) => `<div class="alert resolved-item">
              <div>
                <strong>${esc(r.name)}</strong> <span class="bn-tag ok">Resolved</span>
-               <div class="muted tiny">${esc(r.bottleneck)} · ${esc(r.queue)} · by ${esc(r.by)} · ${esc(fmt(r.at))}</div>
+               <div class="muted tiny">${esc(r.issue || r.bottleneck)} · ${esc(r.queue)} queue · by ${esc(r.by)} · ${esc(fmt(r.at))}</div>
              </div>
              <div class="row-actions">
                <button type="button" class="btn-mini" data-open="${esc(r.joiner_id)}">Open</button>

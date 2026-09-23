@@ -1036,7 +1036,7 @@ def prepare_reopen(ctx: RoleContext, f: Optional[JoinerFacts]) -> Reply:
         r.text = f"{poss(f.joiner.name)} bottleneck isn't marked resolved, so it's still in your queue and alerts."
         return r
     r.text = (
-        f"You are about to reopen **{poss(f.joiner.name)}** bottleneck ({entry['bottleneck']}). "
+        f"You are about to reopen **{poss(f.joiner.name)}** {entry['queue']} issue ({entry.get('issue') or entry['bottleneck']}). "
         f"It will return to alerts and the action queue as *still needs help*."
     )
     r.confirm({

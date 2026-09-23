@@ -23,8 +23,13 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def resolve(joiner_id: str, queue: str, bottleneck: str, by: str, role: str, note: str = "") -> dict:
-    entry = {"queue": queue, "bottleneck": bottleneck, "by": by, "role": role, "at": _now(), "note": note}
+def resolve(
+    joiner_id: str, queue: str, bottleneck: str, by: str, role: str, note: str = "", issue: str = ""
+) -> dict:
+    entry = {
+        "queue": queue, "bottleneck": bottleneck, "issue": issue or bottleneck,
+        "by": by, "role": role, "at": _now(), "note": note,
+    }
     _RESOLVED[(joiner_id, queue)] = entry
     _REOPENED.pop((joiner_id, queue), None)
     return entry

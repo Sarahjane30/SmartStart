@@ -2892,3 +2892,9 @@ body:has(.joiner-drawer:not([hidden])) .nia-launcher { right: calc(min(440px, 10
 }
 .course-acts { display: flex; gap: 0.5rem; }
 @media (max-width: 900px) { .learn-kpis { grid-template-columns: repeat(2, 1fr); } }
+.course-modal {
+  inset: 0; margin: auto; height: fit-content; transform: none;
+  width: min(560px, calc(100vw - 2rem)); max-height: calc(100vh - 3rem);
+  animation: nia-in 0.3s var(--ease-spring) both;
+}
+.course-modal .course-library { max-height: 230px; }

@@ -500,7 +500,8 @@ def resolve_bottleneck(joiner_id: str, body: ResolveRequest, session: EmployerSe
     queue = lens_queue(f, ctx.role)
     if queue not in ("HR", "IT", "Manager"):
         raise HTTPException(status_code=400, detail="Nothing to resolve for this joiner")
-    entry = resolutions.resolve(joiner_id, queue, f.bottleneck, _actor(session), ctx.role, body.note)
+    issue = (nia.role_lens(f, ctx.role) or {}).get("issue") or f.bottleneck
+    entry = resolutions.resolve(joiner_id, queue, f.bottleneck, _actor(session), ctx.role, body.note, issue)
     return {"joiner_id": joiner_id, "status": "resolved", "resolution": entry, "synthetic": True}
 
 

@@ -215,10 +215,10 @@ def main(argv: list[str] | None = None) -> int:
     pkg = Path(_ira_pkg.__file__).resolve().parent
     print()
     print("=" * 52)
-    print("  IRA — compact SmartStart assistant")
+    print("  IRA — SmartStart onboarding assistant")
     print(f"  {pkg}")
-    print("  Collapsed → Normal (~420px) → Expanded (~640px)")
-    print("  Drag edges to resize · ↗ to expand · — to minimize")
+    print("  Navy panel · 380px default · edge resize · ⤢ expand")
+    print("  Connect via SmartStart employee sign-in")
     print("=" * 52)
     print()
     _ = IraApp()

@@ -75,7 +75,7 @@ IRA appears as a tiny always-on-top bubble (default: bottom-right). Click to exp
 1. Start SmartStart on port 8000.
 2. Launch IRA — navy knowledge companion (~400×720) with **Get Started**.
 3. Sign in as Employee (Intern/FTE) in the portal.
-4. Return — chat unlocks with role-aware answers; readiness strip shows Laptop / Mentor / Day 1.
+4. Return — chat unlocks with role-aware answers from your SmartStart profile.
 
 **Look:** Clean navy + white glass UI with a soft blurred SmartStart glow behind content (no grid), electric-blue accents, soft chat bubbles, pill chips, glowing send orb.
 

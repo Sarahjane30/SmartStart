@@ -11,7 +11,7 @@ from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
-from ira.brain import answer, greeting, progress_snapshot, suggestions_for
+from ira.brain import answer, greeting, suggestions_for
 from ira.bubble import IraBubble
 from ira.chat_panel import ChatPanel, PanelMode
 from ira.client import SmartStartClient
@@ -27,7 +27,6 @@ class IraApp:
         self.ctx: Optional[dict] = None
         self.online = False
         self._panel_open = False
-        self._last_progress: tuple | None = None
         self._session_id: str | None = None
 
         self.bubble = IraBubble()
@@ -94,20 +93,6 @@ class IraApp:
         self.panel.set_online(self.online)
         self._sync_session(force_greet=True)
 
-    @staticmethod
-    def _progress_key(snap: dict | None) -> tuple | None:
-        if not snap:
-            return None
-        return (snap.get("pct"), snap.get("laptop"), snap.get("mentor"), snap.get("day1"))
-
-    def _apply_progress(self, *, notify: bool = False) -> None:
-        snap = progress_snapshot(self.ctx)
-        key = self._progress_key(snap)
-        if notify and key and key != self._last_progress and not self._panel_open:
-            self.bubble.pulse_notify()
-        self._last_progress = key
-        self.panel.set_onboarding_progress(snap)
-
     def _heartbeat(self) -> None:
         self.online = self.client.available()
         self.panel.set_online(self.online)
@@ -118,7 +103,6 @@ class IraApp:
             self.panel.set_locked(True)
             self._session_id = None
             self.ctx = None
-            self._last_progress = None
             return
 
         data = self.client.active_session()
@@ -127,7 +111,6 @@ class IraApp:
             if self._session_id is not None or force_greet:
                 self._session_id = None
                 self.ctx = None
-                self._last_progress = None
                 self.panel.set_locked(True)
                 self.panel.clear_chat()
             return
@@ -152,11 +135,7 @@ class IraApp:
         if changed or force_greet:
             self.panel.clear_chat()
             self.panel.add_message(greeting(self.ctx), role="ira")
-            self._apply_progress(notify=False)
             self.panel.set_suggestions(suggestions_for(self.ctx))
-        else:
-            # Pulse the collapsed bubble when onboarding progress advances
-            self._apply_progress(notify=True)
 
     def open_panel(self) -> None:
         if self._panel_open:

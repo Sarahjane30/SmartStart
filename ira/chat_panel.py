@@ -67,92 +67,6 @@ MIN_W, MIN_H = 360, 600
 MAX_W = 700
 
 
-class ProgressCard(QWidget):
-    """Glass progress strip with Laptop / Mentor / Day 1 milestones."""
-
-    def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self._pct = 0
-        self._milestones = {"laptop": False, "mentor": False, "day1": False}
-        self.setFixedHeight(84)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-    def set_progress(self, pct: int, *, laptop: bool, mentor: bool, day1: bool) -> None:
-        self._pct = max(0, min(100, int(pct)))
-        self._milestones = {"laptop": laptop, "mentor": mentor, "day1": day1}
-        self.update()
-
-    def _draw_icon(self, p: QPainter, kind: str, cx: int, cy: int, done: bool) -> None:
-        color = QColor("#04060f" if done else MUTED_DIM)
-        p.setPen(QPen(color, 1.5))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        if kind == "laptop":
-            p.drawRoundedRect(cx - 7, cy - 5, 14, 9, 1, 1)
-            p.drawLine(cx - 9, cy + 5, cx + 9, cy + 5)
-        elif kind == "mentor":
-            p.drawEllipse(cx - 3, cy - 6, 6, 6)
-            p.drawArc(cx - 7, cy - 1, 14, 10, 0, 180 * 16)
-        else:
-            p.drawRoundedRect(cx - 6, cy - 5, 12, 11, 1, 1)
-            p.drawLine(cx - 6, cy - 1, cx + 6, cy - 1)
-            p.drawLine(cx - 3, cy - 7, cx - 3, cy - 3)
-            p.drawLine(cx + 3, cy - 7, cx + 3, cy - 3)
-
-    def paintEvent(self, _event) -> None:
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        w, h = self.width(), self.height()
-
-        p.setPen(QPen(QColor(LINE)))
-        grad = QLinearGradient(0, 0, w, h)
-        grad.setColorAt(0.0, QColor(SURFACE))
-        grad.setColorAt(1.0, QColor(SURFACE_2))
-        p.setBrush(QBrush(grad))
-        p.drawRoundedRect(0, 0, w - 1, h - 1, 18, 18)
-
-        p.setPen(QColor(MUTED_DIM))
-        p.drawText(16, 16, "Your readiness")
-        p.setPen(QColor(BLUE_SOFT))
-        p.drawText(w - 48, 16, f"{self._pct}%")
-
-        track_x, track_y, track_h = 16, 24, 5
-        track_w = w - 32
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QBrush(QColor(BLUE_DIM)))
-        p.drawRoundedRect(track_x, track_y, track_w, track_h, 3, 3)
-        fill_w = int(track_w * self._pct / 100)
-        if fill_w > 0:
-            bar = QLinearGradient(track_x, 0, track_x + fill_w, 0)
-            bar.setColorAt(0.0, QColor(BLUE))
-            bar.setColorAt(1.0, QColor(BLUE_SOFT))
-            p.setBrush(QBrush(bar))
-            p.drawRoundedRect(track_x, track_y, fill_w, track_h, 3, 3)
-
-        milestones = [
-            ("laptop", "Hardware", self._milestones["laptop"]),
-            ("mentor", "People", self._milestones["mentor"]),
-            ("day1", "Ready", self._milestones["day1"]),
-        ]
-        gap = track_w // 3
-        for i, (kind, label, done) in enumerate(milestones):
-            cx = track_x + gap // 2 + i * gap
-            cy = 52
-            p.setPen(Qt.PenStyle.NoPen)
-            if done:
-                glow = QRadialGradient(cx, cy - 2, 14)
-                glow.setColorAt(0.0, QColor(31, 59, 255, 90))
-                glow.setColorAt(1.0, QColor(31, 59, 255, 0))
-                p.setBrush(QBrush(glow))
-                p.drawEllipse(cx - 14, cy - 16, 28, 28)
-                p.setBrush(QBrush(QColor(BLUE)))
-            else:
-                p.setBrush(QBrush(QColor(SURFACE_2)))
-            p.drawEllipse(cx - 9, cy - 9, 18, 18)
-            self._draw_icon(p, kind, cx, cy, done)
-            p.setPen(QColor(TEXT if done else MUTED_DIM))
-            p.drawText(cx - 26, cy + 12, 52, 16, Qt.AlignmentFlag.AlignHCenter, label)
-
-
 class _SendOrb(QPushButton):
     """Glowing circular send button (MindBot mic/send motif)."""
 
@@ -383,10 +297,6 @@ class ChatPanel(QWidget):
         greet.addWidget(self.identity)
         body_l.addLayout(greet)
 
-        self.progress = ProgressCard()
-        self.progress.hide()
-        body_l.addWidget(self.progress)
-
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -593,7 +503,6 @@ class ChatPanel(QWidget):
         self.input.setEnabled(not locked)
         self.send_btn.setEnabled(not locked)
         if locked:
-            self.progress.hide()
             self._employee_first = ""
             self.status_line.setText("Not connected")
             self.status_line.setStyleSheet(f"color:{MUTED_DIM}; font-size:11px;")
@@ -616,18 +525,6 @@ class ChatPanel(QWidget):
             self.input.setFocus()
             if self._mode == PanelMode.NORMAL:
                 self.apply_mode(PanelMode.NORMAL)
-
-    def set_onboarding_progress(self, snap: dict | None) -> None:
-        if not snap:
-            self.progress.hide()
-            return
-        self.progress.set_progress(
-            int(snap.get("pct") or 0),
-            laptop=bool(snap.get("laptop")),
-            mentor=bool(snap.get("mentor")),
-            day1=bool(snap.get("day1")),
-        )
-        self.progress.show()
 
     def clear_chat(self) -> None:
         while self.chat_layout.count():

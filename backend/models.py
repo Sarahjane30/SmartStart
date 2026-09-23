@@ -196,6 +196,7 @@ class DashboardJoinerRow(BaseModel):
     risk_score: Optional[float] = None
     journey: list[dict] = Field(default_factory=list)
     actionable: bool = False
+    resolved: bool = False
     synthetic: bool = True
 
 

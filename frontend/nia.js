@@ -129,7 +129,9 @@ function niaConfirm(b, idx) {
   return `<div class="nia-confirm" data-nia-confirm="${idx}">
     <p class="nia-block-title">Confirm action</p>
     <dl class="nia-facts">
-      <div><dt>Action</dt><dd>${b.action === "assign" ? "Assign bottleneck owner" : "Mark bottleneck resolved"}</dd></div>
+      <div><dt>Action</dt><dd>${
+        { assign: "Assign bottleneck owner", resolve: "Mark bottleneck resolved", reopen: "Reopen — still needs help" }[b.action]
+      }</dd></div>
       <div><dt>Joiner</dt><dd>${esc(b.joiner_name)}</dd></div>
       <div><dt>${b.action === "assign" ? "Assign to" : "Where"}</dt><dd>${esc(who)}</dd></div>
     </dl>
@@ -199,14 +201,25 @@ function niaHandleConfirm(card, block, ok) {
         block.owner_name
       )}</strong> in the Command Center.</div>`
     );
-  } else if (block.action === "resolve") {
-    handleAction("resolve", block.joiner_id);
-    niaAppend(
-      "bot",
-      `<div class="nia-text">Done — <strong>${esc(block.joiner_name)}</strong>${block.joiner_name.endsWith("s") ? "'" : "'s"} bottleneck is marked resolved in SmartStart. ${esc(
-        block.note || ""
-      )}</div>`
-    );
+  } else if (block.action === "resolve" || block.action === "reopen") {
+    const poss = `${esc(block.joiner_name)}</strong>${block.joiner_name.endsWith("s") ? "'" : "'s"}`;
+    handleAction(block.action, block.joiner_id).then((ok) => {
+      if (!ok) {
+        card.classList.add("is-cancelled");
+        niaAppend("bot", `<div class="nia-text">That didn't go through — nothing was changed.</div>`);
+        return;
+      }
+      card.classList.add("is-done");
+      niaAppend(
+        "bot",
+        block.action === "resolve"
+          ? `<div class="nia-text">Done — <strong>${poss} bottleneck is resolved and has left your alerts and queue. ${esc(
+              block.note || ""
+            )} If they still need help, just say so.</div>`
+          : `<div class="nia-text">Reopened — <strong>${poss} bottleneck is back in your alerts and queue as <em>still needs help</em>.</div>`
+      );
+    });
+    return;
   }
   card.classList.add("is-done");
 }

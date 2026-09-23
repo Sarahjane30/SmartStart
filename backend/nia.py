@@ -31,6 +31,8 @@ from backend.role_context import (
     JoinerFacts,
     RoleContext,
     access_items,
+    is_resolved_for,
+    lens_queue,
     role_actions,
 )
 
@@ -335,7 +337,9 @@ _PRONOUN = re.compile(r"\b(she|he|her|him|his|they|them|their|this|that|it|this 
 
 
 def _counts(ctx: RoleContext) -> dict:
-    v = ctx.visible
+    # Health buckets describe everyone; action lists skip work the viewer already resolved.
+    everyone = ctx.visible
+    v = [f for f in everyone if not is_resolved_for(f, ctx.role)]
     return {
         "docs_pending": [f for f in v if f.docs.status == DocumentStatus.PENDING],
         "rework": [f for f in v if f.docs.rework_flag],
@@ -354,10 +358,10 @@ def _counts(ctx: RoleContext) -> dict:
         "hardware": [f for f in v if f.ticket.hardware_status != HardwareStatus.DELIVERED],
         "day1": [f for f in v if f.joiner.current_state == OnboardingState.IT_PROVISIONED],
         "project": [f for f in v if f.joiner.current_state == OnboardingState.DAY1_ORIENTED],
-        "ready": [f for f in v if f.ready],
-        "blocked": [f for f in v if f.health == "blocked"],
-        "at_risk": [f for f in v if f.health == "at_risk"],
-        "on_track": [f for f in v if f.health == "on_track"],
+        "ready": [f for f in everyone if f.ready],
+        "blocked": [f for f in everyone if f.health == "blocked"],
+        "at_risk": [f for f in everyone if f.health == "at_risk"],
+        "on_track": [f for f in everyone if f.health == "on_track"],
     }
 
 
@@ -897,6 +901,14 @@ def prepare_resolve(ctx: RoleContext, f: Optional[JoinerFacts]) -> Reply:
     if not f.bottleneck:
         r.text = f"{f.joiner.name} has no open bottleneck to resolve."
         return r
+    if is_resolved_for(f, ctx.role):
+        entry = f.resolved[lens_queue(f, ctx.role)]
+        r.text = (
+            f"{poss(f.joiner.name)} bottleneck is already marked resolved (by {entry['by']}). "
+            f"If they still need help, I can reopen it."
+        )
+        r.suggestions = [f"{first(f)} still needs help"]
+        return r
     info = blocker_info(f)
     r.text = f"You are about to mark **{poss(f.joiner.name)}** bottleneck ({f.bottleneck}) as resolved in SmartStart."
     r.confirm({
@@ -906,6 +918,30 @@ def prepare_resolve(ctx: RoleContext, f: Optional[JoinerFacts]) -> Reply:
         "confirm_label": "Confirm resolve",
         "note": f"This does not close the {info['source']} record — do that in {info['source']} itself."
         if info["source"] != "SmartStart" else "Marks the SmartStart bottleneck resolved only.",
+    })
+    return r
+
+
+def prepare_reopen(ctx: RoleContext, f: Optional[JoinerFacts]) -> Reply:
+    r = Reply(ctx, "reopen")
+    if f is None:
+        r.text = "Which joiner still needs help?"
+        return r
+    r.focus = f.id
+    entry = f.resolved.get(lens_queue(f, ctx.role)) or next(iter(f.resolved.values()), None)
+    if entry is None:
+        r.text = f"{poss(f.joiner.name)} bottleneck isn't marked resolved, so it's still in your queue and alerts."
+        return r
+    r.text = (
+        f"You are about to reopen **{poss(f.joiner.name)}** bottleneck ({entry['bottleneck']}). "
+        f"It will return to alerts and the action queue as *still needs help*."
+    )
+    r.confirm({
+        "action": "reopen",
+        "joiner_id": f.id,
+        "joiner_name": f.joiner.name,
+        "confirm_label": "Reopen — still needs help",
+        "note": f"Resolved earlier by {entry['by']}.",
     })
     return r
 
@@ -961,6 +997,8 @@ def ask(ctx: RoleContext, message: str, focus_joiner_id: Optional[str] = None) -
         return briefing(ctx).to_dict()
     if assign_m:
         return prepare_assign(ctx, text, target, owner_q).to_dict()
+    if re.search(r"still needs? help|reopen|re-open|not (actually )?resolved|unresolve", low):
+        return prepare_reopen(ctx, target).to_dict()
     if re.search(r"\bresolve\b|mark .* resolved|mark resolved", low):
         return prepare_resolve(ctx, target).to_dict()
     if re.search(r"what happens if|what if|\bif\b.*(isn't|is not|not ready|doesn't|does not|remains|stays|never|don't)", low):

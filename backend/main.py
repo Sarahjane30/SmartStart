@@ -31,7 +31,7 @@ from backend.employee_experience import (
     list_feedback,
     submit_feedback,
 )
-from backend import ira_profile, nia
+from backend import ira_profile, nia, resolutions
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -46,6 +46,8 @@ from backend.role_context import (
     ROLE_OPS,
     access_items,
     build_role_context,
+    is_resolved_for,
+    lens_queue,
     build_role_insights,
     build_workspace,
     present_alerts,
@@ -100,6 +102,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     print(f"[SmartStart] portal exists: {(FRONTEND_DIR / 'portal.html').exists()}")
     generate_cohort(n_interns=15, n_ftes=15, seed=42)
     clear_feedback()
+    resolutions.clear()
     yield
 
 
@@ -338,6 +341,7 @@ def regenerate(
         raise HTTPException(status_code=403, detail="Only Onboarding Ops can regenerate the cohort")
     generate_cohort(n_interns=n_interns, n_ftes=n_ftes, seed=seed)
     clear_feedback()
+    resolutions.clear()
     return {
         "status": "regenerated",
         "total_joiners": len(store.list_joiners()),
@@ -414,6 +418,7 @@ def dashboard(
                 risk_score=facts.risk_score,
                 journey=facts.journey,
                 actionable=joiner.id in actionable,
+                resolved=is_resolved_for(facts, ctx.role),
                 synthetic=True,
             )
         )
@@ -470,6 +475,42 @@ def nia_briefing(session: EmployerSession) -> dict:
 def nia_ask(body: NiaAskRequest, session: EmployerSession) -> dict:
     """Ask NIA — grounded answers over the caller's role context (same scope as the dashboard)."""
     return nia.ask(build_role_context(session), body.message, body.focus_joiner_id)
+
+
+class ResolveRequest(BaseModel):
+    note: str = Field(default="", max_length=300)
+
+
+def _actor(session: dict) -> str:
+    return session.get("display_name") or session.get("username") or "Employer"
+
+
+@app.post("/api/employer/joiners/{joiner_id}/resolve")
+def resolve_bottleneck(joiner_id: str, body: ResolveRequest, session: EmployerSession) -> dict:
+    """Mark the caller's part of a joiner's bottleneck resolved: it leaves alerts and action queues."""
+    ctx = build_role_context(session)
+    f = ctx.require_joiner(joiner_id)
+    if not f.bottleneck:
+        raise HTTPException(status_code=400, detail="This joiner has no open bottleneck")
+    queue = lens_queue(f, ctx.role)
+    if queue not in ("HR", "IT", "Manager"):
+        raise HTTPException(status_code=400, detail="Nothing to resolve for this joiner")
+    entry = resolutions.resolve(joiner_id, queue, f.bottleneck, _actor(session), ctx.role, body.note)
+    return {"joiner_id": joiner_id, "status": "resolved", "resolution": entry, "synthetic": True}
+
+
+@app.post("/api/employer/joiners/{joiner_id}/reopen")
+def reopen_bottleneck(joiner_id: str, body: ResolveRequest, session: EmployerSession) -> dict:
+    """'Still needs help' — put a resolved bottleneck back into alerts and action queues."""
+    ctx = build_role_context(session)
+    f = ctx.require_joiner(joiner_id)
+    queue = lens_queue(f, ctx.role)
+    if ctx.role == ROLE_OPS and queue not in f.resolved and f.resolved:
+        queue = next(iter(f.resolved))
+    entry = resolutions.reopen(joiner_id, queue, _actor(session), ctx.role, body.note)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="No resolved bottleneck to reopen")
+    return {"joiner_id": joiner_id, "status": "reopened", "reopened": entry, "synthetic": True}
 
 
 @app.get("/api/employer/workspace")

@@ -2792,3 +2792,14 @@ body:has(.joiner-drawer:not([hidden])) .nia-launcher { right: calc(min(440px, 10
   body:has(.joiner-drawer:not([hidden])) .nia-panel { right: 1rem; }
 }
 .nia-panel[hidden], .nia-launcher[hidden], .nia-badge[hidden] { display: none; }
+
+/* Resolved bottlenecks + "still needs help" */
+.reopen-chip {
+  display: inline-block; margin-left: 0.4rem; padding: 0.08rem 0.45rem; border-radius: 999px;
+  font-size: 0.64rem; font-weight: 750; vertical-align: middle;
+  background: #fff3d6; color: #b45309; border: 1px solid #fcd9a4;
+}
+.alert.resolved-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.8rem;
+  border-left: 3px solid #10b981; background: #f5fcf8;
+}

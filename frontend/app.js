@@ -136,6 +136,30 @@ async function fetchJSON(path) {
   return res.json();
 }
 
+async function postJSON(path, body = {}) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...employerAuthHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      detail = (await res.json()).detail || detail;
+    } catch {}
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+function resolutionOf(id) {
+  return summaryById(id)?.resolution || null;
+}
+
+function reopenedOf(id) {
+  return summaryById(id)?.reopened || null;
+}
+
 async function loadAll() {
   // Non-Ops roles are locked to their own workspace; the server rejects other queue lenses.
   if (!isOps()) state.role = "All";
@@ -244,9 +268,12 @@ function actionCard(s, compact = false) {
     state.userRole === "MANAGER"
       ? `mentor ${s.mentor_name}`
       : `manager ${s.manager_name}`;
+  const reopened = s.reopened
+    ? `<span class="reopen-chip" title="Reopened by ${esc(s.reopened.by)}">Still needs help</span>`
+    : "";
   return `<article class="action-card sev-${esc(primary.severity)}">
     <div class="ac-who">
-      <button type="button" class="joiner-open" data-open="${esc(s.id)}"><strong>${esc(s.name)}</strong></button>
+      <button type="button" class="joiner-open" data-open="${esc(s.id)}"><strong>${esc(s.name)}</strong></button>${reopened}
       <span class="muted tiny">${esc(s.role_type)} · ${esc(s.department)} · ${s.days_in_pipeline}d · ${esc(who)}</span>
     </div>
     <div class="ac-do">
@@ -388,10 +415,12 @@ function actionCell(row) {
   if (!row.bottleneck) {
     return `<span class="muted tiny">—</span>`;
   }
-  if (act?.status === "resolved") {
-    return `<span class="bn-tag ok">Resolved${
-      act.ownerName ? ` · ${esc(act.ownerName)}` : ""
-    }</span>`;
+  const res = resolutionOf(row.id);
+  if (res) {
+    return `<div class="row-actions">
+      <span class="bn-tag ok" title="Resolved by ${esc(res.by)}">Resolved · ${esc(res.by)}</span>
+      <button type="button" class="btn-mini" data-act="reopen" data-id="${esc(row.id)}">Still needs help</button>
+    </div>`;
   }
   if (act?.status === "assigned") {
     return `<div class="row-actions">
@@ -470,12 +499,31 @@ function renderAlerts() {
   document.getElementById("alerts-count").textContent =
     `${data.total} alerts · synthetic · as of ${fmt(data.as_of)}`;
   const list = document.getElementById("alerts-list");
+  const resolved = state.workspace?.resolved || [];
+  const resolvedHtml = resolved.length
+    ? `<h3 class="alert-group">Resolved · ${resolved.length}</h3>
+       <p class="muted tiny">Removed from alerts and action queues. Reopen anything that still needs help.</p>
+       ${resolved
+         .map(
+           (r) => `<div class="alert resolved-item">
+             <div>
+               <strong>${esc(r.name)}</strong> <span class="bn-tag ok">Resolved</span>
+               <div class="muted tiny">${esc(r.bottleneck)} · ${esc(r.queue)} · by ${esc(r.by)} · ${esc(fmt(r.at))}</div>
+             </div>
+             <div class="row-actions">
+               <button type="button" class="btn-mini" data-open="${esc(r.joiner_id)}">Open</button>
+               <button type="button" class="btn-mini primary" data-act="reopen" data-id="${esc(r.joiner_id)}">Still needs help</button>
+             </div>
+           </div>`
+         )
+         .join("")}`
+    : "";
   if (!data.alerts.length) {
-    list.innerHTML = `<p class="muted">No alerts for this role view.</p>`;
+    list.innerHTML = `<p class="muted">No open alerts for this role view.</p>${resolvedHtml}`;
     return;
   }
   if (isOps()) {
-    list.innerHTML = data.alerts.map((a) => alertCard(a)).join("");
+    list.innerHTML = data.alerts.map((a) => alertCard(a)).join("") + resolvedHtml;
   } else {
     const act = data.alerts.filter((a) => a.action_required);
     const aware = data.alerts.filter((a) => !a.action_required);
@@ -483,7 +531,8 @@ function renderAlerts() {
       <h3 class="alert-group">Action required · ${act.length}</h3>
       ${act.map((a) => alertCard(a)).join("") || `<p class="muted tiny">Nothing needs your action.</p>`}
       <h3 class="alert-group">For awareness · ${aware.length}</h3>
-      ${aware.map((a) => alertCard(a)).join("") || `<p class="muted tiny">No cross-team delays affecting you.</p>`}`;
+      ${aware.map((a) => alertCard(a)).join("") || `<p class="muted tiny">No cross-team delays affecting you.</p>`}
+      ${resolvedHtml}`;
   }
   revealAll(list, ".alert", 30);
 }
@@ -871,16 +920,15 @@ async function openJoinerDrawer(id) {
               : ""
           }
           ${
-            bn && act?.status !== "resolved"
+            bn && resolutionOf(id)
+              ? `<span class="bn-tag ok">Resolved · ${esc(resolutionOf(id).by)}</span>
+                 <button type="button" class="btn-mini" data-act="reopen" data-id="${esc(id)}">Still needs help</button>`
+              : bn
               ? `<button type="button" class="btn-mini primary" data-act="assign" data-id="${esc(id)}">${
                   act?.status === "assigned" ? "Reassign" : "Assign owner"
                 }</button>
                  <button type="button" class="btn-mini" data-act="resolve" data-id="${esc(id)}">Mark resolved</button>`
-              : bn
-                ? `<span class="bn-tag ok">Resolved${
-                    act?.ownerName ? ` · ${esc(act.ownerName)}` : ""
-                  }</span>`
-                : ""
+              : ""
           }
           <button type="button" class="btn-mini nia-ask-btn" data-nia-ask="${esc(id)}" data-nia-name="${esc(j.name)}">Ask NIA</button>
           <a class="btn-link" href="/?need=employee">View as this joiner (portal) →</a>
@@ -1015,23 +1063,28 @@ function confirmAssign(joinerId, ownerId, ownerName, ownerTeam) {
   if (state.selectedId === joinerId) openJoinerDrawer(joinerId);
 }
 
-function handleAction(act, id) {
+async function handleAction(act, id) {
   if (!id) return;
   if (act === "assign") {
     openAssignModal(id);
     return;
   }
-  if (act === "resolve") {
-    const prev = state.actions[id] || {};
-    state.actions[id] = {
-      ...prev,
-      status: "resolved",
-      at: new Date().toISOString(),
-    };
-    showToast("Bottleneck marked resolved (synthetic demo — not persisted)");
-    render();
-    if (state.selectedId === id) openJoinerDrawer(id);
+  if (act !== "resolve" && act !== "reopen") return;
+  try {
+    await postJSON(`/api/employer/joiners/${encodeURIComponent(id)}/${act}`);
+  } catch (err) {
+    showToast(`Couldn't ${act === "resolve" ? "resolve" : "reopen"}: ${err.message}`);
+    return false;
   }
+  if (act === "resolve") delete state.actions[id];
+  showToast(
+    act === "resolve"
+      ? "Resolved — removed from alerts and your queue. Reopen it from Alerts if they still need help."
+      : "Reopened — back in alerts and your queue as “still needs help”."
+  );
+  await loadAll();
+  if (state.selectedId === id && !document.getElementById("joiner-drawer").hidden) openJoinerDrawer(id);
+  return true;
 }
 
 function showToast(msg) {

@@ -110,7 +110,7 @@ class _FlowLayout(QLayout):
                 item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
             x += w + self.spacing()
             line_h = max(line_h, h)
-        return y + line_h - rect.y()
+        return y + line_h - rect.y() if self._items else 0
 
 
 class ProgressCard(QWidget):
@@ -427,7 +427,7 @@ class ChatPanel(QWidget):
         chat_log_l.addWidget(self.scroll)
         ask_l.addWidget(chat_log, 1)
 
-        self.suggest_host = QWidget()
+        self.suggest_host = _FlowHost()
         self.suggest_flow = _FlowLayout(self.suggest_host, spacing=7)
         self.suggest_host.setLayout(self.suggest_flow)
         ask_l.addWidget(self.suggest_host)
@@ -723,6 +723,15 @@ class ChatPanel(QWidget):
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda _=False, t=text: self._quick(t))
             self.suggest_flow.addWidget(btn)
+        if show:
+            # Force height after chips are added
+            QTimer.singleShot(0, self._relayout_chips)
+
+    def _relayout_chips(self) -> None:
+        w = max(self.suggest_host.width(), self.width() - 56)
+        h = self.suggest_flow.heightForWidth(w)
+        if h > 0:
+            self.suggest_host.setFixedHeight(h)
 
     def _quick(self, text: str) -> None:
         if not self._unlocked:

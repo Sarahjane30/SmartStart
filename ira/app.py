@@ -221,7 +221,7 @@ class IraApp:
         tip = self.panel.show_typing()
 
         def _reply() -> None:
-            tip.deleteLater()
+            self.panel.hide_typing(tip)
             if self.online and self._session_id:
                 try:
                     self.ctx = self.client.context(self._session_id)
@@ -236,7 +236,7 @@ class IraApp:
             self.panel.add_message(reply, role="ira")
             self._history.append(("ira", reply))
 
-        QTimer.singleShot(300, _reply)
+        QTimer.singleShot(900, _reply)
 
 
 def main(argv: list[str] | None = None) -> int:

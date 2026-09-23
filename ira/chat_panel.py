@@ -5,7 +5,16 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from PySide6.QtCore import Qt, QTimer, Signal, QPoint, QRect
+from PySide6.QtCore import (
+    Property,
+    QEasingCurve,
+    QPoint,
+    QPropertyAnimation,
+    QRect,
+    Qt,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import (
     QCursor,
     QKeyEvent,
@@ -30,6 +39,7 @@ from PySide6.QtWidgets import (
 )
 
 from ira.flow_layout import FlowLayout
+from ira.globe_backdrop import GlobeBackdrop
 from ira.winflags import companion_window_flags
 
 EDGE = 8
@@ -97,7 +107,7 @@ class ChatPanel(QWidget):
               border: 1px solid {LINE};
               border-radius: 16px;
             }}
-            QWidget#panelContent {{ background: {BG}; }}
+            QWidget#panelContent {{ background: transparent; }}
             QLabel {{ color: {INK}; font-size: 12px; }}
             QPushButton#icon {{
               background: transparent; color: {MUTED}; border: 0;
@@ -139,8 +149,8 @@ class ChatPanel(QWidget):
             }}
             QPushButton#askBtn:hover {{ background: {NAVY_DEEP}; }}
             QPushButton#askBtn:disabled {{ background: #c5cddf; color: #ffffff; }}
-            QScrollArea {{ border: 0; background: {BG}; }}
-            QWidget#chatInner {{ background: {BG}; }}
+            QScrollArea {{ border: 0; background: transparent; }}
+            QWidget#chatInner {{ background: transparent; }}
             QScrollBar:vertical {{
               background: transparent; width: 4px; margin: 2px;
             }}
@@ -155,7 +165,14 @@ class ChatPanel(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        self._net = None
+        self._globe = GlobeBackdrop()
+        self._globe_t = 0.0
+        self._globe_spin = 0.0
+        self._thinking = 0.0
+        self._think_anim = QPropertyAnimation(self, b"thinkingAmount", self)
+        self._think_anim.setEasingCurve(QEasingCurve.Type.InOutSine)
+        self._globe_timer = QTimer(self)
+        self._globe_timer.timeout.connect(self._tick_globe)
 
         content = QWidget()
         content.setObjectName("panelContent")
@@ -261,6 +278,8 @@ class ChatPanel(QWidget):
         self.chat_layout.setContentsMargins(0, 2, 2, 8)
         self.chat_layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
         self.scroll.setWidget(self.chat_inner)
+        self.scroll.viewport().setAutoFillBackground(False)
+        self.scroll.viewport().setStyleSheet("background: transparent;")
         body_l.addWidget(self.scroll, 1)
 
         # Suggestion chips — pill row
@@ -334,12 +353,53 @@ class ChatPanel(QWidget):
         if w > 0:
             self.suggest_host.setFixedHeight(self.suggest_grid.heightForWidth(w))
 
+    def _get_thinking(self) -> float:
+        return self._thinking
+
+    def _set_thinking(self, value: float) -> None:
+        self._thinking = float(value)
+        self.update()
+
+    thinkingAmount = Property(float, _get_thinking, _set_thinking)
+
+    def set_thinking(self, on: bool) -> None:
+        self._think_anim.stop()
+        self._think_anim.setDuration(450 if on else 900)
+        self._think_anim.setStartValue(self._thinking)
+        self._think_anim.setEndValue(1.0 if on else 0.0)
+        self._think_anim.start()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._globe_timer.start(40)
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        self._globe_timer.stop()
+
+    def _tick_globe(self) -> None:
+        k = self._thinking
+        self._globe_t += 0.04 * (1 + 1.5 * k)
+        self._globe_spin += 0.0064 * (1 + 4 * k)
+        self.update()
+
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(QColor(BG)))
         p.drawRoundedRect(0, 0, self.width(), self.height(), 16, 16)
+        k = self._thinking
+        R = min(self.width(), self.height()) * 0.36 * (1 + 0.04 * k)
+        self._globe.paint(
+            p,
+            self.width() / 2,
+            self.height() * 0.46,
+            R,
+            spin=self._globe_spin,
+            t=self._globe_t,
+            opacity=0.13 + 0.27 * k,
+        )
         p.setPen(QPen(QColor(LINE)))
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawRoundedRect(0, 0, self.width() - 1, self.height() - 1, 16, 16)
@@ -574,8 +634,13 @@ class ChatPanel(QWidget):
         tip = QLabel("IRA is thinking…")
         tip.setStyleSheet(f"color:{MUTED}; font-size:10.5px; padding:2px 0;")
         self.chat_layout.addWidget(tip)
+        self.set_thinking(True)
         QTimer.singleShot(20, self._scroll_bottom)
         return tip
+
+    def hide_typing(self, tip: QLabel) -> None:
+        tip.deleteLater()
+        self.set_thinking(False)
 
     def set_suggestions(self, items: list[str]) -> None:
         while self.suggest_grid.count():

@@ -8,14 +8,13 @@ from PySide6.QtCore import Qt
 
 
 def companion_window_flags() -> Qt.WindowType:
-    """Always-on-top frameless companion.
+    """Always-on-top frameless companion that floats over other apps.
 
-    On Windows, avoid Qt.Tool — Tool windows often stay invisible in the
-    taskbar and are easy to miss behind the browser.
+    Qt.Tool + WindowStaysOnTopHint keeps the orb/panel above browsers and
+    editors so it stays useful as a desktop companion (especially Windows).
     """
-    flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
-    if sys.platform.startswith("win"):
-        flags |= Qt.WindowType.Window
-    else:
-        flags |= Qt.WindowType.Tool
-    return flags
+    return (
+        Qt.WindowType.FramelessWindowHint
+        | Qt.WindowType.WindowStaysOnTopHint
+        | Qt.WindowType.Tool
+    )

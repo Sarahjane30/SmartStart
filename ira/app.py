@@ -143,13 +143,16 @@ class IraApp:
         self._panel_open = True
         self.panel.apply_mode(PanelMode.NORMAL)
         self._place_panel()
-        self.bubble.hide()
+        # Show panel BEFORE hiding bubble — otherwise QuitOnLastWindowClosed
+        # (or a flash with zero visible windows) kills the process on Windows.
         self.panel.show()
         self.panel.raise_()
         self.panel.activateWindow()
+        self.bubble.hide()
         self._sync_session(force_greet=False)
 
     def minimize(self) -> None:
+        """Collapse to the floating orb — must NOT quit the app."""
         self._panel_open = False
         # Park bubble near panel's bottom-right
         self.bubble.move(
@@ -157,13 +160,17 @@ class IraApp:
             self.panel.y() + self.panel.height() - self.bubble.height(),
         )
         self._persist_bubble_pos(self.bubble.x(), self.bubble.y())
-        self.panel.hide()
+        # Show bubble FIRST so a window stays visible, then hide panel
         self.bubble.show()
         self.bubble.raise_()
+        self.bubble.activateWindow()
+        self.panel.hide()
 
     def quit(self) -> None:
         self._persist_bubble_pos(self.bubble.x(), self.bubble.y())
-        QApplication.instance().quit()
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
 
     def _on_send(self, text: str) -> None:
         if not self._session_id:
@@ -193,7 +200,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         app = QApplication(argv)
         app.setApplicationName("IRA")
-        app.setQuitOnLastWindowClosed(True)
+        # Critical on Windows: hiding the panel to show the bubble must NOT quit.
+        # Only the × close button should exit.
+        app.setQuitOnLastWindowClosed(False)
         import ira as _ira_pkg
 
         pkg = Path(_ira_pkg.__file__).resolve().parent
@@ -201,11 +210,13 @@ def main(argv: list[str] | None = None) -> int:
         print("=" * 52)
         print("  IRA — I know Waters")
         print(f"  {pkg}")
-        print("  SmartStart navy · ask me anything")
+        print("  Always-on-top companion · minimize → floating orb")
         print("  Connect via SmartStart employee sign-in")
         print("=" * 52)
         print()
-        _ = IraApp()
+        ira_app = IraApp()
+        # Keep a ref so GC doesn't collect the orchestrator
+        app._ira = ira_app  # type: ignore[attr-defined]
         return app.exec()
     except Exception:
         import traceback

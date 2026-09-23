@@ -395,7 +395,7 @@ class ChatPanel(QWidget):
         self.chat_layout = QVBoxLayout(self.chat_inner)
         self.chat_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.chat_layout.setSpacing(40)
-        self.chat_layout.setContentsMargins(0, 8, 4, 36)
+        self.chat_layout.setContentsMargins(0, 8, 4, 48)
         self.chat_layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
         self.scroll.setWidget(self.chat_inner)
         body_l.addWidget(self.scroll, 1)
@@ -404,12 +404,12 @@ class ChatPanel(QWidget):
         self.suggest_host = QWidget()
         self.suggest_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.suggest_grid = QGridLayout(self.suggest_host)
-        self.suggest_grid.setContentsMargins(0, 6, 0, 4)
+        self.suggest_grid.setContentsMargins(0, 8, 0, 4)
         self.suggest_grid.setHorizontalSpacing(14)
         self.suggest_grid.setVerticalSpacing(12)
         self.suggest_host.hide()
         body_l.addWidget(self.suggest_host)
-        body_l.addSpacing(10)
+        body_l.addSpacing(12)
 
         # Composer bar
         composer = QFrame()

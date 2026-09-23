@@ -71,10 +71,11 @@ IRA appears as a tiny always-on-top bubble (default: bottom-right). Click to exp
 ### Sign-in flow (required)
 
 1. Start SmartStart on port 8000.
-2. Launch IRA — you’ll see **Sign in to SmartStart**.
-3. Click **Open SmartStart to sign in** (opens the portal).
-4. Choose **Employee → Intern/FTE → your profile** (e.g. Sarah Jane).
-5. Return to IRA — chat unlocks for that identity automatically.
+2. Launch IRA — compact panel (~420×560) with **Connect SmartStart**.
+3. Sign in as Employee (Intern/FTE) in the portal.
+4. Return — chat unlocks for that identity.
+
+**Sizes:** collapsed bubble → normal (~420px) → expanded (~640px via ↗). Drag left/top/right/bottom edges to resize (360–700px wide, up to 90vh tall).
 
 IRA polls `GET /api/ira/session`. The portal writes the session on employee sign-in.
 

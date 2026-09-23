@@ -13,44 +13,43 @@ from PySide6.QtWidgets import QApplication
 
 from ira.brain import answer, greeting, proactive_tips, suggestions_for
 from ira.bubble import IraBubble
-from ira.chat_panel import ChatPanel
+from ira.chat_panel import ChatPanel, PanelMode
 from ira.client import SmartStartClient
 from ira.config import load_config, update_config
 
 
 class IraApp:
-    """Tiny always-on-top companion: bubble ↔ chat panel."""
+    """Collapsed bubble ↔ compact / expanded chat panel."""
 
     def __init__(self) -> None:
         self.cfg = load_config()
         self.client = SmartStartClient(self.cfg.get("smartstart_base_url"))
         self.ctx: Optional[dict] = None
         self.online = False
-        self._expanded = False
+        self._panel_open = False
         self._last_tips: list[str] = []
         self._session_id: str | None = None
 
         self.bubble = IraBubble()
         self.panel = ChatPanel()
 
-        self.bubble.clicked.connect(self.expand)
+        self.bubble.clicked.connect(self.open_panel)
         self.bubble.moved_to.connect(self._persist_bubble_pos)
         self.panel.minimize_requested.connect(self.minimize)
         self.panel.close_requested.connect(self.quit)
         self.panel.send_message.connect(self._on_send)
         self.panel.open_smartstart_requested.connect(self.open_smartstart)
-        self.panel.refresh_requested.connect(self.refresh_context)
 
         self._place_bubble()
         self.bubble.show()
         self.bubble.raise_()
-        self.bubble.activateWindow()
 
         self._poll = QTimer()
         self._poll.timeout.connect(self._heartbeat)
         self._poll.start(3_000)
         QTimer.singleShot(200, self._bootstrap)
-        QTimer.singleShot(500, self.expand)
+        # Open compact panel once so the login state is obvious
+        QTimer.singleShot(400, self.open_panel)
 
     def _place_bubble(self) -> None:
         screen = QGuiApplication.primaryScreen()
@@ -59,31 +58,36 @@ class IraApp:
         y = self.cfg.get("bubble_y")
         if x is None or y is None:
             if geo:
-                x = geo.right() - self.bubble.width() - 24
-                y = geo.bottom() - self.bubble.height() - 24
+                x = geo.right() - self.bubble.width() - 20
+                y = geo.bottom() - self.bubble.height() - 20
             else:
                 x, y = 100, 100
         x, y = int(x), int(y)
         if geo is not None:
-            max_x = geo.right() - self.bubble.width()
-            max_y = geo.bottom() - self.bubble.height()
-            x = min(max(geo.left() + 8, x), max_x)
-            y = min(max(geo.top() + 8, y), max_y)
+            x = min(max(geo.left() + 8, x), geo.right() - self.bubble.width())
+            y = min(max(geo.top() + 8, y), geo.bottom() - self.bubble.height())
         self.bubble.move(x, y)
 
     def _persist_bubble_pos(self, x: int, y: int) -> None:
         self.cfg = update_config(bubble_x=x, bubble_y=y)
 
-    def open_smartstart(self) -> None:
-        url = self.client.portal_login_url()
-        webbrowser.open(url)
-        if not self.panel._unlocked:
-            self.panel.identity.setText("Waiting for SmartStart sign-in…")
+    def _place_panel(self) -> None:
+        screen = QGuiApplication.primaryScreen()
+        geo = screen.availableGeometry() if screen else None
+        if geo:
+            x = geo.right() - self.panel.width() - 20
+            y = geo.bottom() - self.panel.height() - 20
+            self.panel.move(max(geo.left() + 8, x), max(geo.top() + 8, y))
         else:
-            self.panel.add_message(
-                "Opened SmartStart. You can switch profiles there anytime.",
-                role="ira",
+            self.panel.move(
+                max(8, self.bubble.x() - self.panel.width() + self.bubble.width()),
+                max(8, self.bubble.y() - self.panel.height() + 40),
             )
+
+    def open_smartstart(self) -> None:
+        webbrowser.open(self.client.portal_login_url())
+        self.panel.auth_status.setText("● Waiting for SmartStart…")
+        self.panel.auth_status.setStyleSheet("color:#38bdf8; font-size:12px;")
 
     def _bootstrap(self) -> None:
         self.online = self.client.available()
@@ -91,7 +95,6 @@ class IraApp:
         self._sync_session(force_greet=True)
 
     def _heartbeat(self) -> None:
-        was = self.online
         self.online = self.client.available()
         self.panel.set_online(self.online)
         self._sync_session(force_greet=False)
@@ -102,11 +105,9 @@ class IraApp:
                 self.ctx = None
             tips = proactive_tips(self.ctx)
             new = [t for t in tips if t not in self._last_tips]
-            if new and not self._expanded:
+            if new and not self._panel_open:
                 self.bubble.pulse_notify()
             self._last_tips = tips
-        if self.online and not was:
-            self._sync_session(force_greet=False)
 
     def _sync_session(self, *, force_greet: bool) -> None:
         if not self.online:
@@ -127,6 +128,8 @@ class IraApp:
 
         emp_id = str(sess.get("employee_id") or "")
         name = str(sess.get("employee_name") or "Employee")
+        role = str(sess.get("role_type") or "")
+        dept = str(sess.get("department") or "")
         if not emp_id:
             self.panel.set_locked(True)
             return
@@ -139,7 +142,7 @@ class IraApp:
         except Exception:
             self.ctx = None
 
-        self.panel.set_locked(False, name=name)
+        self.panel.set_locked(False, name=name, role=role, dept=dept)
         if changed or force_greet:
             self.panel.clear_chat()
             self.panel.add_message(greeting(self.ctx), role="ira")
@@ -151,20 +154,12 @@ class IraApp:
                 )
             self.panel.set_suggestions(suggestions_for(self.ctx))
 
-    def refresh_context(self) -> None:
-        self._sync_session(force_greet=False)
-        if self._session_id and self.ctx:
-            self.panel.set_suggestions(suggestions_for(self.ctx))
-
-    def expand(self) -> None:
-        if self._expanded:
+    def open_panel(self) -> None:
+        if self._panel_open:
             return
-        self._expanded = True
-        bx, by = self.bubble.x(), self.bubble.y()
-        self.panel.move(
-            max(8, bx - self.panel.width() + self.bubble.width()),
-            max(8, by - self.panel.height() + 40),
-        )
+        self._panel_open = True
+        self.panel.apply_mode(PanelMode.NORMAL)
+        self._place_panel()
         self.bubble.hide()
         self.panel.show()
         self.panel.raise_()
@@ -172,7 +167,8 @@ class IraApp:
         self._sync_session(force_greet=False)
 
     def minimize(self) -> None:
-        self._expanded = False
+        self._panel_open = False
+        # Park bubble near panel's bottom-right
         self.bubble.move(
             self.panel.x() + self.panel.width() - self.bubble.width(),
             self.panel.y() + self.panel.height() - self.bubble.height(),
@@ -203,7 +199,7 @@ class IraApp:
             reply = answer(text, self.ctx, online=self.online and bool(self.ctx))
             self.panel.add_message(reply, role="ira")
 
-        QTimer.singleShot(350, _reply)
+        QTimer.singleShot(300, _reply)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -218,14 +214,12 @@ def main(argv: list[str] | None = None) -> int:
 
     pkg = Path(_ira_pkg.__file__).resolve().parent
     print()
-    print("=" * 56)
-    print("  IRA desktop companion")
-    print(f"  Loaded from: {pkg}")
-    print("  1) Keep SmartStart running on :8000")
-    print("  2) Click “Open SmartStart to sign in” in IRA")
-    print("  3) Pick your employee profile in the portal")
-    print("  4) Return — chat unlocks automatically")
-    print("=" * 56)
+    print("=" * 52)
+    print("  IRA — compact SmartStart assistant")
+    print(f"  {pkg}")
+    print("  Collapsed → Normal (~420px) → Expanded (~640px)")
+    print("  Drag edges to resize · ↗ to expand · — to minimize")
+    print("=" * 52)
     print()
     _ = IraApp()
     return app.exec()

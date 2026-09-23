@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from backend.database import DataStore, store
 from backend.employee_experience import build_employee_profile, build_learning_track, build_notifications
+from backend.ira_profile import get_profile
 from backend.models import DocumentStatus, HardwareStatus, OnboardingState
 
 AS_OF = datetime(2026, 9, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -264,6 +265,7 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
             for n in notes.notifications[:6]
         ],
         "people": _directory_people(joiner_id, db),
+        "profile": get_profile(joiner_id),
         "synthetic": True,
         "as_of": AS_OF.isoformat(),
         "note": (

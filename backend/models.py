@@ -438,6 +438,9 @@ class ChatbotResponse(BaseModel):
     query: Optional[str] = None
     suggestions: list[str] = Field(default_factory=list)
     draft: Optional["EmailDraft"] = None
+    mode: str = "ask"
+    coach: Optional[dict] = None
+    basics: Optional[str] = None
     synthetic: bool = True
     note: str = "IRA — knows Waters from approved synthetic sources (not a live LLM; no production actions)."
 

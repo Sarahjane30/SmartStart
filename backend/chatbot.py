@@ -179,6 +179,7 @@ def build_chatbot(
     db = db or store
     suggestions: list[str] = []
     draft: EmailDraft | None = None
+    mode, coach, basics = "ask", None, None
     joiner = db.get_joiner(joiner_id)
     if joiner is None:
         raise KeyError(joiner_id)
@@ -208,13 +209,17 @@ def build_chatbot(
         # Prefer shared IRA intelligence (knowledge + personal context)
         try:
             from backend.ira_api import build_ira_context
-            from ira.brain import answer as ira_answer
-            from ira.brain import followups_for
+            from backend.ira_profile import record_observation
+            from ira.brain import followups_for, respond
 
             from ira.email_draft import draft_email, is_draft_request
 
             ctx = build_ira_context(joiner_id, db=db)
-            text = ira_answer(query, ctx, online=True)
+            history = [("user", a) for a in (asked or [])]
+            result = respond(query, ctx, online=True, history=history)
+            text = result["text"]
+            mode, coach, basics = result["mode"], result["coach"], result["basics"]
+            record_observation(joiner_id, query, flavour=result["flavour"])
             turns.append(ChatTurn(role="assistant", text=text, synthetic=True))
             suggestions = followups_for(query, text, ctx, asked=set(asked or []))
             if is_draft_request(query):
@@ -254,5 +259,8 @@ def build_chatbot(
         query=query,
         suggestions=suggestions,
         draft=draft,
+        mode=mode,
+        coach=coach,
+        basics=basics,
         synthetic=True,
     )

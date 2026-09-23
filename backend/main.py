@@ -30,6 +30,7 @@ from backend.employee_experience import (
     list_feedback,
     submit_feedback,
 )
+from backend import ira_profile
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -517,6 +518,59 @@ def ira_notifications(joiner_id: str) -> dict:
         "notifications": ctx["notifications"],
         "synthetic": True,
     }
+
+
+@app.get("/api/ira/{joiner_id}/profile")
+def ira_profile_get(joiner_id: str) -> dict:
+    """Get to know me questionnaire, saved answers and what IRA has noticed."""
+    return ira_profile.profile_payload(joiner_id, ira_context(joiner_id))
+
+
+@app.put("/api/ira/{joiner_id}/profile")
+def ira_profile_put(joiner_id: str, body: ira_profile.ProfileUpdate) -> dict:
+    ira_context(joiner_id)
+    ira_profile.save_answers(joiner_id, body.answers, onboarded=body.onboarded)
+    return ira_profile.profile_payload(joiner_id, ira_context(joiner_id))
+
+
+@app.post("/api/ira/{joiner_id}/profile/forget")
+def ira_profile_forget(joiner_id: str, body: ira_profile.ForgetRequest) -> dict:
+    ira_context(joiner_id)
+    ira_profile.forget(joiner_id, what=body.what)
+    return ira_profile.profile_payload(joiner_id, ira_context(joiner_id))
+
+
+@app.post("/api/ira/{joiner_id}/observe")
+def ira_observe(joiner_id: str, body: dict) -> dict:
+    """Desktop IRA reports each question so observed preferences stay in sync."""
+    ira_context(joiner_id)
+    query = str(body.get("query") or "")[:500]
+    prof = ira_profile.record_observation(joiner_id, query, flavour=bool(body.get("flavour")))
+    return {"employee_id": joiner_id, "observed": prof["observed"], "synthetic": True}
+
+
+@app.post("/api/ira/{joiner_id}/coach")
+def ira_coach(joiner_id: str, body: ira_profile.CoachRequest) -> dict:
+    """Practice mode: start a scenario (no message) or get IRA's in-role reply + feedback."""
+    ctx = ira_context(joiner_id)
+    try:
+        return ira_profile.coach_turn(joiner_id, body, ctx)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Practice scenario not found") from None
+
+
+@app.get("/api/ira/{joiner_id}/basics")
+def ira_basics(joiner_id: str) -> dict:
+    """Workplace Basics catalogue, with topics recommended from Get to know me."""
+    return ira_profile.basics_payload(joiner_id, ira_context(joiner_id))
+
+
+@app.get("/api/ira/{joiner_id}/basics/{topic_id}")
+def ira_basics_topic(joiner_id: str, topic_id: str) -> dict:
+    try:
+        return ira_profile.basics_topic(joiner_id, topic_id, ira_context(joiner_id))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Topic not found") from None
 
 
 # --- Layer 3: Employee Experience ------------------------------------------

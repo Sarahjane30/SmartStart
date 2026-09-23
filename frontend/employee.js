@@ -94,7 +94,7 @@ function renderAll() {
   renderChat();
   renderConsult();
   renderTeam();
-  renderFeedbackHistory();
+  renderFeedback();
   renderHomeExtras();
   setTab(state.tab || "home");
 }
@@ -980,28 +980,195 @@ function renderTeam() {
   revealAll(teamList, ".wx-member", 40);
 }
 
-const RATING_LABELS = ["", "Very poor", "Poor", "Okay", "Good", "Great"];
+const RATING_LABELS = ["", "Frustrating", "Difficult", "Okay", "Smooth", "Great"];
+const MOUTHS = ["", "M9 22 Q16 15 23 22", "M9 21 Q16 17.5 23 21", "M10 20 L22 20", "M9 18.5 Q16 23 23 18.5", "M8.5 17.5 Q16 26 23.5 17.5"];
+
+function faceSvg(r) {
+  return `<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14.5" class="fb-face-bg"/>
+    <circle cx="11.2" cy="12.6" r="1.7" class="fb-face-ink"/><circle cx="20.8" cy="12.6" r="1.7" class="fb-face-ink"/>
+    <path d="${MOUTHS[r]}" class="fb-face-line"/></svg>`;
+}
+
+const FB_POSITIVE = ["Clear instructions", "Quick", "Friendly people", "Easy to find", "Well organised", "Felt welcomed"];
+const FB_NEGATIVE = ["Unclear steps", "Waited too long", "Hard to find", "Too many steps", "Nobody to ask", "Technical issues"];
+
+function feedbackSteps() {
+  const p = state.profile || {};
+  const t = state.track || {};
+  const isIntern = String(p.role_type).toUpperCase() === "INTERN";
+  const stage = STAGES.findIndex(([key]) => key === p.current_state);
+  const at = (key) => stage >= STAGES.findIndex(([k]) => k === key);
+  const docsDone = String(p.docs_status) === "Complete";
+  const laptop = String(p.hardware_status || "");
+  const steps = [
+    {
+      value: "Offer acceptance", label: "Offer", status: "done",
+      question: "How was your offer and start-date process?",
+      context: "You accepted your offer and got your welcome pack.",
+      note: "Was anything unclear about your offer or start date?",
+    },
+    {
+      value: "Document packet", label: "Documents", status: docsDone ? "done" : "now",
+      question: "How was completing your document packet?",
+      context: `Your document packet is ${String(p.docs_status || "in progress").toLowerCase()}.`,
+      note: "What would have made the document packet easier?",
+    },
+    {
+      value: "IT provisioning", label: "Laptop & access",
+      status: laptop === "Delivered" ? "done" : docsDone ? "now" : "later",
+      question: "How was getting your laptop and access set up?",
+      context: laptop ? `Your laptop is marked ${laptop.toLowerCase()}.` : "Laptop and accounts setup.",
+      note: "How smooth was getting your laptop, Okta and apps working?",
+    },
+    {
+      value: "Day-1 orientation", label: "Day 1",
+      status: at("DAY1_ORIENTED") ? "done" : at("IT_PROVISIONED") ? "now" : "later",
+      question: "How was your first day?",
+      context: "Orientation, tools setup and meeting your team.",
+      note: "What would you change about your first day?",
+    },
+    {
+      value: "Learning modules", label: "Learning",
+      status: t.completed_count ? (t.completed_count === t.total_count ? "done" : "now") : "later",
+      question: "How are your learning modules going?",
+      context: t.total_count ? `${t.completed_count} of ${t.total_count} modules done.` : "Your learning track.",
+      note: "Which module helped most — or felt like a waste of time?",
+    },
+    {
+      value: "Mentor intro", label: isIntern ? "Mentor" : "Buddy",
+      status: at("DAY1_ORIENTED") ? "done" : "later",
+      question: `How are check-ins with your ${isIntern ? "mentor" : "buddy"} going?`,
+      context: p.mentor_name ? `${isIntern ? "Mentor" : "Buddy"}: ${p.mentor_name}.` : "Meeting your mentor or buddy.",
+      note: "How useful have your check-ins been so far?",
+    },
+    {
+      value: "Project readiness", label: "First project",
+      status: at("PROJECT_READY") ? "done" : at("DAY1_ORIENTED") ? "now" : "later",
+      question: "How ready do you feel for your first project?",
+      context: "Getting ready for your first assigned work.",
+      note: "Do you feel ready to start real work? What's missing?",
+    },
+  ];
+  const rated = new Map(state.feedback.map((f) => [f.step, f]));
+  return steps.map((st) => ({ ...st, rated: rated.get(st.value) || null }));
+}
+
+function nextUnratedStep(steps, except) {
+  return steps.find((s) => s.status !== "later" && !s.rated && s.value !== except) || null;
+}
+
+function renderFeedback() {
+  const steps = feedbackSteps();
+  const fb = (state.fb ||= { step: null, rating: 0, tags: new Set() });
+  if (!fb.step || !steps.some((s) => s.value === fb.step && s.status !== "later")) {
+    fb.step = (nextUnratedStep(steps) || steps.find((s) => s.status !== "later")).value;
+  }
+  const current = steps.find((s) => s.value === fb.step);
+
+  document.getElementById("fb-steps").innerHTML = steps
+    .map((s) => {
+      const disabled = s.status === "later";
+      const sub = s.rated
+        ? `Rated · ${RATING_LABELS[s.rated.rating]}`
+        : disabled ? "Not reached yet" : s.status === "now" ? "Happening now" : "Ready to rate";
+      return `<button type="button" role="radio" aria-checked="${s.value === fb.step}" class="fb-step is-${s.status} ${
+        s.rated ? "is-rated" : ""
+      } ${s.value === fb.step ? "is-selected" : ""}" data-step="${esc(s.value)}" ${disabled ? "disabled" : ""}>
+        <span class="fb-step-mark" aria-hidden="true">${s.rated ? "✓" : ""}</span>
+        <strong>${esc(s.label)}</strong>
+        <span class="fb-step-sub">${sub}</span>
+      </button>`;
+    })
+    .join("");
+  document.querySelectorAll("#fb-steps [data-step]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      fb.step = btn.dataset.step;
+      fb.rating = 0;
+      fb.tags.clear();
+      showFeedbackForm();
+      renderFeedback();
+    })
+  );
+
+  document.getElementById("fb-question").textContent = current.question;
+  document.getElementById("fb-context").textContent = current.rated
+    ? `${current.context} You rated this ${RATING_LABELS[current.rated.rating].toLowerCase()} — sending again adds an update.`
+    : current.context;
+  document.getElementById("feedback-comment").placeholder = current.note;
+
+  document.getElementById("rating-row").innerHTML = [1, 2, 3, 4, 5]
+    .map(
+      (r) => `<button type="button" role="radio" aria-checked="${fb.rating === r}" class="fb-face r${r} ${
+        fb.rating === r ? "is-on" : ""
+      }" data-rating="${r}">${faceSvg(r)}<span>${RATING_LABELS[r]}</span></button>`
+    )
+    .join("");
+  document.querySelectorAll("#rating-row [data-rating]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const r = Number(btn.dataset.rating);
+      const mood = (x) => (x >= 4 ? "up" : x <= 2 ? "down" : "mixed");
+      if (mood(r) !== mood(fb.rating)) fb.tags.clear();
+      fb.rating = r;
+      renderFeedback();
+    })
+  );
+
+  const tagsWrap = document.getElementById("fb-tags-wrap");
+  tagsWrap.hidden = !fb.rating;
+  const pool =
+    fb.rating >= 4 ? FB_POSITIVE : fb.rating <= 2 ? FB_NEGATIVE : [...FB_POSITIVE.slice(0, 3), ...FB_NEGATIVE.slice(0, 3)];
+  document.getElementById("fb-tags").innerHTML = pool
+    .map(
+      (t) => `<button type="button" class="fb-tag ${fb.tags.has(t) ? "is-on" : ""}" aria-pressed="${fb.tags.has(t)}" data-tag="${esc(
+        t
+      )}">${esc(t)}</button>`
+    )
+    .join("");
+  document.querySelectorAll("#fb-tags [data-tag]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const t = btn.dataset.tag;
+      fb.tags.has(t) ? fb.tags.delete(t) : fb.tags.add(t);
+      btn.classList.toggle("is-on", fb.tags.has(t));
+      btn.setAttribute("aria-pressed", String(fb.tags.has(t)));
+    })
+  );
+
+  document.getElementById("fb-submit").disabled = !fb.rating;
+  renderFeedbackHistory();
+}
+
+function syncAnonCopy() {
+  const anon = document.getElementById("feedback-anon").checked;
+  document.getElementById("fb-anon-title").textContent = anon ? "Anonymous" : "Shared with your name";
+  document.getElementById("fb-anon-sub").textContent = anon
+    ? "Your name isn't attached to this response"
+    : `People Operations will see this came from ${state.profile?.name || "you"}`;
+}
+
+function showFeedbackForm() {
+  document.getElementById("feedback-form").hidden = false;
+  document.getElementById("fb-thanks").hidden = true;
+}
 
 function renderFeedbackHistory() {
   const box = document.getElementById("feedback-history");
   if (!box) return;
   if (!state.feedback.length) {
-    box.innerHTML = `<p class="muted tiny">Nothing yet — your first note will show here, only to you.</p>`;
+    box.innerHTML = `<p class="muted tiny">Nothing yet — what you send shows up here, visible only to you.</p>`;
     return;
   }
   box.innerHTML = state.feedback
     .slice()
     .reverse()
     .map(
-      (f) => `<div class="wx-fb-item">
-        <div class="wx-fb-item-top">
-          <strong>${esc(f.step)}</strong>
-          <span class="wx-fb-score r${f.rating}">${f.rating} · ${RATING_LABELS[f.rating]}</span>
+      (f) => `<div class="fb-entry">
+        <span class="fb-face mini r${f.rating} is-on" aria-hidden="true">${faceSvg(f.rating)}</span>
+        <div>
+          <div class="fb-entry-top"><strong>${esc(f.step)}</strong><span class="muted tiny">${relTime(f.submitted_at)}</span></div>
+          <span class="tiny fb-entry-score">${RATING_LABELS[f.rating]} · ${f.anonymous ? "Anonymous" : "With your name"}</span>
+          ${f.tags?.length ? `<div class="fb-entry-tags">${f.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
+          ${f.comment ? `<p>${esc(f.comment)}</p>` : ""}
         </div>
-        ${f.comment ? `<p>${esc(f.comment)}</p>` : ""}
-        <span class="muted tiny">${f.anonymous ? "Anonymous" : "Shared with your name"} · ${relTime(
-          f.submitted_at
-        )}</span>
       </div>`
     )
     .join("");
@@ -1009,37 +1176,70 @@ function renderFeedbackHistory() {
 
 async function submitFeedback(event) {
   event.preventDefault();
+  const fb = state.fb;
+  if (!fb?.rating) return;
   const status = document.getElementById("feedback-status");
+  const btn = document.getElementById("fb-submit");
+  btn.disabled = true;
   status.textContent = "Sending…";
-  const rating = Number(
-    document.querySelector('input[name="rating"]:checked')?.value || 3
-  );
-  const step =
-    document.querySelector('input[name="step"]:checked')?.value || "Day-1 orientation";
   const anonymous = document.getElementById("feedback-anon").checked;
+  const sentStep = fb.step;
   try {
     await fetchJSON("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         joiner_id: state.employeeId,
-        step,
-        rating,
+        step: sentStep,
+        rating: fb.rating,
+        tags: [...fb.tags],
         comment: document.getElementById("feedback-comment").value.trim(),
         anonymous,
       }),
     });
-    status.textContent = anonymous ? "Thanks — sent anonymously." : "Thanks — feedback sent.";
+    status.textContent = "";
     document.getElementById("feedback-comment").value = "";
     document.getElementById("feedback-count").textContent = "0 / 500";
     const refreshed = await fetchJSON(
       `/api/feedback?joiner_id=${encodeURIComponent(state.employeeId)}`
     );
     state.feedback = refreshed.feedback || [];
-    renderFeedbackHistory();
+    fb.rating = 0;
+    fb.tags.clear();
+    showThanks(sentStep, anonymous);
   } catch (err) {
-    status.textContent = `Failed: ${err.message}`;
+    status.textContent = `Couldn't send: ${err.message}`;
+    btn.disabled = false;
   }
+}
+
+function showThanks(sentStep, anonymous) {
+  const steps = feedbackSteps();
+  const sent = steps.find((s) => s.value === sentStep);
+  const next = nextUnratedStep(steps, sentStep);
+  document.getElementById("feedback-form").hidden = true;
+  document.getElementById("fb-thanks").hidden = false;
+  document.getElementById("fb-thanks-title").textContent = anonymous
+    ? "Thanks — sent anonymously"
+    : "Thanks — sent with your name";
+  document.getElementById("fb-thanks-sub").textContent =
+    `Your note on “${sent.label}” goes into this week's review. People Operations shares what changes in “You said, we did”.`;
+  const actions = document.getElementById("fb-thanks-actions");
+  actions.innerHTML = `${
+    next ? `<button type="button" class="btn-primary" data-next="${esc(next.value)}">Next: rate “${esc(next.label)}”</button>` : ""
+  }<button type="button" class="btn-secondary" data-close>${next ? "I'm done for now" : "Back to feedback"}</button>`;
+  actions.querySelector("[data-next]")?.addEventListener("click", (e) => {
+    state.fb.step = e.currentTarget.dataset.next;
+    showFeedbackForm();
+    renderFeedback();
+  });
+  actions.querySelector("[data-close]").addEventListener("click", () => {
+    showFeedbackForm();
+    state.fb.step = null;
+    renderFeedback();
+  });
+  renderFeedback();
+  document.getElementById("feedback-form").hidden = true;
 }
 
 function stateBadge(s) {
@@ -1122,6 +1322,7 @@ function wireUI() {
   document.getElementById("feedback-comment").addEventListener("input", (e) => {
     document.getElementById("feedback-count").textContent = `${e.target.value.length} / 500`;
   });
+  document.getElementById("feedback-anon").addEventListener("change", syncAnonCopy);
 }
 
 async function boot() {

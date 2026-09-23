@@ -88,6 +88,21 @@ def test_web_chatbot_drafts_email_to_directory_person():
         assert "Who should I write to" in unknown["turns"][-1]["text"]
 
 
+def test_feedback_stores_tags_and_hides_author_when_anonymous():
+    with TestClient(app) as client:
+        jid = _first_joiner(client)
+        body = {"joiner_id": jid, "step": "IT provisioning", "rating": 2,
+                "tags": ["Waited too long", "Technical issues"], "comment": "", "anonymous": True}
+        rec = client.post("/api/feedback", json=body).json()["feedback"]
+        assert rec["tags"] == ["Waited too long", "Technical issues"]
+        mine = client.get("/api/feedback", params={"joiner_id": jid}).json()["feedback"]
+        assert mine[-1]["tags"] == rec["tags"]
+        everyone = client.get("/api/feedback").json()["feedback"]
+        assert all(f["joiner_id"] == "anonymous" for f in everyone if f["anonymous"])
+        too_many = {**body, "tags": [f"t{i}" for i in range(7)]}
+        assert client.post("/api/feedback", json=too_many).status_code == 422
+
+
 def test_draft_and_directory_intents():
     ctx = {
         "employee": {"name": "Ada Lovelace", "department": "Finance", "role_type": "FTE",

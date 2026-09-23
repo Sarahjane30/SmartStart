@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
-from typing import Optional
+from typing import Annotated, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -374,6 +374,7 @@ class FeedbackCreate(BaseModel):
     step: str = Field(min_length=1, max_length=80)
     rating: int = Field(ge=1, le=5)
     comment: str = Field(default="", max_length=500)
+    tags: list[Annotated[str, Field(max_length=40)]] = Field(default_factory=list, max_length=6)
     anonymous: bool = True
 
 
@@ -383,6 +384,7 @@ class FeedbackRecord(BaseModel):
     step: str
     rating: int
     comment: str
+    tags: list[str] = Field(default_factory=list)
     submitted_at: datetime
     anonymous: bool = True
     synthetic: bool = True

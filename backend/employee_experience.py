@@ -421,8 +421,9 @@ def submit_feedback(payload: FeedbackCreate) -> FeedbackResponse:
         step=payload.step,
         rating=payload.rating,
         comment=payload.comment,
+        tags=[t.strip() for t in payload.tags if t.strip()],
         anonymous=payload.anonymous,
-        submitted_at=AS_OF + timedelta(minutes=_stable_int(payload.joiner_id + payload.step, 50)),
+        submitted_at=datetime.now(timezone.utc),
         synthetic=True,
     )
     _FEEDBACK.append(record)

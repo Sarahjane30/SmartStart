@@ -11,6 +11,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from backend.auth import list_demo_accounts, login, optional_employer, require_employer
 from backend.chatbot import build_chatbot
@@ -30,7 +31,7 @@ from backend.employee_experience import (
     list_feedback,
     submit_feedback,
 )
-from backend import ira_profile
+from backend import ira_profile, nia
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -452,6 +453,23 @@ def analytics(
 def employer_context(session: EmployerSession) -> dict:
     """Reusable role context: user, role, visible/actionable joiners, bottlenecks, permissions."""
     return build_role_context(session).to_dict()
+
+
+class NiaAskRequest(BaseModel):
+    message: str = Field(default="", max_length=500)
+    focus_joiner_id: Optional[str] = None
+
+
+@app.get("/api/nia/briefing")
+def nia_briefing(session: EmployerSession) -> dict:
+    """NIA welcome: role-aware briefing, suggested prompts and dismissible proactive nudges."""
+    return nia.welcome(build_role_context(session))
+
+
+@app.post("/api/nia/ask")
+def nia_ask(body: NiaAskRequest, session: EmployerSession) -> dict:
+    """Ask NIA — grounded answers over the caller's role context (same scope as the dashboard)."""
+    return nia.ask(build_role_context(session), body.message, body.focus_joiner_id)
 
 
 @app.get("/api/employer/workspace")

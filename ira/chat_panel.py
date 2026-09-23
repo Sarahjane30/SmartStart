@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from ira.winflags import companion_window_flags
+from ira.network_anim import NetworkSphere
 
 EDGE = 8
 
@@ -218,9 +219,12 @@ class ChatPanel(QWidget):
         self.setStyleSheet(
             f"""
             ChatPanel {{
-              background: {BG};
+              background: transparent;
               border: 1px solid {LINE};
               border-radius: 22px;
+            }}
+            QWidget#panelContent {{
+              background: transparent;
             }}
             QLabel {{ color: {TEXT}; font-size: 13px; }}
             QLineEdit#composer {{
@@ -278,12 +282,16 @@ class ChatPanel(QWidget):
             """
         )
 
-        # Content over glow painted in paintEvent
+        # Content over animated constellation backdrop
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
+        self._net = NetworkSphere(self, hero=True)
+        self._net.lower()
+
         content = QWidget()
+        content.setObjectName("panelContent")
         content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         content_l = QVBoxLayout(content)
         content_l.setContentsMargins(18, 14, 14, 12)
@@ -444,24 +452,19 @@ class ChatPanel(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
         self.set_locked(True)
 
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "_net"):
+            self._net.setGeometry(self.rect())
+            self._net.lower()
+
     def paintEvent(self, _event) -> None:
+        # Border only — constellation paints the fill
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        path_r = 22
         p.setPen(QPen(QColor(LINE)))
-        p.setBrush(QBrush(QColor(BG)))
-        p.drawRoundedRect(0, 0, self.width() - 1, self.height() - 1, path_r, path_r)
-        g1 = QRadialGradient(self.width() * 0.82, 40, self.width() * 0.55)
-        g1.setColorAt(0.0, QColor(61, 126, 255, 48))
-        g1.setColorAt(1.0, QColor(61, 126, 255, 0))
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QBrush(g1))
-        p.drawRoundedRect(1, 1, self.width() - 3, self.height() - 3, path_r, path_r)
-        g2 = QRadialGradient(self.width() * 0.5, self.height() - 20, self.width() * 0.55)
-        g2.setColorAt(0.0, QColor(61, 126, 255, 36))
-        g2.setColorAt(1.0, QColor(61, 126, 255, 0))
-        p.setBrush(QBrush(g2))
-        p.drawRoundedRect(1, 1, self.width() - 3, self.height() - 3, path_r, path_r)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawRoundedRect(0, 0, self.width() - 1, self.height() - 1, 22, 22)
 
     def _toggle_expand(self) -> None:
         self.apply_mode(PanelMode.EXPANDED if self._mode == PanelMode.NORMAL else PanelMode.NORMAL)
@@ -595,6 +598,8 @@ class ChatPanel(QWidget):
             self.status_line.setText("Not connected")
             self.status_line.setStyleSheet(f"color:{MUTED}; font-size:11px;")
             self.set_suggestions([])
+            if hasattr(self, "_net"):
+                self._net.set_hero(True)
             if self._mode == PanelMode.NORMAL:
                 self.resize(self.width(), min(self.height(), 520))
         else:
@@ -606,6 +611,8 @@ class ChatPanel(QWidget):
             self.identity.setText(" · ".join(parts))
             self.status_line.setText("Connected to SmartStart")
             self.status_line.setStyleSheet(f"color:{GREEN}; font-size:11px;")
+            if hasattr(self, "_net"):
+                self._net.set_hero(False)
             self.input.setFocus()
             if self._mode == PanelMode.NORMAL:
                 self.apply_mode(PanelMode.NORMAL)

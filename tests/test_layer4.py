@@ -34,6 +34,9 @@ def test_layer4_chatbot_predict_recommendations():
         turns = asked.json()["turns"]
         assert turns[-1]["role"] == "assistant"
         assert "packet" in turns[-1]["text"].lower() or "portal" in turns[-1]["text"].lower()
+        greeting = body["turns"][0]["text"]
+        assert "IRA" in greeting
+        assert intern["name"].split()[0] in greeting
 
         pred = client.get(f"/api/predict/{intern['id']}")
         assert pred.status_code == 200
@@ -76,7 +79,7 @@ def test_layer4_frontend_and_health():
         page = client.get("/ai")
         assert page.status_code == 200
         assert "AI Features" in page.text
-        assert "chatbot" in page.text.lower()
+        assert "IRA" in page.text
         assert "Predictive" in page.text or "predict" in page.text.lower()
         assert "recommend" in page.text.lower()
 

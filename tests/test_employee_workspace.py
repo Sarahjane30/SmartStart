@@ -52,6 +52,8 @@ def test_employee_frontend_has_login_and_sections():
         assert "Employee workspace" in page.text or "Employee Experience" in page.text
         assert "Learning" in page.text
         assert 'data-tab="ask"' in page.text
+        assert ">IRA<" in page.text
+        assert "Ask IRA" in page.text
         assert 'data-tab="people"' in page.text
         assert 'data-tab="team"' in page.text
         assert "wx-nav" in page.text

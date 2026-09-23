@@ -392,7 +392,7 @@ class ChatbotResponse(BaseModel):
     turns: list[ChatTurn] = Field(default_factory=list)
     query: Optional[str] = None
     synthetic: bool = True
-    note: str = "Rule-based synthetic FAQ bot — not a live LLM."
+    note: str = "IRA — rule-based synthetic onboarding companion (not a live LLM)."
 
 
 class PredictiveAlert(BaseModel):

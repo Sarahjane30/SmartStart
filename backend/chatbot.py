@@ -1,4 +1,4 @@
-"""Layer 4 — rule-based synthetic onboarding FAQ chatbot."""
+"""Layer 4 — IRA rule-based synthetic onboarding FAQ chatbot."""
 
 from __future__ import annotations
 
@@ -166,7 +166,7 @@ def build_chatbot(
 
     first = joiner.name.split()[0]
     greeting = (
-        f"Hi {first} — I'm the SmartStart synthetic FAQ guide for "
+        f"Hi {first} — I’m IRA, your SmartStart companion for "
         f"{joiner.role_type.value} onboarding. Ask about documents, IT, VPN, "
         f"learning modules, or pick a suggested question."
     )

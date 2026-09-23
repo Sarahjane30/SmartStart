@@ -27,7 +27,7 @@ Demo logins: iCIMS `hr.demo` / `hr-demo-2026` · ServiceNow `it.demo` / `it-demo
 | **1** | Done | Synthetic data + 5-stage state engine |
 | **2** | Done | Employer Command Center (HR / IT / Manager) |
 | **3** | Done | Employee Experience (Intern / FTE dashboard) |
-| **4** | Done | Prototype AI (chatbot / predict / recommend) |
+| **4** | Done | Prototype AI (IRA chatbot / predict / recommend) |
 
 ### State machine
 
@@ -53,7 +53,7 @@ Employees cannot open the Command Center. Each joiner has their own mentor; **Ma
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/chatbot/{id}` | Synthetic onboarding FAQ (`?q=` optional) |
+| GET | `/api/chatbot/{id}` | IRA — synthetic onboarding FAQ (`?q=` optional) |
 | GET | `/api/predict/{id}` | Seed-stable SLA / onboarding risk scores |
 | GET | `/api/recommendations/{id}` | Adaptive learning suggestions by role + progress |
 
@@ -87,7 +87,7 @@ Layer 1 endpoints (`/api/joiners`, `/api/metrics/summary`, etc.) remain availabl
 ```text
 backend/
   main.py                 # FastAPI app (L1–L4)
-  chatbot.py              # Rule-based synthetic FAQ bot
+  chatbot.py              # IRA — rule-based synthetic FAQ companion
   predictor.py            # Seed-stable SLA risk scores
   recommender.py          # Adaptive learning suggestions
   models.py               # Pydantic schemas

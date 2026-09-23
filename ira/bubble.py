@@ -10,6 +10,7 @@ from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
+    QEnterEvent,
     QMouseEvent,
     QPainter,
     QPen,
@@ -20,7 +21,8 @@ from PySide6.QtWidgets import QWidget
 
 from ira.winflags import companion_window_flags
 
-SIZE = 72  # px — circular hit target
+SIZE = 72  # px — resting circular hit target
+HOVER_SIZE = 86  # px — slight expand on hover (~19%)
 
 
 @dataclass
@@ -48,6 +50,7 @@ class IraBubble(QWidget):
         # Transparent corners + hard circular mask = no black square on Windows
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setAutoFillBackground(False)
         self.setStyleSheet("background: transparent; border: 0;")
         self._apply_circle_mask()
@@ -57,6 +60,8 @@ class IraBubble(QWidget):
         self._did_drag = False
         self._t = 0.0
         self._flash = 0
+        self._hover = 0.0
+        self._hover_target = 0.0
         self._points = self._seed_points()
 
         t = QTimer(self)
@@ -66,10 +71,30 @@ class IraBubble(QWidget):
 
     def _apply_circle_mask(self) -> None:
         # Ellipse mask clips the HWND to a circle — kills the square chrome
-        self.setMask(QRegion(0, 0, SIZE, SIZE, QRegion.RegionType.Ellipse))
+        s = self.width()
+        self.setMask(QRegion(0, 0, s, s, QRegion.RegionType.Ellipse))
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        self._apply_circle_mask()
+
+    def enterEvent(self, event: QEnterEvent) -> None:
+        self._hover_target = 1.0
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self._hover_target = 0.0
+        super().leaveEvent(event)
+
+    def _apply_hover_size(self) -> None:
+        """Grow/shrink from center so the globe expands in place."""
+        s = int(round(SIZE + (HOVER_SIZE - SIZE) * self._hover))
+        if s == self.width():
+            return
+        cx = self.x() + self.width() // 2
+        cy = self.y() + self.height() // 2
+        self.setFixedSize(s, s)
+        self.move(cx - s // 2, cy - s // 2)
         self._apply_circle_mask()
 
     def _seed_points(self) -> list[_Pt]:
@@ -107,12 +132,19 @@ class IraBubble(QWidget):
         self._t += 0.04
         if self._flash:
             self._flash -= 1
+        # Smooth hover expand / contract
+        if abs(self._hover - self._hover_target) > 0.01:
+            self._hover += (self._hover_target - self._hover) * 0.3
+            self._apply_hover_size()
+        elif self._hover != self._hover_target:
+            self._hover = self._hover_target
+            self._apply_hover_size()
         self.update()
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        w = h = SIZE
+        w = h = self.width()
         # Clear to fully transparent — no square fill ever
         p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
         p.fillRect(0, 0, w, h, QColor(0, 0, 0, 0))

@@ -20,6 +20,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -29,8 +30,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QSizeGrip,
-    QLayout,
-    QLayoutItem,
     QApplication,
 )
 
@@ -60,90 +59,11 @@ class PanelMode(str, Enum):
 
 
 SIZES = {
-    PanelMode.NORMAL: (390, 620),
-    PanelMode.EXPANDED: (540, 760),
+    PanelMode.NORMAL: (390, 640),
+    PanelMode.EXPANDED: (540, 780),
 }
-MIN_W, MIN_H = 350, 520
+MIN_W, MIN_H = 350, 540
 MAX_W = 680
-
-
-class _FlowLayout(QLayout):
-    def __init__(self, parent=None, spacing: int = 8) -> None:
-        super().__init__(parent)
-        self._items: list[QLayoutItem] = []
-        self.setSpacing(spacing)
-
-    def addItem(self, item: QLayoutItem) -> None:
-        self._items.append(item)
-
-    def count(self) -> int:
-        return len(self._items)
-
-    def itemAt(self, index: int) -> QLayoutItem | None:
-        return self._items[index] if 0 <= index < len(self._items) else None
-
-    def takeAt(self, index: int) -> QLayoutItem | None:
-        return self._items.pop(index) if 0 <= index < len(self._items) else None
-
-    def expandingDirections(self) -> Qt.Orientation:
-        return Qt.Orientation(0)
-
-    def hasHeightForWidth(self) -> bool:
-        return True
-
-    def heightForWidth(self, width: int) -> int:
-        return self._do_layout(QRect(0, 0, width, 0), True)
-
-    def setGeometry(self, rect: QRect) -> None:
-        super().setGeometry(rect)
-        self._do_layout(rect, False)
-
-    def sizeHint(self) -> QSize:
-        return self.minimumSize()
-
-    def minimumSize(self) -> QSize:
-        size = QSize()
-        for item in self._items:
-            size = size.expandedTo(item.minimumSize())
-        m = self.contentsMargins()
-        return size + QSize(m.left() + m.right(), m.top() + m.bottom())
-
-    def _do_layout(self, rect: QRect, test_only: bool) -> int:
-        x, y = rect.x(), rect.y()
-        line_h = 0
-        for item in self._items:
-            w, h = item.sizeHint().width(), item.sizeHint().height()
-            if x + w > rect.right() and line_h > 0:
-                x = rect.x()
-                y += line_h + self.spacing()
-                line_h = 0
-            if not test_only:
-                item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
-            x += w + self.spacing()
-            line_h = max(line_h, h)
-        return y + line_h - rect.y() if self._items else 0
-
-
-class _FlowHost(QWidget):
-    def hasHeightForWidth(self) -> bool:
-        return True
-
-    def heightForWidth(self, width: int) -> int:
-        lay = self.layout()
-        return lay.heightForWidth(width) if lay else 0
-
-    def sizeHint(self) -> QSize:
-        w = max(self.width(), 280)
-        return QSize(w, self.heightForWidth(w))
-
-    def minimumSizeHint(self) -> QSize:
-        return self.sizeHint()
-
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-        h = self.heightForWidth(self.width())
-        if h > 0 and abs(self.height() - h) > 1:
-            self.setFixedHeight(h)
 
 
 class ProgressCard(QWidget):
@@ -323,10 +243,11 @@ class ChatPanel(QWidget):
               background: {SURFACE};
               color: {TEXT};
               border: 1px solid {LINE};
-              border-radius: 18px;
-              padding: 8px 14px;
+              border-radius: 16px;
+              padding: 10px 12px;
               font-size: 12px;
               font-weight: 600;
+              min-height: 36px;
             }}
             QPushButton#chip:hover {{
               background: {BLUE_DIM};
@@ -437,8 +358,11 @@ class ChatPanel(QWidget):
         self.body = QWidget()
         body_l = QVBoxLayout(self.body)
         body_l.setContentsMargins(0, 0, 0, 0)
-        body_l.setSpacing(12)
+        body_l.setSpacing(16)
 
+        greet = QVBoxLayout()
+        greet.setSpacing(4)
+        greet.setContentsMargins(0, 0, 0, 0)
         self.hello = QLabel("Hi…!")
         self.hello.setStyleSheet(
             f"color:{TEXT}; font-size:22px; font-weight:800; letter-spacing:-0.03em;"
@@ -447,9 +371,10 @@ class ChatPanel(QWidget):
         self.prompt.setStyleSheet(f"color:{MUTED}; font-size:13px;")
         self.identity = QLabel("")
         self.identity.setStyleSheet(f"color:{MUTED}; font-size:11px;")
-        body_l.addWidget(self.hello)
-        body_l.addWidget(self.prompt)
-        body_l.addWidget(self.identity)
+        greet.addWidget(self.hello)
+        greet.addWidget(self.prompt)
+        greet.addWidget(self.identity)
+        body_l.addLayout(greet)
 
         self.progress = ProgressCard()
         self.progress.hide()
@@ -458,19 +383,23 @@ class ChatPanel(QWidget):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setMinimumHeight(160)
+        self.scroll.setMinimumHeight(180)
         self.chat_inner = QWidget()
         self.chat_inner.setObjectName("chatInner")
         self.chat_layout = QVBoxLayout(self.chat_inner)
         self.chat_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.chat_layout.setSpacing(14)
-        self.chat_layout.setContentsMargins(2, 4, 6, 8)
+        self.chat_layout.setSpacing(22)
+        self.chat_layout.setContentsMargins(4, 8, 8, 12)
         self.scroll.setWidget(self.chat_inner)
         body_l.addWidget(self.scroll, 1)
 
-        self.suggest_host = _FlowHost()
-        self.suggest_flow = _FlowLayout(self.suggest_host, spacing=8)
-        self.suggest_host.setLayout(self.suggest_flow)
+        # Suggestion chips — QGridLayout so gaps never collapse
+        self.suggest_host = QWidget()
+        self.suggest_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.suggest_grid = QGridLayout(self.suggest_host)
+        self.suggest_grid.setContentsMargins(0, 4, 0, 4)
+        self.suggest_grid.setHorizontalSpacing(12)
+        self.suggest_grid.setVerticalSpacing(12)
         body_l.addWidget(self.suggest_host)
 
         # Composer bar — MindBot pill input + glow send
@@ -701,13 +630,13 @@ class ChatPanel(QWidget):
             bg = USER_BUBBLE if latest else "#1C2A40"
             return (
                 f"background:{bg}; color:{TEXT}; border-radius:18px;"
-                f"padding:14px 16px; font-size:13px; border:1px solid {LINE};"
+                f"padding:16px 18px; font-size:13px; border:1px solid {LINE};"
             )
         bg = IRA_BUBBLE if latest else "#121A2A"
         border = BLUE if latest else LINE
         return (
             f"background:{bg}; color:{TEXT}; border-radius:18px;"
-            f"padding:14px 16px; font-size:13px; border:1px solid {border};"
+            f"padding:16px 18px; font-size:13px; border:1px solid {border};"
         )
 
     def _dim_older_messages(self) -> None:
@@ -734,12 +663,15 @@ class ChatPanel(QWidget):
                     )
 
     def add_message(self, text: str, *, role: str = "ira") -> None:
-        avail = max(220, self.width() - 64)
-        bubble_w = min(avail, max(210, int(avail * 0.86)))
+        avail = max(220, self.width() - 72)
+        bubble_w = min(avail, max(210, int(avail * 0.84)))
 
-        wrap = QVBoxLayout()
-        wrap.setSpacing(5)
-        wrap.setContentsMargins(0, 0, 0, 0)
+        box = QWidget()
+        box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        wrap = QVBoxLayout(box)
+        # Vertical margins keep bubbles from stacking on top of each other
+        wrap.setSpacing(6)
+        wrap.setContentsMargins(0, 6, 0, 10)
         align = Qt.AlignmentFlag.AlignRight if role == "user" else Qt.AlignmentFlag.AlignLeft
 
         meta = QLabel("YOU" if role == "user" else "IRA")
@@ -754,15 +686,16 @@ class ChatPanel(QWidget):
         bubble.setProperty("msgRole", role)
         bubble.setWordWrap(True)
         bubble.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
         bubble.setFixedWidth(bubble_w)
         bubble.setStyleSheet(self._bubble_style(role, latest=True))
+        # Padding (16*2) + border (1*2) + line slack — never undersize or text spills
         doc = QTextDocument()
         doc.setDefaultFont(bubble.font())
         doc.setDocumentMargin(0)
         doc.setPlainText(text)
-        doc.setTextWidth(max(80, bubble_w - 32))
-        bubble.setFixedHeight(int(doc.size().height()) + 36)
+        doc.setTextWidth(max(80, bubble_w - 40))
+        bubble.setMinimumHeight(int(doc.size().height()) + 40)
         wrap.addWidget(bubble, alignment=align)
 
         stamp = QLabel(datetime.now().strftime("%H:%M"))
@@ -770,41 +703,32 @@ class ChatPanel(QWidget):
         stamp.setStyleSheet("color:#6B7790; font-size:9px;")
         wrap.addWidget(stamp, alignment=align)
 
-        box = QWidget()
-        box.setLayout(wrap)
         self.chat_layout.addWidget(box)
         self._dim_older_messages()
         QTimer.singleShot(20, self._scroll_bottom)
 
     def show_typing(self) -> QLabel:
         tip = QLabel("IRA is thinking…")
-        tip.setStyleSheet(f"color:{MUTED}; font-size:12px;")
+        tip.setStyleSheet(f"color:{MUTED}; font-size:12px; padding:8px 0;")
         self.chat_layout.addWidget(tip)
         QTimer.singleShot(20, self._scroll_bottom)
         return tip
 
     def set_suggestions(self, items: list[str]) -> None:
-        while self.suggest_flow.count():
-            item = self.suggest_flow.takeAt(0)
+        while self.suggest_grid.count():
+            item = self.suggest_grid.takeAt(0)
             w = item.widget() if item else None
             if w:
                 w.deleteLater()
         show = bool(items) and self._unlocked
         self.suggest_host.setVisible(show)
-        for text in items[:4]:
+        for i, text in enumerate(items[:4]):
             btn = QPushButton(text)
             btn.setObjectName("chip")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             btn.clicked.connect(lambda _=False, t=text: self._quick(t))
-            self.suggest_flow.addWidget(btn)
-        if show:
-            QTimer.singleShot(0, self._relayout_chips)
-
-    def _relayout_chips(self) -> None:
-        w = max(self.suggest_host.width(), self.width() - 40)
-        h = self.suggest_flow.heightForWidth(w)
-        if h > 0:
-            self.suggest_host.setFixedHeight(h)
+            self.suggest_grid.addWidget(btn, i // 2, i % 2)
 
     def _quick(self, text: str) -> None:
         if not self._unlocked:

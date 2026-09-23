@@ -35,10 +35,10 @@ class PanelMode(str, Enum):
 
 # Default / expanded footprints (width, height)
 SIZES = {
-    PanelMode.NORMAL: (420, 560),
-    PanelMode.EXPANDED: (640, 700),
+    PanelMode.NORMAL: (400, 480),
+    PanelMode.EXPANDED: (620, 640),
 }
-MIN_W, MIN_H = 360, 500
+MIN_W, MIN_H = 360, 420
 MAX_W = 700
 
 
@@ -142,7 +142,8 @@ class ChatPanel(QWidget):
             QLineEdit:disabled { color: #64748b; }
             QPushButton#send {
               background: #0284c7; color: #fff; border: 0; border-radius: 10px;
-              font-weight: 700; padding: 9px 14px; font-size: 13px;
+              font-weight: 700; padding: 9px 12px; font-size: 13px;
+              min-width: 56px; max-width: 72px;
             }
             QPushButton#send:disabled { background: #334155; color: #64748b; }
             QPushButton#icon {
@@ -173,7 +174,7 @@ class ChatPanel(QWidget):
         )
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 10, 12, 8)
+        root.setContentsMargins(14, 12, 14, 10)
         root.setSpacing(8)
 
         # —— Header ——
@@ -210,9 +211,9 @@ class ChatPanel(QWidget):
         self.auth = QFrame()
         self.auth.setObjectName("authCard")
         auth_l = QVBoxLayout(self.auth)
-        auth_l.setContentsMargins(20, 28, 20, 28)
-        auth_l.setSpacing(12)
-        auth_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        auth_l.setContentsMargins(18, 22, 18, 22)
+        auth_l.setSpacing(10)
+        auth_l.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter)
 
         auth_brand = QLabel("IRA")
         auth_brand.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -230,12 +231,14 @@ class ChatPanel(QWidget):
         self.connect_btn.setObjectName("cta")
         self.connect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.connect_btn.clicked.connect(self.open_smartstart_requested.emit)
+        auth_l.addStretch(1)
         auth_l.addWidget(auth_brand)
         auth_l.addWidget(self.auth_status)
         auth_l.addSpacing(4)
         auth_l.addWidget(auth_copy)
         auth_l.addSpacing(8)
         auth_l.addWidget(self.connect_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        auth_l.addStretch(1)
         root.addWidget(self.auth, 1)
 
         # —— Signed-in body ——
@@ -254,34 +257,40 @@ class ChatPanel(QWidget):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setMinimumHeight(120)
+        self.scroll.setMinimumHeight(80)
+        self.scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.chat_inner = QWidget()
         self.chat_inner.setObjectName("chatInner")
         self.chat_layout = QVBoxLayout(self.chat_inner)
         self.chat_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.chat_layout.setSpacing(8)
-        self.chat_layout.setContentsMargins(0, 0, 2, 0)
+        self.chat_layout.setContentsMargins(2, 0, 2, 0)
         self.scroll.setWidget(self.chat_inner)
         body_l.addWidget(self.scroll, 1)
 
-        self.suggest_label = QLabel("SUGGESTED")
+        self.suggest_label = QLabel("Suggested")
         self.suggest_label.setObjectName("section")
+        self.suggest_label.setContentsMargins(2, 0, 0, 0)
         body_l.addWidget(self.suggest_label)
         self.suggest_host = QWidget()
+        self.suggest_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.suggest_flow = _FlowLayout(self.suggest_host, spacing=6)
         self.suggest_host.setLayout(self.suggest_flow)
         body_l.addWidget(self.suggest_host)
 
         row = QHBoxLayout()
         row.setSpacing(8)
+        row.setContentsMargins(0, 0, 0, 0)
         self.input = QLineEdit()
         self.input.setPlaceholderText("Ask IRA anything…")
+        self.input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.input.returnPressed.connect(self._submit)
         self.send_btn = QPushButton("Send")
         self.send_btn.setObjectName("send")
+        self.send_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.send_btn.clicked.connect(self._submit)
         row.addWidget(self.input, 1)
-        row.addWidget(self.send_btn)
+        row.addWidget(self.send_btn, 0)
         body_l.addLayout(row)
 
         root.addWidget(self.body, 1)
@@ -441,6 +450,9 @@ class ChatPanel(QWidget):
         self.body.setVisible(not locked)
         self.input.setEnabled(not locked)
         self.send_btn.setEnabled(not locked)
+        # Compact height while waiting for login — avoid a giant empty sheet
+        if locked and self._mode == PanelMode.NORMAL:
+            self.resize(self.width(), min(self.height(), 420))
         if locked:
             self.status_line.setText("● Not connected")
             self.status_line.setStyleSheet("color:#94a3b8; font-size:11px;")
@@ -448,13 +460,15 @@ class ChatPanel(QWidget):
         else:
             bits = [name] if name else ["Signed in"]
             if role:
-                bits.append(role)
+                bits.append("FTE" if role.upper() == "FTE" else role.capitalize())
             if dept:
                 bits.append(dept)
             self.identity.setText(" · ".join(bits))
             self.status_line.setText("● Connected to SmartStart")
             self.status_line.setStyleSheet("color:#22c55e; font-size:11px;")
             self.input.setFocus()
+            if self._mode == PanelMode.NORMAL:
+                self.apply_mode(PanelMode.NORMAL)
 
     def clear_chat(self) -> None:
         while self.chat_layout.count():
@@ -464,13 +478,19 @@ class ChatPanel(QWidget):
                 w.deleteLater()
 
     def add_message(self, text: str, *, role: str = "ira") -> None:
-        max_w = max(180, min(360, self.scroll.viewport().width() - 24))
-        bubble = QLabel(text)
+        # Use panel width (not viewport — often 0 before first paint on Windows)
+        avail = max(220, self.width() - 56)
+        bubble_w = min(avail, max(200, int(avail * 0.92)))
+
+        bubble = QLabel()
+        bubble.setText(text)
         bubble.setWordWrap(True)
         bubble.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        bubble.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
-        bubble.setMaximumWidth(max_w)
-        ts = datetime.now().strftime("%H:%M")
+        bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+        bubble.setFixedWidth(bubble_w)
+        # Critical: force height so wrapped text is not clipped mid-sentence
+        bubble.setMinimumHeight(bubble.heightForWidth(bubble_w))
+
         if role == "user":
             bubble.setStyleSheet(
                 "background:#1d4ed8; color:#eff6ff; border-radius:12px;"
@@ -481,7 +501,10 @@ class ChatPanel(QWidget):
                 "background:#1e293b; color:#e2e8f0; border-radius:12px;"
                 "padding:8px 11px; font-size:13px;"
             )
-        meta = QLabel(ts)
+        # Recompute after stylesheet (font metrics can change)
+        bubble.setMinimumHeight(max(bubble.heightForWidth(bubble_w), 36))
+
+        meta = QLabel(datetime.now().strftime("%H:%M"))
         meta.setStyleSheet("color:#64748b; font-size:10px;")
         wrap = QVBoxLayout()
         wrap.setSpacing(2)
@@ -491,6 +514,7 @@ class ChatPanel(QWidget):
         wrap.addWidget(meta, alignment=align)
         box = QWidget()
         box.setLayout(wrap)
+        box.setMinimumWidth(bubble_w)
         self.chat_layout.addWidget(box)
         QTimer.singleShot(20, self._scroll_bottom)
 
@@ -514,6 +538,7 @@ class ChatPanel(QWidget):
             btn = QPushButton(text)
             btn.setObjectName("chip")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
             btn.clicked.connect(lambda _=False, t=text: self._quick(t))
             self.suggest_flow.addWidget(btn)
 

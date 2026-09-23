@@ -46,7 +46,7 @@ class IraApp:
 
         self._poll = QTimer()
         self._poll.timeout.connect(self._heartbeat)
-        self._poll.start(3_000)
+        self._poll.start(2_000)
         QTimer.singleShot(200, self._bootstrap)
         # Open compact panel once so the login state is obvious
         QTimer.singleShot(400, self.open_panel)

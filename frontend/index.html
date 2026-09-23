@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SmartStart — Employer Command Center (build 21)</title>
+  <title>SmartStart — Employer Command Center (build 22)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=21" />
+  <link rel="stylesheet" href="/static/style.css?v=22" />
 </head>
 <body class="employer-page">
   <div class="app-shell" id="employer-shell">
@@ -16,7 +16,7 @@
         <div class="brand-mark">SS</div>
         <div>
           <div class="brand-name">SmartStart</div>
-          <div class="brand-sub">Employer Command Center · build 21</div>
+          <div class="brand-sub">Employer Command Center · build 22</div>
         </div>
       </div>
 
@@ -24,7 +24,7 @@
         <span class="muted tiny">Signed in…</span>
       </div>
 
-      <nav class="nav" aria-label="Primary">
+      <nav class="nav" aria-label="Primary" id="primary-nav">
         <button class="nav-btn active" data-section="dashboard">Dashboard</button>
         <button class="nav-btn" data-section="alerts">Alerts</button>
         <button class="nav-btn" data-section="analytics">Analytics</button>
@@ -63,13 +63,30 @@
           <button id="refresh-btn" class="btn-secondary">Refresh</button>
         </div>
       </header>
+      <div class="role-hero" id="role-hero" hidden></div>
       <p class="filter-explain" id="filter-explain">
         <strong>All</strong> — every joiner in your scope. These buttons are <em>work queues</em> (who needs to act), not which hiring manager owns the person.
       </p>
 
       <section id="section-dashboard" class="section active">
         <div class="kpi-row" id="dashboard-kpis"></div>
-        <div class="card">
+        <div class="dash-split" id="dash-split" hidden>
+          <div class="card">
+            <div class="card-head">
+              <h2 id="needs-now-title">Needs you now</h2>
+              <button type="button" class="btn-link" data-goto="actions" id="needs-now-more">See all →</button>
+            </div>
+            <div id="needs-now" class="action-list compact"></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h2>Alerts for you</h2>
+              <button type="button" class="btn-link" data-goto="alerts">All alerts →</button>
+            </div>
+            <div id="dash-alerts" class="alerts-list compact"></div>
+          </div>
+        </div>
+        <div class="card" id="pipeline-card">
           <div class="card-head">
             <h2>Joiner pipeline</h2>
             <span class="muted tiny" id="dashboard-count"></span>
@@ -102,6 +119,30 @@
         </div>
       </section>
 
+      <section id="section-actions" class="section">
+        <div class="card">
+          <div class="card-head">
+            <h2 id="actions-title">My actions</h2>
+            <span class="muted tiny" id="actions-count"></span>
+          </div>
+          <div id="actions-list" class="action-list"></div>
+        </div>
+      </section>
+
+      <section id="section-joiners" class="section">
+        <div class="card">
+          <div class="card-head">
+            <h2 id="joiners-title">Joiners</h2>
+            <div class="joiner-tools">
+              <span class="chip-filter" id="joiners-filter" hidden></span>
+              <span class="muted tiny" id="joiners-count"></span>
+            </div>
+          </div>
+          <p class="muted tiny journey-legend">Journey: <span class="j-chip done">✓ Done</span> <span class="j-chip active">● In progress</span> <span class="j-chip attention">⚠ Attention</span> <span class="j-chip blocked">! Blocked</span> <span class="j-chip waiting">○ Not started</span></p>
+          <div id="joiners-list" class="joiner-list"></div>
+        </div>
+      </section>
+
       <section id="section-alerts" class="section">
         <div class="card">
           <div class="card-head">
@@ -115,7 +156,8 @@
       <section id="section-analytics" class="section">
         <p class="analytics-banner muted" id="analytics-focus"></p>
         <div class="kpi-row" id="analytics-kpis"></div>
-        <div class="charts-grid analytics-panels">
+        <div id="role-insights" class="role-insights"></div>
+        <div class="charts-grid analytics-panels" id="analytics-panels">
           <div class="card">
             <div class="card-head">
               <h2>Where people are stuck</h2>
@@ -186,8 +228,8 @@
   </div>
 
   <div id="toast" class="toast" hidden role="status"></div>
-  <script src="/static/session.js?v=21"></script>
-  <script src="/static/motion.js?v=21"></script>
-  <script src="/static/app.js?v=21"></script>
+  <script src="/static/session.js?v=22"></script>
+  <script src="/static/motion.js?v=22"></script>
+  <script src="/static/app.js?v=22"></script>
 </body>
 </html>

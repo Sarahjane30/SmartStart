@@ -221,9 +221,11 @@ def access_items(ticket: ITProvisioningTicket) -> list[dict]:
         status = "Provisioning"
     else:
         status = "Requested"
-    return [{"name": "VPN", "status": status}] + [
-        {"name": app, "status": status} for app in ticket.software_access
-    ]
+    return [{"name": name, "status": status} for name in _access_names(ticket)]
+
+
+def _access_names(ticket: ITProvisioningTicket) -> list[str]:
+    return ["VPN", *[a for a in ticket.software_access if a.upper() != "VPN"]]
 
 
 def joiner_facts(joiner: Joiner, db: DataStore | None = None) -> Optional[JoinerFacts]:
@@ -305,8 +307,9 @@ def role_actions(f: JoinerFacts, role: str) -> list[dict]:
         elif t.hardware_status == HardwareStatus.CONFIGURED:
             out.append(_action("Ship configured laptop", f"Ticket {t.ticket_id}", severity=sev))
         if f.access_open:
-            apps = ", ".join(["VPN", *t.software_access[:3]])
-            more = len(t.software_access) - 3
+            names = _access_names(t)
+            apps = ", ".join(names[:4])
+            more = len(names) - 4
             out.append(_action(
                 "Grant VPN + app access",
                 apps + (f" +{more}" if more > 0 else ""),
@@ -524,7 +527,7 @@ def build_cards(ctx: RoleContext) -> list[dict]:
             _card("docs_pending", "Documents pending", pending, "iCIMS packets open", "warn" if pending else "ok", "docs_pending"),
             _card("rework", "Document rework", rework, "Sent back for corrections", "bad" if rework else "ok", "rework"),
             _card("actions", "HR actions", len(ctx.actionable), "In your queue now", "accent", "actionable"),
-            _card("at_risk", "At risk", at_risk, "HR-owned joiners at risk", "bad" if at_risk else "ok", "at_risk"),
+            _card("at_risk", "At risk", at_risk, "HR-owned joiners at risk", "bad" if at_risk else "ok", "hr_at_risk"),
         ]
     if ctx.role == ROLE_IT:
         hw = sum(1 for f in v if f.ticket.hardware_status != HardwareStatus.DELIVERED)

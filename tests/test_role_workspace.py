@@ -190,3 +190,13 @@ def test_context_contract_and_regenerate_is_ops_only():
         assert ctx["user"]["display_name"] == "Jordan Hale"
         assert client.post("/api/admin/regenerate", headers=h).status_code == 403
         assert client.get("/api/employer/context").status_code == 401
+
+
+def test_command_center_frontend_is_role_driven():
+    with TestClient(app) as client:
+        html = client.get("/employer").text
+        for marker in ("role-hero", "section-actions", "section-joiners", "role-insights", "primary-nav", "dash-split"):
+            assert marker in html
+        js = client.get("/static/app.js").text
+        for marker in ("/api/employer/workspace", "journeyStrip", "applyRoleShell", "can_switch_queues", "role_actions"):
+            assert marker in js

@@ -30,7 +30,68 @@ const state = {
   integrations: null,
   selectedId: null,
   actions: {}, // joinerId -> { status, ownerId, ownerName, ownerTeam, at }
+  workspace: null,
+  userRole: "OPS",
+  cardFilter: null,
 };
+
+const ROLE_TITLES = {
+  HR: {
+    dashboard: ["HR Dashboard", "Your HR queue, document alerts and HR-owned risk"],
+    actions: ["My Actions", "Documents, rework and handoffs waiting on HR"],
+    joiners: ["Joiners", "Full cohort — every journey, seen from HR"],
+    alerts: ["Alerts", "HR work first, then IT delays that affect onboarding readiness"],
+    analytics: ["HR Analytics", "Docs pending, rework, HR bottlenecks and delays"],
+  },
+  IT: {
+    dashboard: ["IT Dashboard", "Your IT queue, SLA alerts and provisioning risk"],
+    actions: ["IT Requests", "Laptops, VPN, application access and SLA escalations"],
+    joiners: ["Joiners", "Full cohort — every journey, seen from IT"],
+    alerts: ["Alerts", "SLA breaches and provisioning delays"],
+    analytics: ["IT Analytics", "Hardware delays, SLA, access requests and provisioning time"],
+  },
+  MANAGER: {
+    dashboard: ["My Team", "Day 1, mentors and first projects for the people who report to you"],
+    joiners: ["My Joiners", "Only the people who report to you"],
+    actions: ["My Actions", "Day-1 orientation, mentor and project assignment"],
+    alerts: ["Alerts", "What could delay your joiners' start"],
+  },
+};
+
+const ROLE_ACTION_TITLE = {
+  HR: "HR actions · documents & handoff",
+  IT: "IT actions · laptop, VPN, access & SLA",
+  MANAGER: "Your actions · Day 1, mentor & project",
+  OPS: "Ops · route & unblock",
+};
+
+const J_ICON = { done: "✓", active: "●", attention: "⚠", blocked: "!", waiting: "○" };
+
+const CARD_FILTERS = {
+  all: () => true,
+  actionable: (s) => (state.workspace?.actionable_joiners || []).includes(s.id),
+  docs_pending: (s) => s.docs_status === "Pending",
+  rework: (s) => s.rework,
+  hr_at_risk: (s) => s.queue === "HR" && s.health !== "on_track",
+  hardware: (s) => s.hardware_status !== "Delivered",
+  sla: (s) => s.sla_breached,
+  access: (s) => s.access_open,
+  it_risk: (s) => s.queue === "IT" && s.health !== "on_track",
+  on_track: (s) => s.health === "on_track",
+  at_risk: (s) => s.health === "at_risk",
+  blocked: (s) => s.health === "blocked",
+  bottleneck: (s) => Boolean(s.bottleneck),
+  project_pending: (s) => s.current_state === "DAY1_ORIENTED",
+  project_ready: (s) => s.current_state === "PROJECT_READY",
+};
+
+function isOps() {
+  return state.userRole === "OPS";
+}
+
+function titlesFor(section) {
+  return ROLE_TITLES[state.userRole]?.[section] || TITLES[section] || [section, ""];
+}
 
 const TITLES = {
   dashboard: [
@@ -76,25 +137,186 @@ async function fetchJSON(path) {
 }
 
 async function loadAll() {
+  // Non-Ops roles are locked to their own workspace; the server rejects other queue lenses.
+  if (!isOps()) state.role = "All";
   const roleQ = encodeURIComponent(state.role);
-  const [dashboard, alerts, analytics, integrations] = await Promise.all([
+  const [workspace, dashboard, alerts, analytics, integrations] = await Promise.all([
+    fetchJSON(`/api/employer/workspace`),
     fetchJSON(`/api/dashboard?role_view=${roleQ}`),
     fetchJSON(`/api/alerts?role_view=${roleQ}`),
-    fetchJSON(`/api/analytics?role_view=${roleQ}`),
-    fetchJSON(`/api/integrations`),
+    state.userRole === "MANAGER" ? Promise.resolve(null) : fetchJSON(`/api/analytics?role_view=${roleQ}`),
+    isOps() ? fetchJSON(`/api/integrations`) : Promise.resolve(null),
   ]);
+  state.workspace = workspace;
+  state.userRole = workspace.role;
   state.dashboard = dashboard;
   state.alerts = alerts;
   state.analytics = analytics;
   state.integrations = integrations;
+  applyRoleShell();
   render();
 }
 
 function render() {
   renderDashboard();
+  renderActions();
+  renderJoiners();
   renderAlerts();
   renderAnalytics();
   renderRoles();
+}
+
+function applyRoleShell() {
+  const ws = state.workspace;
+  if (!ws) return;
+  document.body.dataset.role = ws.role.toLowerCase();
+  const nav = document.getElementById("primary-nav");
+  const allowed = ws.nav.map((n) => n.id);
+  if (!allowed.includes(state.section)) state.section = "dashboard";
+  nav.innerHTML = ws.nav
+    .map(
+      (n) =>
+        `<button class="nav-btn ${n.id === state.section ? "active" : ""}" data-section="${esc(n.id)}">${esc(n.label)}${
+          n.id === "actions" && ws.actionable_joiners.length
+            ? ` <span class="nav-count">${ws.actionable_joiners.length}</span>`
+            : ""
+        }</button>`
+    )
+    .join("");
+
+  document.querySelector(".role-filters").hidden = !ws.can_switch_queues;
+  document.getElementById("filter-explain").hidden = !ws.can_switch_queues;
+
+  const hero = document.getElementById("role-hero");
+  hero.hidden = false;
+  hero.innerHTML = `
+    <span class="role-pill role-${esc(ws.role.toLowerCase())}">${esc(ws.role_label)}</span>
+    <strong class="role-q">${esc(ws.question)}</strong>
+    <span class="muted tiny">${esc(ws.scope.label)} · as of ${esc(fmt(ws.as_of))}</span>`;
+
+  const signed = document.getElementById("signed-in-user");
+  if (signed && employerSession) {
+    signed.innerHTML = `<strong>${esc(employerSession.displayName || employerSession.username)}</strong>
+      <span class="muted tiny">${esc(ws.role_label)} · ${esc(ws.scope.label)}</span>`;
+  }
+  const [title, subtitle] = titlesFor(state.section);
+  document.getElementById("page-title").textContent = title;
+  document.getElementById("page-subtitle").textContent = subtitle;
+  document.querySelectorAll(".section").forEach((el) => {
+    el.classList.toggle("active", el.id === `section-${state.section}`);
+  });
+}
+
+const J_SHORT = { HR: "HR", IT: "IT", Manager: "Mgr", Project: "Proj" };
+
+function journeyStrip(journey, compact = false) {
+  const mini = compact === "mini";
+  return `<div class="journey ${compact ? "compact" : ""} ${mini ? "mini" : ""}">${(journey || [])
+    .map(
+      (s) => `<span class="j-chip ${esc(s.status)}" title="${esc(s.stage)} · ${esc(s.detail)}">
+        <span class="j-ico" aria-hidden="true">${J_ICON[s.status] || "○"}</span>${esc(mini ? J_SHORT[s.stage] || s.stage : s.stage)}${
+          compact ? "" : `<span class="j-detail">${esc(s.detail)}</span>`
+        }</span>`
+    )
+    .join("")}</div>`;
+}
+
+function summaryById(id) {
+  return (state.workspace?.joiners || []).find((s) => s.id === id);
+}
+
+function roleCards(el) {
+  const ws = state.workspace;
+  el.classList.add("five");
+  el.innerHTML = ws.cards
+    .map((c) => {
+      const html = kpi(esc(c.label), c.value, esc(c.hint), `tone-${c.tone} clickable ${state.cardFilter === c.filter ? "picked" : ""}`);
+      return html.replace('<div class="kpi ', `<div role="button" tabindex="0" data-card-filter="${esc(c.filter)}" class="kpi `);
+    })
+    .join("");
+  countUpAll(el);
+}
+
+function actionCard(s, compact = false) {
+  const [primary, ...rest] = s.actions || [];
+  if (!primary) return "";
+  const who =
+    state.userRole === "MANAGER"
+      ? `mentor ${s.mentor_name}`
+      : `manager ${s.manager_name}`;
+  return `<article class="action-card sev-${esc(primary.severity)}">
+    <div class="ac-who">
+      <button type="button" class="joiner-open" data-open="${esc(s.id)}"><strong>${esc(s.name)}</strong></button>
+      <span class="muted tiny">${esc(s.role_type)} · ${esc(s.department)} · ${s.days_in_pipeline}d · ${esc(who)}</span>
+    </div>
+    <div class="ac-do">
+      <div class="ac-label">${esc(primary.label)}</div>
+      <div class="muted tiny">${esc(primary.detail)}</div>
+      ${
+        compact
+          ? ""
+          : rest
+              .map((r) => `<div class="ac-sub">+ ${esc(r.label)} <span class="muted tiny">${esc(r.detail)}</span></div>`)
+              .join("")
+      }
+    </div>
+    ${compact ? "" : journeyStrip(s.journey, true)}
+    <div class="ac-acts">${actionCell(s)}</div>
+  </article>`;
+}
+
+function renderActions() {
+  const ws = state.workspace;
+  const list = document.getElementById("actions-list");
+  if (!ws || !list) return;
+  const [title] = titlesFor("actions");
+  document.getElementById("actions-title").textContent = title;
+  document.getElementById("actions-count").textContent =
+    `${ws.action_queue.length} joiner(s) · sorted by urgency`;
+  list.innerHTML = ws.action_queue.length
+    ? ws.action_queue.map((s) => actionCard(s)).join("")
+    : `<p class="muted">Nothing waiting on you right now.</p>`;
+  revealAll(list, ".action-card", 28);
+}
+
+function renderJoiners() {
+  const ws = state.workspace;
+  const list = document.getElementById("joiners-list");
+  if (!ws || !list) return;
+  const [title] = titlesFor("joiners");
+  document.getElementById("joiners-title").textContent = title;
+  const pred = CARD_FILTERS[state.cardFilter] || CARD_FILTERS.all;
+  const rows = ws.joiners.filter(pred);
+  const chip = document.getElementById("joiners-filter");
+  const card = ws.cards.find((c) => c.filter === state.cardFilter);
+  if (card && state.cardFilter !== "all") {
+    chip.hidden = false;
+    chip.innerHTML = `${esc(card.label)} <button type="button" class="chip-x" data-clear-filter aria-label="Clear filter">×</button>`;
+  } else {
+    chip.hidden = true;
+  }
+  document.getElementById("joiners-count").textContent = `${rows.length} of ${ws.joiners.length}`;
+  list.innerHTML = rows.length
+    ? rows
+        .map((s) => {
+          const primary = (s.actions || [])[0] || {};
+          return `<div class="joiner-line ${state.selectedId === s.id ? "selected" : ""}">
+            <div class="jl-who">
+              <button type="button" class="joiner-open" data-open="${esc(s.id)}"><strong>${esc(s.name)}</strong></button>
+              <span class="muted tiny">${esc(s.role_type)} · ${esc(s.department)}${
+                state.userRole === "MANAGER" ? "" : ` · ${esc(s.manager_name)}`
+              }</span>
+            </div>
+            ${journeyStrip(s.journey, true)}
+            <div class="jl-next"><span class="muted tiny">${
+              primary.kind === "done" || primary.kind === "info" ? "Status" : "Your next step"
+            }</span><span>${esc(primary.label || "—")}</span></div>
+            <div class="jl-acts">${actionCell(s)}</div>
+          </div>`;
+        })
+        .join("")
+    : `<p class="muted">No joiners match this filter.</p>`;
+  revealAll(list, ".joiner-line", 22);
 }
 
 function kpi(label, value, hint = "", tone = "") {
@@ -186,20 +408,38 @@ function actionCell(row) {
 
 function renderDashboard() {
   const data = state.dashboard;
-  if (!data) return;
-  const rows = filterRows(data.rows);
-  const by = data.by_state || {};
-  document.getElementById("dashboard-kpis").innerHTML = [
-    kpi("In this view", data.total_joiners, `${state.role} employer lens`, "tone-all"),
-    kpi("Offer accepted", by.OFFER_ACCEPTED || 0, "Early pipeline", "tone-hr"),
-    kpi("IT provisioned", by.IT_PROVISIONED || 0, "Hardware stage", "tone-it"),
-    kpi("Project ready", by.PROJECT_READY || 0, "Manager handoff done", "tone-mgr"),
-  ].join("");
-  const mgrNote = employerSession?.managerId
-    ? `your team (${employerSession.displayName})`
-    : "split across 4 hiring managers";
+  if (!data || !state.workspace) return;
+  const kpisEl = document.getElementById("dashboard-kpis");
+  roleCards(kpisEl);
+
+  const ops = isOps();
+  document.getElementById("pipeline-card").hidden = !ops;
+  document.getElementById("dash-split").hidden = ops;
+  if (!ops) {
+    const ws = state.workspace;
+    const top = ws.action_queue.slice(0, 5);
+    document.getElementById("needs-now-title").textContent =
+      state.userRole === "IT" ? "IT requests needing you" : "Needs you now";
+    document.getElementById("needs-now").innerHTML = top.length
+      ? top.map((s) => actionCard(s, true)).join("")
+      : `<p class="muted">You're all caught up.</p>`;
+    const alerts = (state.alerts?.alerts || []).filter((a) => a.action_required).slice(0, 4);
+    document.getElementById("dash-alerts").innerHTML = alerts.length
+      ? alerts.map((a) => alertCard(a, true)).join("")
+      : `<p class="muted">No alerts need your action.</p>`;
+    revealAll(document.getElementById("needs-now"), ".action-card", 30);
+    return;
+  }
+
+  const pred = CARD_FILTERS[state.cardFilter] || CARD_FILTERS.all;
+  const rows = filterRows(data.rows).filter((r) => {
+    const s = summaryById(r.id);
+    return s ? pred(s) : true;
+  });
+  const card = state.workspace.cards.find((c) => c.filter === state.cardFilter);
+  const filterNote = card && state.cardFilter !== "all" ? ` · filtered: ${card.label}` : "";
   document.getElementById("dashboard-count").textContent =
-    `${rows.length} joiners · ${mgrNote} · each has their own mentor`;
+    `${rows.length} joiners · split across 4 hiring managers · each has their own mentor${filterNote}`;
   document.querySelector("#joiners-table tbody").innerHTML = rows
     .map(
       (r) => `<tr class="joiner-row ${state.selectedId === r.id ? "selected" : ""}" data-id="${esc(r.id)}" tabindex="0">
@@ -213,7 +453,7 @@ function renderDashboard() {
       <td>${esc(r.department)}</td>
       <td><span class="mgr-chip" title="${esc(r.manager_id)}">${esc(r.manager_name)}</span></td>
       <td>${stateBadge(r.current_state)}</td>
-      <td>${pipelineProgress(r.current_state, r.days_in_pipeline)}</td>
+      <td>${pipelineProgress(r.current_state, r.days_in_pipeline)}${journeyStrip(r.journey, "mini")}</td>
       <td>${bottleneckTag(r.bottleneck)}</td>
       <td>${actionCell(r)}</td>
     </tr>`
@@ -234,12 +474,30 @@ function renderAlerts() {
     list.innerHTML = `<p class="muted">No alerts for this role view.</p>`;
     return;
   }
-  list.innerHTML = data.alerts
-    .map(
-      (a) => `<article class="alert ${a.severity}">
+  if (isOps()) {
+    list.innerHTML = data.alerts.map((a) => alertCard(a)).join("");
+  } else {
+    const act = data.alerts.filter((a) => a.action_required);
+    const aware = data.alerts.filter((a) => !a.action_required);
+    list.innerHTML = `
+      <h3 class="alert-group">Action required · ${act.length}</h3>
+      ${act.map((a) => alertCard(a)).join("") || `<p class="muted tiny">Nothing needs your action.</p>`}
+      <h3 class="alert-group">For awareness · ${aware.length}</h3>
+      ${aware.map((a) => alertCard(a)).join("") || `<p class="muted tiny">No cross-team delays affecting you.</p>`}`;
+  }
+  revealAll(list, ".alert", 30);
+}
+
+function alertCard(a, compact = false) {
+  const tag = isOps()
+    ? ""
+    : `<span class="alert-tag ${a.action_required ? "act" : "aware"}">${
+        a.action_required ? "Action required" : "Awareness"
+      }</span>`;
+  return `<article class="alert ${a.severity} ${compact ? "compact" : ""}">
       <div class="alert-top">
-        <div class="alert-title">${esc(a.title)}</div>
-        <div class="alert-meta">${a.severity.toUpperCase()} · ${esc(a.category)} · ${esc(a.role_view)}</div>
+        <div class="alert-title">${esc(a.title)} ${tag}</div>
+        <div class="alert-meta">${a.severity.toUpperCase()} · ${esc(a.category)}${isOps() ? ` · ${esc(a.role_view)}` : ""}</div>
       </div>
       <div class="alert-msg">${esc(a.message)}</div>
       ${
@@ -247,10 +505,7 @@ function renderAlerts() {
           ? `<button type="button" class="btn-mini" data-open="${esc(a.joiner_id)}">Open joiner</button>`
           : ""
       }
-    </article>`
-    )
-    .join("");
-  revealAll(list, ".alert", 30);
+    </article>`;
 }
 
 function shortBottleneck(label) {
@@ -311,9 +566,54 @@ function renderHBars(el, items, { tone = "navy" } = {}) {
   revealAll(el, ".h-bar-row", 40);
 }
 
+function renderInsightBreakdowns(el, breakdowns) {
+  el.innerHTML = `<div class="charts-grid insights-grid">${(breakdowns || [])
+    .map(
+      (b) => `<div class="card insight-card">
+        <div class="card-head"><h2>${esc(b.title)}</h2><span class="muted tiny">${esc(b.subtitle || "")}</span></div>
+        <div class="${b.kind === "bars" ? "h-bars" : "insight-list"}" data-insight="${esc(b.id)}"></div>
+      </div>`
+    )
+    .join("")}</div>`;
+  for (const b of breakdowns || []) {
+    const target = el.querySelector(`[data-insight="${b.id}"]`);
+    if (b.kind === "bars") {
+      renderHBars(target, b.items, { tone: "navy" });
+    } else {
+      target.innerHTML = b.items.length
+        ? b.items
+            .map(
+              (i) => `<div class="insight-row">
+                ${i.joiner_id ? `<button type="button" class="joiner-open" data-open="${esc(i.joiner_id)}">${esc(i.label)}</button>` : `<span>${esc(i.label)}</span>`}
+                <span class="muted tiny">${esc(i.hint || "")}</span>
+                <strong>${esc(i.value)}</strong>
+              </div>`
+            )
+            .join("")
+        : `<p class="muted tiny">Nothing here right now.</p>`;
+    }
+  }
+}
+
 function renderAnalytics() {
   const a = state.analytics;
   if (!a) return;
+  const insights = a.role_insights;
+  const panels = document.getElementById("analytics-panels");
+  const insightsEl = document.getElementById("role-insights");
+  if (!isOps() && insights) {
+    panels.hidden = true;
+    document.getElementById("analytics-focus").innerHTML =
+      `<strong>${esc(insights.headline)}</strong> · <span class="mono">${state.workspace?.scope?.label || ""}</span>`;
+    const kpiEl = document.getElementById("analytics-kpis");
+    kpiEl.classList.add("five");
+    kpiEl.innerHTML = insights.kpis.map((k) => kpi(esc(k.label), k.value, esc(k.hint || ""), "tone-all")).join("");
+    countUpAll(kpiEl);
+    renderInsightBreakdowns(insightsEl, insights.breakdowns);
+    return;
+  }
+  panels.hidden = false;
+  if (insights) renderInsightBreakdowns(insightsEl, insights.breakdowns);
   const focus = document.getElementById("analytics-focus");
   if (focus) {
     const asOf = a.as_of ? fmt(a.as_of) : "2026-09-15";
@@ -406,7 +706,7 @@ function renderAnalytics() {
 
 function renderRoles() {
   const data = state.integrations;
-  if (!data) return;
+  if (!data || !isOps()) return;
   document.getElementById("integrations").innerHTML = (data.integrations || [])
     .map(
       (i) => `<div class="integration">
@@ -515,7 +815,42 @@ async function openJoinerDrawer(id) {
       intelHtml = "";
     }
 
+    const viewer = detail.viewer_role || state.userRole;
+    const t = detail.it_ticket;
+    const d = detail.documents;
+    let roleExtra = "";
+    if (viewer === "IT" || viewer === "OPS") {
+      roleExtra += `<p class="muted tiny">ServiceNow ${esc(t.ticket_id)} · ${esc(t.hardware_status)} · ${t.lead_time_days}d vs ${t.sla_target_days}d SLA</p>
+        <div class="access-grid">${(detail.access || [])
+          .map((x) => `<span class="access-chip ${esc(String(x.status).toLowerCase())}">${esc(x.name)} · ${esc(x.status)}</span>`)
+          .join("")}</div>`;
+    }
+    if (viewer === "HR" || viewer === "OPS") {
+      roleExtra += `<p class="muted tiny">iCIMS packet · ${d.form_count} forms · ${esc(d.status)}${
+        d.rework_flag ? " · rework requested" : ""
+      } · waiting ${d.waiting_days}d</p>`;
+    }
+    if (viewer === "MANAGER") {
+      roleExtra += `<p class="muted tiny">Mentor ${esc(j.mentor_name)} · joins ${esc(j.joining_date)}</p>`;
+    }
+    const roleActions = (detail.role_actions || [])
+      .map(
+        (x, i) => `<li class="ra-item ${esc(x.kind)} ${i === 0 ? "first" : ""}">
+          <strong>${esc(x.label)}</strong><span class="muted tiny">${esc(x.detail)}</span>
+        </li>`
+      )
+      .join("");
+
     body.innerHTML = `
+      <section class="drawer-section">
+        <h3>Onboarding journey</h3>
+        ${journeyStrip(detail.journey)}
+      </section>
+      <section class="drawer-section role-action-area">
+        <h3>${esc(ROLE_ACTION_TITLE[viewer] || "Actions")}</h3>
+        <ul class="ra-list">${roleActions}</ul>
+        ${roleExtra}
+      </section>
       <dl class="drawer-meta">
         <div><dt>State</dt><dd>${stateBadge(j.current_state)}</dd></div>
         <div><dt>Hiring manager</dt><dd>${esc(j.manager_name)} <span class="muted tiny">(${esc(j.manager_id)})</span></dd></div>
@@ -568,6 +903,15 @@ async function openJoinerDrawer(id) {
   } catch (err) {
     body.innerHTML = `<p class="load-error">Failed to load joiner: ${esc(err.message)}</p>`;
   }
+}
+
+function applyCardFilter(filter) {
+  state.cardFilter = state.cardFilter === filter || filter === "all" ? null : filter;
+  if (!isOps()) {
+    if (state.cardFilter) setSection("joiners");
+    renderJoiners();
+  }
+  renderDashboard();
 }
 
 function closeDrawer() {
@@ -824,7 +1168,7 @@ function setSection(name) {
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.section === name);
   });
-  const [title, subtitle] = TITLES[name];
+  const [title, subtitle] = titlesFor(name);
   document.getElementById("page-title").textContent = title;
   document.getElementById("page-subtitle").textContent = subtitle;
 }
@@ -849,8 +1193,9 @@ function fmt(iso) {
 
 function wireUI() {
   document.getElementById("sign-out-btn")?.addEventListener("click", exitToPortal);
-  document.querySelectorAll(".nav-btn").forEach((btn) => {
-    btn.addEventListener("click", () => setSection(btn.dataset.section));
+  document.getElementById("primary-nav").addEventListener("click", (e) => {
+    const btn = e.target.closest(".nav-btn");
+    if (btn) setSection(btn.dataset.section);
   });
   document.querySelectorAll(".role-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -879,6 +1224,21 @@ function wireUI() {
       );
       return;
     }
+    const goto = e.target.closest("[data-goto]");
+    if (goto) {
+      e.preventDefault();
+      setSection(goto.dataset.goto);
+      return;
+    }
+    const cardBtn = e.target.closest("[data-card-filter]");
+    if (cardBtn) {
+      applyCardFilter(cardBtn.dataset.cardFilter);
+      return;
+    }
+    if (e.target.closest("[data-clear-filter]")) {
+      applyCardFilter("all");
+      return;
+    }
     const openBtn = e.target.closest("[data-open]");
     if (openBtn) {
       e.preventDefault();
@@ -894,6 +1254,12 @@ function wireUI() {
   });
 
   document.addEventListener("keydown", (e) => {
+    const cardBtn = e.target.closest?.("[data-card-filter]");
+    if (cardBtn && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      applyCardFilter(cardBtn.dataset.cardFilter);
+      return;
+    }
     if (e.key === "Escape") {
       closeAssignModal();
       closeDrawer();
@@ -904,19 +1270,11 @@ function wireUI() {
 if (employerSession) {
   paintSignedIn();
   paintFilterExplain();
-  // Hiring-manager accounts land on their team; default lens stays All within that team.
-  if (employerSession.employerPersona === "Manager") {
-    state.role = "All";
-  } else if (employerSession.employerPersona === "HR") {
-    state.role = "HR";
-    document.querySelectorAll(".role-btn").forEach((b) => {
-      b.classList.toggle("active", b.dataset.role === "HR");
-    });
-  } else if (employerSession.employerPersona === "IT") {
-    state.role = "IT";
-    document.querySelectorAll(".role-btn").forEach((b) => {
-      b.classList.toggle("active", b.dataset.role === "IT");
-    });
+  state.userRole =
+    { HR: "HR", IT: "IT", Manager: "MANAGER", Ops: "OPS" }[employerSession.employerPersona] || "OPS";
+  if (!isOps()) {
+    document.querySelector(".role-filters").hidden = true;
+    document.getElementById("filter-explain").hidden = true;
   }
   paintFilterExplain();
   wireUI();

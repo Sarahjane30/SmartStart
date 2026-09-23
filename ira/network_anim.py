@@ -1,4 +1,4 @@
-"""Animated neural-network constellation backdrop for IRA."""
+"""SmartStart portal particle-globe backdrop for IRA (subtle PySide6 port)."""
 
 from __future__ import annotations
 
@@ -12,27 +12,26 @@ from PySide6.QtWidgets import QWidget
 
 
 @dataclass
-class _Node:
-    # Unit-sphere coords (x,y,z) with |v| ~= 1 for shell nodes; smaller for dust
+class _Point:
     x: float
     y: float
     z: float
-    r: float          # draw radius px scale
-    kind: str         # "dust" | "glow_cyan" | "glow_blue"
-    phase: float      # pulse phase
-    speed: float      # pulse speed
+    accent: bool
+    hue: str  # "white" | "blue" | "cyan"
+    pulse: float
+    pulse_rate: float
+    size: float
 
 
 class NetworkSphere(QWidget):
-    """Slowly rotating node/edge sphere — matches the IRA constellation art."""
+    """Animated particle globe — same visual language as frontend/graphics.js."""
 
     def __init__(self, parent=None, *, hero: bool = False) -> None:
         super().__init__(parent)
         self._hero = hero
-        self._angle = 0.0
         self._t = 0.0
-        self._nodes: list[_Node] = []
-        self._seed_nodes()
+        self._points: list[_Point] = []
+        self._seed_points()
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
 
@@ -44,69 +43,50 @@ class NetworkSphere(QWidget):
         self._hero = hero
         self.update()
 
-    def _seed_nodes(self) -> None:
-        rng = random.Random(42)
-        nodes: list[_Node] = []
-
-        def on_sphere(scale: float = 1.0) -> tuple[float, float, float]:
-            # Uniform-ish on sphere
-            z = rng.uniform(-1.0, 1.0)
-            t = rng.uniform(0.0, 2 * math.pi)
-            r = math.sqrt(max(0.0, 1.0 - z * z))
-            return r * math.cos(t) * scale, z * scale, r * math.sin(t) * scale
-
-        # Fine dust
-        for _ in range(110):
-            x, y, z = on_sphere(rng.uniform(0.55, 1.0))
-            nodes.append(
-                _Node(x, y, z, r=rng.uniform(0.6, 1.4), kind="dust",
-                      phase=rng.random() * math.pi * 2, speed=rng.uniform(0.4, 1.0))
+    def _seed_points(self) -> None:
+        # Match portal globe: Fibonacci sphere + accent cyan/blue hubs
+        rng = random.Random(7)
+        count = 520  # slightly fewer than web 780 for desktop perf
+        accent_rate = 0.11
+        golden = math.pi * (3 - math.sqrt(5))
+        pts: list[_Point] = []
+        for i in range(count):
+            y = 1 - (i / (count - 1)) * 2
+            radius = math.sqrt(max(0.0, 1 - y * y))
+            theta = golden * i
+            accent = rng.random() < accent_rate
+            if accent:
+                hue = "cyan" if rng.random() < 0.35 else "blue"
+                size = 1.8 + rng.random() * 2.2
+            else:
+                hue = "white"
+                size = 0.55 + rng.random() * 1.1
+            pts.append(
+                _Point(
+                    x=math.cos(theta) * radius,
+                    y=y,
+                    z=math.sin(theta) * radius,
+                    accent=accent,
+                    hue=hue,
+                    pulse=rng.random() * math.pi * 2,
+                    pulse_rate=0.6 + rng.random() * 1.6,
+                    size=size,
+                )
             )
-        # Inner dust cloud
-        for _ in range(40):
-            x, y, z = on_sphere(rng.uniform(0.15, 0.55))
-            nodes.append(
-                _Node(x, y, z, r=rng.uniform(0.5, 1.1), kind="dust",
-                      phase=rng.random() * math.pi * 2, speed=rng.uniform(0.3, 0.8))
-            )
-        # Cyan glow hubs
-        for _ in range(14):
-            x, y, z = on_sphere(rng.uniform(0.7, 1.0))
-            nodes.append(
-                _Node(x, y, z, r=rng.uniform(2.4, 4.2), kind="glow_cyan",
-                      phase=rng.random() * math.pi * 2, speed=rng.uniform(0.6, 1.3))
-            )
-        # Soft indigo hubs
-        for _ in range(10):
-            x, y, z = on_sphere(rng.uniform(0.65, 0.98))
-            nodes.append(
-                _Node(x, y, z, r=rng.uniform(2.0, 3.6), kind="glow_blue",
-                      phase=rng.random() * math.pi * 2, speed=rng.uniform(0.5, 1.1))
-            )
-        self._nodes = nodes
+        self._points = pts
 
     def _tick(self) -> None:
-        self._angle = (self._angle + 0.018) % (2 * math.pi)
         self._t += 0.033
         self.update()
 
-    def _project(self, n: _Node, cx: float, cy: float, radius: float) -> tuple[float, float, float]:
-        # Rotate around Y then slight X tilt
-        a = self._angle
-        cos_a, sin_a = math.cos(a), math.sin(a)
-        x1 = n.x * cos_a + n.z * sin_a
-        z1 = -n.x * sin_a + n.z * cos_a
-        y1 = n.y
-        tilt = 0.35
-        cos_t, sin_t = math.cos(tilt), math.sin(tilt)
-        y2 = y1 * cos_t - z1 * sin_t
-        z2 = y1 * sin_t + z1 * cos_t
-        # Perspective
-        depth = (z2 + 1.4) / 2.4  # 0..1-ish
-        scale = 0.72 + 0.45 * depth
-        px = cx + x1 * radius * scale
-        py = cy + y2 * radius * scale
-        return px, py, depth
+    def _color(self, point: _Point, depth: float, alpha_boost: float, subtle: float) -> QColor:
+        alpha = min(1.0, (0.2 + depth * 0.85) * alpha_boost) * subtle
+        a = int(max(0, min(255, alpha * 255)))
+        if point.hue == "blue":
+            return QColor(88, 118, 255, a)
+        if point.hue == "cyan":
+            return QColor(60, 220, 245, a)
+        return QColor(232, 238, 255, int(a * 0.82))
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
@@ -115,103 +95,105 @@ class NetworkSphere(QWidget):
         if w < 8 or h < 8:
             return
 
-        # Deep navy fill (clipped to rounded panel)
+        # Rounded clip + portal navy wash (from .pane-visual)
         clip = QPainterPath()
         clip.addRoundedRect(0, 0, w, h, 22, 22)
         p.setClipPath(clip)
-        p.fillRect(self.rect(), QColor(7, 11, 20))
 
-        # Soft vignette / glow wash
-        wash = QRadialGradient(w * 0.5, h * (0.42 if self._hero else 0.38), max(w, h) * 0.55)
-        wash.setColorAt(0.0, QColor(30, 70, 140, 55 if self._hero else 32))
-        wash.setColorAt(0.55, QColor(20, 40, 90, 18))
-        wash.setColorAt(1.0, QColor(7, 11, 20, 0))
-        p.fillRect(self.rect(), QBrush(wash))
+        # Subtle: quieter fill so chat stays readable; hero: closer to portal
+        if self._hero:
+            p.fillRect(self.rect(), QColor(4, 6, 15))
+            wash = QRadialGradient(w * 0.70, h * 0.15, max(w, h) * 0.95)
+            wash.setColorAt(0.0, QColor(11, 18, 38, 255))
+            wash.setColorAt(0.62, QColor(4, 6, 15, 255))
+            wash.setColorAt(1.0, QColor(4, 6, 15, 255))
+            p.fillRect(self.rect(), QBrush(wash))
+            subtle = 0.85
+        else:
+            p.fillRect(self.rect(), QColor(7, 11, 20))
+            wash = QRadialGradient(w * 0.55, h * 0.35, max(w, h) * 0.7)
+            wash.setColorAt(0.0, QColor(11, 18, 38, 90))
+            wash.setColorAt(0.55, QColor(7, 11, 20, 40))
+            wash.setColorAt(1.0, QColor(7, 11, 20, 0))
+            p.fillRect(self.rect(), QBrush(wash))
+            subtle = 0.28  # quiet behind chat
 
-        # Faint technical grid
-        p.setPen(QPen(QColor(36, 48, 72, 40), 1))
-        step = 28
+        # Very faint grid (portal visual-grid, masked soft)
+        grid_a = 18 if self._hero else 8
+        p.setPen(QPen(QColor(255, 255, 255, grid_a), 1))
+        step = 46
         for x in range(0, w, step):
             p.drawLine(x, 0, x, h)
         for y in range(0, h, step):
             p.drawLine(0, y, w, y)
 
         cx = w * 0.5
-        cy = h * (0.42 if self._hero else 0.40)
-        radius = min(w, h) * (0.42 if self._hero else 0.38)
+        cy = h * (0.46 if self._hero else 0.48)
+        radius = min(w, h) * (0.36 if self._hero else 0.30)
 
-        # Soft sphere halo
-        halo = QRadialGradient(cx, cy, radius * 1.15)
-        halo.setColorAt(0.0, QColor(40, 100, 200, 18 if self._hero else 10))
-        halo.setColorAt(0.7, QColor(30, 70, 140, 8))
-        halo.setColorAt(1.0, QColor(7, 11, 20, 0))
+        # Soft bottom glow like .visual-glow
+        glow_a = 55 if self._hero else 22
+        bottom = QRadialGradient(w * 0.5, h * 1.05, max(w, h) * 0.55)
+        bottom.setColorAt(0.0, QColor(31, 59, 255, glow_a))
+        bottom.setColorAt(0.7, QColor(31, 59, 255, 0))
+        bottom.setColorAt(1.0, QColor(31, 59, 255, 0))
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QBrush(halo))
-        p.drawEllipse(QPointF(cx, cy), radius * 1.15, radius * 1.15)
+        p.setBrush(QBrush(bottom))
+        p.drawRect(self.rect())
 
-        # Project all nodes
-        pts: list[tuple[float, float, float, _Node]] = []
-        for n in self._nodes:
-            px, py, depth = self._project(n, cx, cy, radius)
-            pts.append((px, py, depth, n))
+        # Same spin / tilt math as graphics.js (no pointer parallax)
+        spin = self._t * 0.16
+        tilt_x = -0.2
+        yaw = spin
+        cos_y, sin_y = math.cos(yaw), math.sin(yaw)
+        cos_x, sin_x = math.cos(tilt_x), math.sin(tilt_x)
 
-        # Edges between nearby glow hubs (and some dust)
-        hubs = [(px, py, d, n) for px, py, d, n in pts if n.kind != "dust"]
-        p.setPen(QPen(QColor(80, 160, 220, 55 if self._hero else 38), 1.0))
-        link_dist = radius * 0.55
-        link_dist2 = link_dist * link_dist
-        for i, (x1, y1, d1, _) in enumerate(hubs):
-            for j in range(i + 1, len(hubs)):
-                x2, y2, d2, _ = hubs[j]
-                dx, dy = x1 - x2, y1 - y2
-                if dx * dx + dy * dy < link_dist2:
-                    alpha = int(25 + 40 * ((d1 + d2) * 0.5))
-                    p.setPen(QPen(QColor(90, 170, 230, min(alpha, 70)), 1.0))
-                    p.drawLine(QPointF(x1, y1), QPointF(x2, y2))
+        projected: list[tuple[_Point, float, float, float, float]] = []
+        for pt in self._points:
+            x1 = pt.x * cos_y - pt.z * sin_y
+            z1 = pt.x * sin_y + pt.z * cos_y
+            y2 = pt.y * cos_x - z1 * sin_x
+            z2 = pt.y * sin_x + z1 * cos_x
+            perspective = 1 / (1.9 - z2 * 0.55)
+            sx = cx + x1 * radius * perspective * 1.55
+            sy = cy + y2 * radius * perspective * 1.55
+            depth = (z2 + 1) / 2
+            projected.append((pt, sx, sy, depth, z2))
 
-        # A few dust-to-hub wisps
-        p.setPen(QPen(QColor(100, 160, 210, 22), 0.8))
-        dust = [(px, py, d, n) for px, py, d, n in pts if n.kind == "dust"]
-        rng = random.Random(int(self._t * 3) % 97)
-        for _ in range(18):
-            if not dust or not hubs:
-                break
-            x1, y1, _, _ = dust[rng.randrange(len(dust))]
-            x2, y2, _, _ = hubs[rng.randrange(len(hubs))]
-            if (x1 - x2) ** 2 + (y1 - y2) ** 2 < (radius * 0.7) ** 2:
-                p.drawLine(QPointF(x1, y1), QPointF(x2, y2))
+        projected.sort(key=lambda q: q[4])
 
-        # Draw dust then glow (painter's algorithm by depth)
-        pts.sort(key=lambda t: t[2])
-        for px, py, depth, n in pts:
-            pulse = 0.65 + 0.35 * math.sin(self._t * n.speed + n.phase)
-            if n.kind == "dust":
-                alpha = int((50 + 90 * depth) * (0.7 + 0.3 * pulse))
-                p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(QBrush(QColor(220, 235, 255, min(alpha, 160))))
-                rr = n.r * (0.7 + 0.5 * depth)
-                p.drawEllipse(QPointF(px, py), rr, rr)
-            else:
-                # Outer glow
-                glow_r = n.r * (2.8 + 1.2 * pulse) * (0.85 + 0.3 * depth)
-                if n.kind == "glow_cyan":
-                    core = QColor(90, 220, 240)
-                    aura = QColor(60, 200, 220)
-                else:
-                    core = QColor(140, 150, 255)
-                    aura = QColor(100, 110, 230)
-                grad = QRadialGradient(px, py, glow_r)
-                a0 = int((70 if self._hero else 50) * pulse)
-                grad.setColorAt(0.0, QColor(aura.red(), aura.green(), aura.blue(), a0))
-                grad.setColorAt(0.45, QColor(aura.red(), aura.green(), aura.blue(), a0 // 3))
-                grad.setColorAt(1.0, QColor(aura.red(), aura.green(), aura.blue(), 0))
-                p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(QBrush(grad))
-                p.drawEllipse(QPointF(px, py), glow_r, glow_r)
-                # Core
-                cr = n.r * (0.9 + 0.25 * depth) * pulse
-                p.setBrush(QBrush(core))
-                p.drawEllipse(QPointF(px, py), cr, cr)
-                # Specular
-                p.setBrush(QBrush(QColor(255, 255, 255, 90)))
-                p.drawEllipse(QPointF(px - cr * 0.25, py - cr * 0.3), cr * 0.35, cr * 0.28)
+        # Faint links between nearby accent nodes on the front hemisphere
+        accents = [q for q in projected if q[0].accent and q[4] > -0.15]
+        link_limit = radius * 0.42
+        link_a_scale = 0.22 * subtle
+        for i, a in enumerate(accents):
+            for b in accents[i + 1 :]:
+                dx = a[1] - b[1]
+                dy = a[2] - b[2]
+                dist = math.hypot(dx, dy)
+                if dist > link_limit:
+                    continue
+                fade = (1 - dist / link_limit) * link_a_scale
+                p.setPen(QPen(QColor(110, 140, 255, int(fade * 255)), 0.6))
+                p.drawLine(QPointF(a[1], a[2]), QPointF(b[1], b[2]))
+
+        # Sweeping scan band (portal highlight slice)
+        scan = (math.sin(self._t * 0.55) + 1) / 2
+
+        p.setPen(Qt.PenStyle.NoPen)
+        for pt, sx, sy, depth, _z in projected:
+            pulse = 0.7 + 0.3 * math.sin(self._t * pt.pulse_rate + pt.pulse)
+            near_scan = 1 - min(1.0, abs(depth - scan) * 5.5)
+            boost = 1 + near_scan * 1.1
+            size = pt.size * (0.45 + depth * 0.95) * pulse * (1 + near_scan * 0.5)
+
+            if pt.accent:
+                # Soft aura
+                aura = self._color(pt, depth, 0.12 * boost, subtle)
+                p.setBrush(QBrush(aura))
+                p.drawEllipse(QPointF(sx, sy), size * 3.4, size * 3.4)
+
+            core = self._color(pt, depth, boost, subtle)
+            p.setBrush(QBrush(core))
+            rr = max(0.35, size)
+            p.drawEllipse(QPointF(sx, sy), rr, rr)

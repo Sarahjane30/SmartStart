@@ -279,7 +279,7 @@ class ChatPanel(QWidget):
             """
         )
 
-        # Content over animated constellation backdrop
+        # Content over SmartStart portal particle-globe backdrop
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -458,7 +458,7 @@ class ChatPanel(QWidget):
             self._net.lower()
 
     def paintEvent(self, _event) -> None:
-        # Border only — constellation paints the fill
+        # Border only — portal globe paints the fill
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(QPen(QColor(LINE)))

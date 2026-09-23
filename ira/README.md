@@ -75,7 +75,7 @@ IRA appears as a tiny always-on-top bubble (default: bottom-right). Click to exp
 3. Sign in as Employee (Intern/FTE) in the portal.
 4. Return — chat unlocks; progress bar shows Laptop / Mentor / Day 1.
 
-**Look:** Deep navy glass UI with an animated neural constellation backdrop, electric-blue accents, soft chat bubbles, pill chips, glowing send orb.
+**Look:** Deep navy glass UI with SmartStart’s portal particle-globe animation as a subtle backdrop, electric-blue accents, soft chat bubbles, pill chips, glowing send orb.
 
 **Sizes:** collapsed glow orb → normal (~390px) → expanded (~540px via ⤢). Drag edges to resize (350–680px wide, up to 90vh tall).
 

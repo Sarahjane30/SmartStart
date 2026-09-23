@@ -6,7 +6,16 @@ import math
 import random
 from dataclasses import dataclass
 
-from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Signal
+from PySide6.QtCore import (
+    Property,
+    QEasingCurve,
+    QPoint,
+    QPointF,
+    QPropertyAnimation,
+    Qt,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -21,8 +30,8 @@ from PySide6.QtWidgets import QWidget
 
 from ira.winflags import companion_window_flags
 
-SIZE = 72  # px — resting circular hit target
-HOVER_SIZE = 86  # px — slight expand on hover (~19%)
+SIZE = 72  # px — resting visual diameter
+HOVER_SIZE = 86  # px — hover visual diameter / fixed window size
 
 
 @dataclass
@@ -45,9 +54,9 @@ class IraBubble(QWidget):
         super().__init__(parent)
         self.setWindowTitle("IRA")
         self.setWindowFlags(companion_window_flags())
-        self.setFixedSize(SIZE, SIZE)
+        # Fixed HWND size = max hover size. Scale is paint-only (no resize flicker).
+        self.setFixedSize(HOVER_SIZE, HOVER_SIZE)
         self.setToolTip("IRA — click to open")
-        # Transparent corners + hard circular mask = no black square on Windows
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -61,44 +70,54 @@ class IraBubble(QWidget):
         self._t = 0.0
         self._flash = 0
         self._hover = 0.0
-        self._hover_target = 0.0
         self._points = self._seed_points()
+
+        self._hover_anim = QPropertyAnimation(self, b"hoverAmount", self)
+        self._hover_anim.setDuration(220)
+        self._hover_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
         t = QTimer(self)
         t.timeout.connect(self._tick)
         t.start(40)
         self._timer = t
 
+    def _get_hover(self) -> float:
+        return self._hover
+
+    def _set_hover(self, value: float) -> None:
+        self._hover = float(value)
+        self.update()
+
+    hoverAmount = Property(float, _get_hover, _set_hover)
+
     def _apply_circle_mask(self) -> None:
-        # Ellipse mask clips the HWND to a circle — kills the square chrome
-        s = self.width()
+        s = HOVER_SIZE
         self.setMask(QRegion(0, 0, s, s, QRegion.RegionType.Ellipse))
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._apply_circle_mask()
 
+    def _animate_hover(self, target: float) -> None:
+        self._hover_anim.stop()
+        self._hover_anim.setStartValue(self._hover)
+        self._hover_anim.setEndValue(target)
+        self._hover_anim.start()
+
     def enterEvent(self, event: QEnterEvent) -> None:
-        self._hover_target = 1.0
+        self._animate_hover(1.0)
         super().enterEvent(event)
 
     def leaveEvent(self, event) -> None:
-        self._hover_target = 0.0
+        # Don't collapse mid-drag — cursor may leave the circle while moving
+        if self._drag_offset is None:
+            self._animate_hover(0.0)
         super().leaveEvent(event)
 
-    def _apply_hover_size(self) -> None:
-        """Grow/shrink from center so the globe expands in place."""
-        s = int(round(SIZE + (HOVER_SIZE - SIZE) * self._hover))
-        if s == self.width():
-            return
-        cx = self.x() + self.width() // 2
-        cy = self.y() + self.height() // 2
-        self.setFixedSize(s, s)
-        self.move(cx - s // 2, cy - s // 2)
-        self._apply_circle_mask()
+    def _visual_size(self) -> float:
+        return SIZE + (HOVER_SIZE - SIZE) * self._hover
 
     def _seed_points(self) -> list[_Pt]:
-        # Same Fibonacci sphere as frontend/graphics.js (scaled for 72px)
         rng = random.Random(7)
         count = 220
         golden = math.pi * (3 - math.sqrt(5))
@@ -132,28 +151,22 @@ class IraBubble(QWidget):
         self._t += 0.04
         if self._flash:
             self._flash -= 1
-        # Smooth hover expand / contract
-        if abs(self._hover - self._hover_target) > 0.01:
-            self._hover += (self._hover_target - self._hover) * 0.3
-            self._apply_hover_size()
-        elif self._hover != self._hover_target:
-            self._hover = self._hover_target
-            self._apply_hover_size()
         self.update()
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        w = h = self.width()
-        # Clear to fully transparent — no square fill ever
+        canvas = HOVER_SIZE
+        # Clear full window to transparent — never paint a square
         p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-        p.fillRect(0, 0, w, h, QColor(0, 0, 0, 0))
+        p.fillRect(0, 0, canvas, canvas, QColor(0, 0, 0, 0))
         p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
 
-        cx = cy = w / 2
-        R = w * 0.34  # match portal radius ratio; particles define the silhouette
+        # Paint-only scale (window stays fixed → no HWND flicker)
+        w = self._visual_size()
+        cx = cy = canvas / 2
+        R = w * 0.34
 
-        # Soft navy atmosphere only (no hard disc / no black rim)
         flash_boost = 40 if self._flash else 0
         wash = QRadialGradient(cx, cy, R * 1.7)
         wash.setColorAt(0.0, QColor(18, 28, 64, 160 + flash_boost))
@@ -164,11 +177,13 @@ class IraBubble(QWidget):
         p.setBrush(QBrush(wash))
         p.drawEllipse(QPointF(cx, cy), R * 1.7, R * 1.7)
 
-        # Portal particle globe (same math as frontend/graphics.js)
         spin = self._t * 0.16
         tilt = -0.2
         cos_y, sin_y = math.cos(spin), math.sin(spin)
         cos_x, sin_x = math.cos(tilt), math.sin(tilt)
+
+        # Particle scale tracks visual size so density stays consistent
+        particle_scale = 0.55 * (w / SIZE)
 
         projected: list[tuple[_Pt, float, float, float, float]] = []
         for pt in self._points:
@@ -184,7 +199,6 @@ class IraBubble(QWidget):
 
         projected.sort(key=lambda q: q[4])
 
-        # Faint accent links (front hemisphere)
         accents = [q for q in projected if q[0].accent and q[4] > -0.15]
         link_limit = R * 0.42
         for i, a in enumerate(accents):
@@ -203,8 +217,7 @@ class IraBubble(QWidget):
             pulse = 0.7 + 0.3 * math.sin(self._t * pt.pulse_rate + pt.pulse)
             near = 1 - min(1.0, abs(depth - scan) * 5.5)
             boost = 1 + near * 1.1
-            # ~0.55 keeps dots readable at 72px while matching portal proportions
-            size = pt.size * (0.45 + depth * 0.95) * pulse * (1 + near * 0.5) * 0.55
+            size = pt.size * (0.45 + depth * 0.95) * pulse * (1 + near * 0.5) * particle_scale
             if pt.hue == "blue":
                 col = QColor(88, 118, 255)
                 base_a = 0.2 + depth * 0.85
@@ -243,6 +256,9 @@ class IraBubble(QWidget):
             else:
                 self.clicked.emit()
             self._drag_offset = None
+            # If cursor left during drag, ease back down now
+            if not self.rect().contains(event.position().toPoint()):
+                self._animate_hover(0.0)
             event.accept()
 
     def pulse_notify(self) -> None:

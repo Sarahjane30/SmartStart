@@ -438,11 +438,11 @@ class ChatPanel(QWidget):
         content_l.addWidget(self.body, 1)
 
         grip_row = QHBoxLayout()
-        grip_row.setContentsMargins(0, 8, 2, 0)
+        grip_row.setContentsMargins(0, 4, 2, 0)
         grip_row.addStretch()
         grip = QSizeGrip(self)
-        grip.setFixedSize(12, 12)
-        grip.setStyleSheet(f"background:{LINE}; border-radius:2px;")
+        grip.setFixedSize(14, 14)
+        grip.setStyleSheet("background:transparent; border:0;")
         grip_row.addWidget(grip)
         content_l.addLayout(grip_row)
 

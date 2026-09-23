@@ -234,11 +234,11 @@ class ChatPanel(QWidget):
         self.btn_expand.clicked.connect(self._toggle_expand)
         btn_min = QPushButton("–")
         btn_min.setObjectName("icon")
-        btn_min.setToolTip("Minimize")
+        btn_min.setToolTip("Collapse to orb (stays on desktop)")
         btn_min.clicked.connect(self.minimize_requested.emit)
         btn_close = QPushButton("×")
         btn_close.setObjectName("icon")
-        btn_close.setToolTip("Close")
+        btn_close.setToolTip("Quit IRA")
         btn_close.clicked.connect(self.close_requested.emit)
         for b in (self.btn_expand, btn_min, btn_close):
             head.addWidget(b)

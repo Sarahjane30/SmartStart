@@ -7,15 +7,18 @@ import webbrowser
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, QRect
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 from ira.brain import answer, greeting, suggestions_for
 from ira.bubble import IraBubble
 from ira.chat_panel import ChatPanel, PanelMode
 from ira.client import SmartStartClient
 from ira.config import load_config, update_config
+
+# Park unused windows here — NEVER hide() them on Windows (hide can kill Tool UIs)
+_PARK = QRect(-12000, -12000, 64, 64)
 
 
 class IraApp:
@@ -28,6 +31,19 @@ class IraApp:
         self.online = False
         self._panel_open = False
         self._session_id: str | None = None
+        self._panel_home = QRect()
+
+        # Invisible keep-alive so the process never has "zero windows"
+        self._keepalive = QWidget()
+        self._keepalive.setObjectName("iraKeepAlive")
+        self._keepalive.setWindowFlags(
+            Qt.WindowType.Tool
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowDoesNotAcceptFocus
+        )
+        self._keepalive.setFixedSize(1, 1)
+        self._keepalive.setGeometry(_PARK)
+        self._keepalive.show()
 
         self.bubble = IraBubble()
         self.panel = ChatPanel()
@@ -40,15 +56,27 @@ class IraApp:
         self.panel.open_smartstart_requested.connect(self.open_smartstart)
 
         self._place_bubble()
+        # Start with panel open (auth / chat). Park bubble off-screen — still "shown".
+        self.bubble.setGeometry(_PARK)
         self.bubble.show()
-        self.bubble.raise_()
+        self._panel_open = True
+        self._place_panel()
+        self.panel.show()
+        self.panel.raise_()
 
         self._poll = QTimer()
         self._poll.timeout.connect(self._heartbeat)
         self._poll.start(2_000)
         QTimer.singleShot(200, self._bootstrap)
-        # Open compact panel once so the login state is obvious
-        QTimer.singleShot(400, self.open_panel)
+        # Re-assert always-on-top (Windows focus stealing can bury Tool windows)
+        self._topmost = QTimer()
+        self._topmost.timeout.connect(self._ensure_topmost)
+        self._topmost.start(3_000)
+
+    def _ensure_topmost(self) -> None:
+        w = self.panel if self._panel_open else self.bubble
+        if w.isVisible():
+            w.raise_()
 
     def _place_bubble(self) -> None:
         screen = QGuiApplication.primaryScreen()
@@ -68,6 +96,9 @@ class IraApp:
         self.bubble.move(x, y)
 
     def _persist_bubble_pos(self, x: int, y: int) -> None:
+        # Ignore parked off-screen coords
+        if x < -1000 or y < -1000:
+            return
         self.cfg = update_config(bubble_x=x, bubble_y=y)
 
     def _place_panel(self) -> None:
@@ -78,10 +109,8 @@ class IraApp:
             y = geo.bottom() - self.panel.height() - 20
             self.panel.move(max(geo.left() + 8, x), max(geo.top() + 8, y))
         else:
-            self.panel.move(
-                max(8, self.bubble.x() - self.panel.width() + self.bubble.width()),
-                max(8, self.bubble.y() - self.panel.height() + 40),
-            )
+            self.panel.move(80, 80)
+        self._panel_home = self.panel.geometry()
 
     def open_smartstart(self) -> None:
         webbrowser.open(self.client.portal_login_url())
@@ -139,35 +168,45 @@ class IraApp:
 
     def open_panel(self) -> None:
         if self._panel_open:
+            self.panel.raise_()
+            self.panel.activateWindow()
             return
         self._panel_open = True
         self.panel.apply_mode(PanelMode.NORMAL)
         self._place_panel()
-        # Show panel BEFORE hiding bubble — otherwise QuitOnLastWindowClosed
-        # (or a flash with zero visible windows) kills the process on Windows.
+        # Bring panel on-screen; park bubble off-screen (still shown — no hide())
         self.panel.show()
         self.panel.raise_()
         self.panel.activateWindow()
-        self.bubble.hide()
+        self.bubble.setGeometry(_PARK)
         self._sync_session(force_greet=False)
 
     def minimize(self) -> None:
-        """Collapse to the floating orb — must NOT quit the app."""
+        """Collapse to floating orb. Never hide() windows — park off-screen instead."""
         self._panel_open = False
-        # Park bubble near panel's bottom-right
-        self.bubble.move(
-            self.panel.x() + self.panel.width() - self.bubble.width(),
-            self.panel.y() + self.panel.height() - self.bubble.height(),
-        )
-        self._persist_bubble_pos(self.bubble.x(), self.bubble.y())
-        # Show bubble FIRST so a window stays visible, then hide panel
+        self._panel_home = self.panel.geometry()
+
+        screen = QGuiApplication.primaryScreen()
+        geo = screen.availableGeometry() if screen else None
+        bx = self._panel_home.right() - self.bubble.width()
+        by = self._panel_home.bottom() - self.bubble.height()
+        if geo is not None:
+            bx = min(max(geo.left() + 8, bx), geo.right() - self.bubble.width())
+            by = min(max(geo.top() + 8, by), geo.bottom() - self.bubble.height())
+        self.bubble.setFixedSize(64, 64)
+        self.bubble.move(bx, by)
+        self._persist_bubble_pos(bx, by)
+
         self.bubble.show()
         self.bubble.raise_()
         self.bubble.activateWindow()
-        self.panel.hide()
+        # Park panel off-screen instead of hide() — Windows Tool hide is unreliable
+        self.panel.move(_PARK.x(), _PARK.y())
+        print(f"IRA minimized → orb at ({bx}, {by}). Click the blue orb to reopen.", flush=True)
 
     def quit(self) -> None:
-        self._persist_bubble_pos(self.bubble.x(), self.bubble.y())
+        if self.bubble.x() > -1000:
+            self._persist_bubble_pos(self.bubble.x(), self.bubble.y())
         app = QApplication.instance()
         if app is not None:
             app.quit()
@@ -200,8 +239,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         app = QApplication(argv)
         app.setApplicationName("IRA")
-        # Critical on Windows: hiding the panel to show the bubble must NOT quit.
-        # Only the × close button should exit.
         app.setQuitOnLastWindowClosed(False)
         import ira as _ira_pkg
 
@@ -210,12 +247,11 @@ def main(argv: list[str] | None = None) -> int:
         print("=" * 52)
         print("  IRA — I know Waters")
         print(f"  {pkg}")
-        print("  Always-on-top companion · minimize → floating orb")
-        print("  Connect via SmartStart employee sign-in")
+        print("  – collapses to blue orb (stays on desktop)")
+        print("  × quits   ·   click orb to reopen")
         print("=" * 52)
         print()
         ira_app = IraApp()
-        # Keep a ref so GC doesn't collect the orchestrator
         app._ira = ira_app  # type: ignore[attr-defined]
         return app.exec()
     except Exception:

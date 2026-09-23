@@ -77,7 +77,7 @@ IRA appears as a tiny always-on-top bubble (default: bottom-right). Click to exp
 ### Sign-in flow (required)
 
 1. Start SmartStart on port 8000.
-2. Launch IRA — navy knowledge companion (~400×720) with **Get Started**.
+2. Launch IRA — compact navy companion (~360×520) with **Get Started**.
 3. Sign in as Employee (Intern/FTE) in the portal.
 4. Return — chat unlocks with role-aware answers from your SmartStart profile.
 

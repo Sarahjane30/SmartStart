@@ -25,8 +25,9 @@ ira = [
   "PySide6>=6.10",
 ]
 
-[project.scripts]
-ira = "ira.app:main"
+# Do NOT add [project.scripts] ira=… — the generated ira.exe on Windows
+# Store/pythoncore installs often fatals with "Could not load python3.dll".
+# Always launch with:  python -m ira
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend", "icims", "servicenow", "jira", "ira"]

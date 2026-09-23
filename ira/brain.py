@@ -55,7 +55,7 @@ def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
                     from datetime import date as _date
 
                     d = _date.fromisoformat(str(date)[:10])
-                    pretty = d.strftime("%B %-d, %Y")
+                    pretty = f"{d.strftime('%B')} {d.day}, {d.year}"
                 except Exception:
                     pass
                 return f"Your first day is {pretty}."

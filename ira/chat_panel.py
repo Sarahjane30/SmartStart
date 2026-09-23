@@ -23,6 +23,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor
 
 
+from ira.winflags import companion_window_flags
+
+
 class ChatPanel(QWidget):
     send_message = Signal(str)
     minimize_requested = Signal()
@@ -32,11 +35,8 @@ class ChatPanel(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-        )
+        self.setWindowTitle("IRA — Your onboarding companion")
+        self.setWindowFlags(companion_window_flags())
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(320, 460)
 

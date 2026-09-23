@@ -40,11 +40,15 @@ class IraApp:
 
         self._place_bubble()
         self.bubble.show()
+        self.bubble.raise_()
+        self.bubble.activateWindow()
 
         self._poll = QTimer()
         self._poll.timeout.connect(self._heartbeat)
         self._poll.start(12_000)
         QTimer.singleShot(200, self._bootstrap)
+        # Open chat once so Windows users notice IRA is not a website
+        QTimer.singleShot(600, self.expand)
 
     def _place_bubble(self) -> None:
         screen = QGuiApplication.primaryScreen()
@@ -57,7 +61,14 @@ class IraApp:
                 y = geo.bottom() - self.bubble.height() - 24
             else:
                 x, y = 100, 100
-        self.bubble.move(int(x), int(y))
+        x, y = int(x), int(y)
+        # Clamp onto the visible desktop (bad saved coords hide IRA on Windows)
+        if geo is not None:
+            max_x = geo.right() - self.bubble.width()
+            max_y = geo.bottom() - self.bubble.height()
+            x = min(max(geo.left() + 8, x), max_x)
+            y = min(max(geo.top() + 8, y), max_y)
+        self.bubble.move(x, y)
 
     def _persist_bubble_pos(self, x: int, y: int) -> None:
         self.cfg = update_config(bubble_x=x, bubble_y=y)
@@ -191,6 +202,15 @@ def main(argv: list[str] | None = None) -> int:
     app = QApplication(argv)
     app.setApplicationName("IRA")
     app.setQuitOnLastWindowClosed(True)
+    print()
+    print("=" * 56)
+    print("  IRA desktop companion is starting…")
+    print("  This is NOT a website / NOT http://127.0.0.1:8000")
+    print("  Look for the blue IRA bubble on your Windows desktop")
+    print("  (bottom-right). It also appears in the taskbar as IRA.")
+    print("  Keep SmartStart running in the other terminal.")
+    print("=" * 56)
+    print()
     _ = IraApp()
     return app.exec()
 

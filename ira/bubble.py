@@ -7,6 +7,9 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPen, QBrush, QMouseEvent
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QGraphicsDropShadowEffect
 
 
+from ira.winflags import companion_window_flags
+
+
 class IraBubble(QWidget):
     """Minimized floating orb — click to expand chat."""
 
@@ -15,11 +18,8 @@ class IraBubble(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-        )
+        self.setWindowTitle("IRA")
+        self.setWindowFlags(companion_window_flags())
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(72, 88)
         self._drag_offset: QPoint | None = None

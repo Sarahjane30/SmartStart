@@ -1078,6 +1078,13 @@ canvas {
   color: var(--muted);
   font-size: 0.75rem;
   animation: fade 0.8s ease 0.3s both;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.portal-ira-hint code {
+  font-size: 0.72rem;
+  color: var(--blue-600, #2563eb);
 }
 .portal-page .load-error { margin: 0 0 0.9rem; }
 

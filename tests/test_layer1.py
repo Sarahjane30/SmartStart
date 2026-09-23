@@ -57,7 +57,15 @@ def test_api_joiners_and_metrics():
         interns = client.get("/api/joiners", params={"role_type": "INTERN"})
         assert len(interns.json()) == 15
 
-        detail = client.get(f"/api/joiners/{rows[0]['id']}")
+        assert client.get(f"/api/joiners/{rows[0]['id']}").status_code == 401
+        token = client.post(
+            "/api/auth/login",
+            json={"username": "ops.admin", "password": "ops-demo-2026"},
+        ).json()["token"]
+        detail = client.get(
+            f"/api/joiners/{rows[0]['id']}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
         assert detail.status_code == 200
         body = detail.json()
         assert body["joiner"]["synthetic"] is True
@@ -98,7 +106,7 @@ def test_api_regenerate_and_404():
         assert regen.status_code == 200
         assert regen.json()["total_joiners"] == 4
 
-        missing = client.get("/api/joiners/does-not-exist")
+        missing = client.get("/api/joiners/does-not-exist", headers=headers)
         assert missing.status_code == 404
 
 

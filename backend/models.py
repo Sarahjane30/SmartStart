@@ -98,6 +98,12 @@ class JoinerDetail(BaseModel):
     it_ticket: ITProvisioningTicket
     days_in_pipeline: int
     bottleneck: Optional[str] = None
+    # Role-aware extras (filled when an employer session is present).
+    queue: Optional[str] = None
+    journey: list[dict] = Field(default_factory=list)
+    viewer_role: Optional[str] = None
+    role_actions: list[dict] = Field(default_factory=list)
+    access: list[dict] = Field(default_factory=list)
 
 
 class MetricsSummary(BaseModel):
@@ -185,6 +191,11 @@ class DashboardJoinerRow(BaseModel):
     hardware_status: HardwareStatus
     it_sla_breached: bool
     assigned_tasks: list[str] = Field(default_factory=list)
+    queue: Optional[str] = None
+    health: Optional[str] = None
+    risk_score: Optional[float] = None
+    journey: list[dict] = Field(default_factory=list)
+    actionable: bool = False
     synthetic: bool = True
 
 
@@ -207,6 +218,11 @@ class Alert(BaseModel):
     role_view: str = "All"
     created_at: datetime
     synthetic: bool = True
+    # Joiners behind a rollup, so role scoping never leaks other teams' names.
+    joiner_ids: list[str] = Field(default_factory=list)
+    audience: Optional[str] = None
+    action_required: bool = False
+    event_title: Optional[str] = None
 
 
 class AlertsResponse(BaseModel):
@@ -237,6 +253,7 @@ class AnalyticsResponse(BaseModel):
     focus_note: str = ""
     synthetic: bool = True
     as_of: Optional[datetime] = None
+    role_insights: Optional[dict] = None
 
 
 class IntegrationSnapshot(BaseModel):

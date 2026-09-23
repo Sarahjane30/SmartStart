@@ -9,10 +9,10 @@ from PySide6.QtWidgets import QWidget
 from ira.platform_ui import IS_WINDOWS
 from ira.winflags import companion_window_flags
 
-NAVY = QColor(8, 13, 29)
-BLUE = QColor(22, 58, 122)
-ACCENT = QColor(61, 106, 176)
-CORE = QColor(232, 238, 248)
+NAVY = QColor(11, 26, 51)       # #0B1A33
+SOFT = QColor(28, 46, 74)       # #1C2E4A
+ICE = QColor(232, 240, 255)     # #E8F0FF
+CORE = QColor(245, 245, 245)    # #F5F5F5
 
 
 class IraBubble(QWidget):
@@ -26,7 +26,7 @@ class IraBubble(QWidget):
         self.setFixedSize(56, 56)
         self.setToolTip("IRA")
         if IS_WINDOWS:
-            self.setStyleSheet("background:#080d1d; border-radius:28px;")
+            self.setStyleSheet("background:#0B1A33; border-radius:28px;")
         else:
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
@@ -60,12 +60,14 @@ class IraBubble(QWidget):
         p.setClipPath(clip)
         p.setPen(Qt.PenStyle.NoPen)
 
-        glow = int(30 + 25 * self._pulse) + (20 if self._flash else 0)
-        p.setBrush(QBrush(QColor(61, 106, 176, min(glow, 90))))
+        glow = int(28 + 22 * self._pulse) + (24 if self._flash else 0)
+        p.setBrush(QBrush(QColor(232, 240, 255, min(glow, 88))))
         p.drawEllipse(1, 1, 54, 54)
-        p.setBrush(QBrush(BLUE))
-        p.drawEllipse(8, 8, 40, 40)
-        p.setBrush(QBrush(CORE))
+        p.setBrush(QBrush(NAVY))
+        p.drawEllipse(6, 6, 44, 44)
+        p.setBrush(QBrush(SOFT))
+        p.drawEllipse(12, 12, 32, 32)
+        p.setBrush(QBrush(ICE if self._flash else CORE))
         p.drawEllipse(22, 22, 12, 12)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:

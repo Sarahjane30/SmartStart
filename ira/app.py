@@ -11,7 +11,7 @@ from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
-from ira.brain import answer, greeting, proactive_tips, suggestions_for
+from ira.brain import answer, greeting, progress_snapshot, suggestions_for
 from ira.bubble import IraBubble
 from ira.chat_panel import ChatPanel, PanelMode
 from ira.client import SmartStartClient
@@ -27,7 +27,7 @@ class IraApp:
         self.ctx: Optional[dict] = None
         self.online = False
         self._panel_open = False
-        self._last_tips: list[str] = []
+        self._last_progress: tuple | None = None
         self._session_id: str | None = None
 
         self.bubble = IraBubble()
@@ -87,33 +87,38 @@ class IraApp:
     def open_smartstart(self) -> None:
         webbrowser.open(self.client.portal_login_url())
         self.panel.auth_status.setText("● Waiting for SmartStart…")
-        self.panel.auth_status.setStyleSheet("color:#38bdf8; font-size:12px;")
+        self.panel.auth_status.setStyleSheet("color:#E8F0FF; font-size:12px;")
 
     def _bootstrap(self) -> None:
         self.online = self.client.available()
         self.panel.set_online(self.online)
         self._sync_session(force_greet=True)
 
+    @staticmethod
+    def _progress_key(snap: dict | None) -> tuple | None:
+        if not snap:
+            return None
+        return (snap.get("pct"), snap.get("laptop"), snap.get("mentor"), snap.get("day1"))
+
+    def _apply_progress(self, *, notify: bool = False) -> None:
+        snap = progress_snapshot(self.ctx)
+        key = self._progress_key(snap)
+        if notify and key and key != self._last_progress and not self._panel_open:
+            self.bubble.pulse_notify()
+        self._last_progress = key
+        self.panel.set_onboarding_progress(snap)
+
     def _heartbeat(self) -> None:
         self.online = self.client.available()
         self.panel.set_online(self.online)
         self._sync_session(force_greet=False)
-        if self.online and self._session_id:
-            try:
-                self.ctx = self.client.context(self._session_id)
-            except Exception:
-                self.ctx = None
-            tips = proactive_tips(self.ctx)
-            new = [t for t in tips if t not in self._last_tips]
-            if new and not self._panel_open:
-                self.bubble.pulse_notify()
-            self._last_tips = tips
 
     def _sync_session(self, *, force_greet: bool) -> None:
         if not self.online:
             self.panel.set_locked(True)
             self._session_id = None
             self.ctx = None
+            self._last_progress = None
             return
 
         data = self.client.active_session()
@@ -122,6 +127,7 @@ class IraApp:
             if self._session_id is not None or force_greet:
                 self._session_id = None
                 self.ctx = None
+                self._last_progress = None
                 self.panel.set_locked(True)
                 self.panel.clear_chat()
             return
@@ -146,13 +152,11 @@ class IraApp:
         if changed or force_greet:
             self.panel.clear_chat()
             self.panel.add_message(greeting(self.ctx), role="ira")
-            tips = proactive_tips(self.ctx)
-            if tips:
-                self.panel.add_message(
-                    "Quick update:\n" + "\n".join(f"• {t}" for t in tips),
-                    role="ira",
-                )
+            self._apply_progress(notify=False)
             self.panel.set_suggestions(suggestions_for(self.ctx))
+        else:
+            # Pulse the collapsed bubble when onboarding progress advances
+            self._apply_progress(notify=True)
 
     def open_panel(self) -> None:
         if self._panel_open:

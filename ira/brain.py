@@ -203,25 +203,24 @@ def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
 def greeting(ctx: Optional[dict]) -> str:
     if ctx and ctx.get("employee"):
         name = (ctx["employee"].get("name") or "there").split()[0]
-        return f"Hi {name} — how can I help with your onboarding?"
-    return "Hi — I’m IRA, your onboarding companion. Pick an employee in Settings to get started."
+        return f"Hey {name}, here’s your onboarding update!"
+    return (
+        "Hey — I’m IRA, your onboarding companion. "
+        "Connect SmartStart and sign in to get started."
+    )
 
 
-def proactive_tips(ctx: Optional[dict]) -> list[str]:
-    """Subtle notification lines — never invent deadlines."""
+def progress_snapshot(ctx: Optional[dict]) -> dict | None:
+    """Structured progress for the panel progress bar (not a chat invent)."""
     if not ctx:
-        return []
-    tips: list[str] = []
-    it = ctx.get("it") or {}
-    docs = ctx.get("documents") or {}
+        return None
     onb = ctx.get("onboarding") or {}
-    if it.get("hardware_status") == "Delivered":
-        tips.append("Your laptop is marked Delivered.")
-    elif it.get("sla_breached"):
-        tips.append("Your laptop request has breached its synthetic SLA.")
-    if docs.get("status") != "Complete":
-        tips.append("Your onboarding documents are still pending.")
-    pct = onb.get("progress_pct")
-    if isinstance(pct, int) and pct >= 50:
-        tips.append(f"You’re about {pct}% through onboarding.")
-    return tips[:2]
+    ready = ctx.get("readiness") or {}
+    it = ctx.get("it") or {}
+    emp = ctx.get("employee") or {}
+    return {
+        "pct": int(onb.get("progress_pct") or 0),
+        "laptop": it.get("hardware_status") == "Delivered" or bool(ready.get("it_ready")),
+        "mentor": bool((emp.get("mentor_name") or "").strip()),
+        "day1": bool(ready.get("day1_ready")),
+    }

@@ -1,4 +1,4 @@
-"""IRA chat panel — navy SmartStart assistant (compact, resizable)."""
+"""IRA chat panel — navy / white SmartStart assistant."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 
 from PySide6.QtCore import Qt, QTimer, Signal, QSize, QPoint, QRect
-from PySide6.QtGui import QCursor, QKeyEvent, QMouseEvent, QFontMetrics
+from PySide6.QtGui import QCursor, QKeyEvent, QMouseEvent, QFontMetrics, QPainter, QColor, QBrush, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -27,17 +27,17 @@ from ira.winflags import companion_window_flags
 
 EDGE = 8
 
-# SmartStart design tokens (navy / electric blue)
-NAVY_900 = "#04060f"
-NAVY_800 = "#080d1d"
-NAVY_700 = "#0e1631"
-NAVY_600 = "#172248"
-BLUE_600 = "#163a7a"
-BLUE_500 = "#1e4a8c"
-BLUE_400 = "#3d6ab0"
-BLUE_100 = "#e8eef8"
-INK_MUTED = "#8b97b5"
-LINE = "#1c2744"
+# Brand palette (navy + white)
+BG = "#0B1A33"
+BG_SOFT = "#122440"
+USER_BUBBLE = "#1C2E4A"
+IRA_BUBBLE = "#FFFFFF"
+IRA_TEXT = "#0B1A33"
+ACCENT = "#E8F0FF"
+TEXT = "#F5F5F5"
+MUTED = "#A8B4C8"
+LINE = "#243656"
+GREEN = "#3DDC97"
 
 
 class PanelMode(str, Enum):
@@ -46,15 +46,15 @@ class PanelMode(str, Enum):
 
 
 SIZES = {
-    PanelMode.NORMAL: (380, 520),
-    PanelMode.EXPANDED: (560, 680),
+    PanelMode.NORMAL: (380, 540),
+    PanelMode.EXPANDED: (560, 700),
 }
-MIN_W, MIN_H = 340, 440
+MIN_W, MIN_H = 340, 460
 MAX_W = 680
 
 
 class _FlowLayout(QLayout):
-    def __init__(self, parent=None, spacing: int = 6) -> None:
+    def __init__(self, parent=None, spacing: int = 8) -> None:
         super().__init__(parent)
         self._items: list[QLayoutItem] = []
         self.setSpacing(spacing)
@@ -110,6 +110,81 @@ class _FlowLayout(QLayout):
         return y + line_h - rect.y()
 
 
+class ProgressCard(QWidget):
+    """Horizontal onboarding progress + Laptop / Mentor / Day 1 milestones."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._pct = 0
+        self._milestones = {"laptop": False, "mentor": False, "day1": False}
+        self.setMinimumHeight(78)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def set_progress(self, pct: int, *, laptop: bool, mentor: bool, day1: bool) -> None:
+        self._pct = max(0, min(100, int(pct)))
+        self._milestones = {"laptop": laptop, "mentor": mentor, "day1": day1}
+        self.update()
+
+    def _draw_icon(self, p: QPainter, kind: str, cx: int, cy: int, done: bool) -> None:
+        color = QColor(BG if done else MUTED)
+        p.setPen(QPen(color, 1.4))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        if kind == "laptop":
+            p.drawRoundedRect(cx - 7, cy - 5, 14, 9, 1, 1)
+            p.drawLine(cx - 9, cy + 5, cx + 9, cy + 5)
+        elif kind == "mentor":
+            p.drawEllipse(cx - 3, cy - 6, 6, 6)
+            p.drawArc(cx - 7, cy - 1, 14, 10, 0, 180 * 16)
+        else:  # day1
+            p.drawRoundedRect(cx - 6, cy - 5, 12, 11, 1, 1)
+            p.drawLine(cx - 6, cy - 1, cx + 6, cy - 1)
+            p.drawLine(cx - 3, cy - 7, cx - 3, cy - 3)
+            p.drawLine(cx + 3, cy - 7, cx + 3, cy - 3)
+
+    def paintEvent(self, _event) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+
+        p.setPen(QPen(QColor(LINE)))
+        p.setBrush(QBrush(QColor(BG_SOFT)))
+        p.drawRoundedRect(0, 0, w - 1, h - 1, 10, 10)
+
+        p.setPen(QColor(MUTED))
+        p.drawText(14, 18, "Onboarding progress")
+        p.setPen(QColor(ACCENT))
+        pct_txt = f"{self._pct}%"
+        p.drawText(w - 52, 18, pct_txt)
+
+        track_y = 28
+        track_h = 6
+        track_x = 14
+        track_w = w - 28
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(QColor(LINE)))
+        p.drawRoundedRect(track_x, track_y, track_w, track_h, 3, 3)
+        fill_w = int(track_w * self._pct / 100)
+        if fill_w > 0:
+            p.setBrush(QBrush(QColor(ACCENT)))
+            p.drawRoundedRect(track_x, track_y, fill_w, track_h, 3, 3)
+
+        milestones = [
+            ("laptop", "Laptop", self._milestones["laptop"]),
+            ("mentor", "Mentor", self._milestones["mentor"]),
+            ("day1", "Day 1", self._milestones["day1"]),
+        ]
+        gap = track_w // 3
+        for i, (kind, label, done) in enumerate(milestones):
+            cx = track_x + gap // 2 + i * gap
+            cy = 54
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(QColor(ACCENT if done else LINE)))
+            p.drawEllipse(cx - 11, cy - 16, 22, 22)
+            self._draw_icon(p, kind, cx, cy - 5, done)
+            p.setPen(QColor(TEXT if done else MUTED))
+            p.drawText(cx - 22, cy + 12, 44, 14, Qt.AlignmentFlag.AlignHCenter, label)
+
+
 class ChatPanel(QWidget):
     send_message = Signal(str)
     minimize_requested = Signal()
@@ -141,98 +216,92 @@ class ChatPanel(QWidget):
         self.setStyleSheet(
             f"""
             ChatPanel {{
-              background: {NAVY_800};
+              background: {BG};
               border: 1px solid {LINE};
-              border-radius: 12px;
+              border-radius: 14px;
             }}
-            QLabel {{ color: {BLUE_100}; font-size: 13px; }}
+            QLabel {{ color: {TEXT}; font-size: 13px; }}
             QFrame#divider {{
-              background: {LINE};
-              max-height: 1px;
-              border: 0;
+              background: {LINE}; max-height: 1px; border: 0;
             }}
             QLineEdit {{
-              background: {NAVY_700};
-              color: {BLUE_100};
+              background: {BG_SOFT};
+              color: {TEXT};
               border: 1px solid {LINE};
-              border-radius: 8px;
-              padding: 10px 12px;
+              border-radius: 20px;
+              padding: 11px 16px;
               font-size: 13px;
-              selection-background-color: {BLUE_600};
+              selection-background-color: {USER_BUBBLE};
             }}
-            QLineEdit:focus {{ border-color: {BLUE_400}; }}
-            QLineEdit:disabled {{ color: {INK_MUTED}; }}
+            QLineEdit:focus {{ border-color: {ACCENT}; }}
+            QLineEdit:disabled {{ color: {MUTED}; }}
             QPushButton#send {{
-              background: {BLUE_600};
-              color: #ffffff;
-              border: 0;
-              border-radius: 8px;
-              font-weight: 600;
-              padding: 10px 14px;
+              background: {USER_BUBBLE};
+              color: {TEXT};
+              border: 1px solid {ACCENT};
+              border-radius: 20px;
+              font-weight: 700;
+              padding: 11px 18px;
               font-size: 13px;
-              min-width: 64px;
+              min-width: 68px;
             }}
-            QPushButton#send:hover {{ background: {BLUE_500}; }}
-            QPushButton#send:disabled {{ background: {NAVY_600}; color: {INK_MUTED}; }}
+            QPushButton#send:hover {{
+              background: {ACCENT};
+              color: {BG};
+            }}
+            QPushButton#send:disabled {{ background: {LINE}; color: {MUTED}; border-color: {LINE}; }}
             QPushButton#icon {{
-              background: transparent;
-              color: {INK_MUTED};
-              border: 0;
-              font-size: 14px;
-              padding: 4px 8px;
-              border-radius: 6px;
+              background: transparent; color: {MUTED}; border: 0;
+              font-size: 14px; padding: 4px 8px; border-radius: 6px;
             }}
-            QPushButton#icon:hover {{
-              background: {NAVY_700};
-              color: {BLUE_100};
-            }}
+            QPushButton#icon:hover {{ background: {USER_BUBBLE}; color: {TEXT}; }}
             QPushButton#chip {{
               background: transparent;
-              color: {BLUE_100};
-              border: 1px solid {LINE};
-              border-radius: 8px;
-              padding: 6px 10px;
+              color: {TEXT};
+              border: 1px solid rgba(255,255,255,0.65);
+              border-radius: 16px;
+              padding: 7px 14px;
               font-size: 12px;
-              text-align: left;
             }}
             QPushButton#chip:hover {{
-              background: {NAVY_700};
-              border-color: {BLUE_400};
+              background: rgba(232,240,255,0.16);
+              color: #ffffff;
+              border-color: {ACCENT};
             }}
             QPushButton#cta {{
-              background: {BLUE_600};
-              color: #ffffff;
-              border: 0;
-              border-radius: 8px;
-              font-weight: 600;
-              padding: 11px 20px;
+              background: {BG_SOFT};
+              color: {TEXT};
+              border: 1px solid {ACCENT};
+              border-radius: 10px;
+              font-weight: 700;
+              padding: 12px 22px;
               font-size: 13px;
             }}
-            QPushButton#cta:hover {{ background: {BLUE_500}; }}
+            QPushButton#cta:hover {{
+              background: {ACCENT};
+              color: {BG};
+            }}
             QScrollArea {{ border: 0; background: transparent; }}
             QWidget#chatInner {{ background: transparent; }}
             QLabel#section {{
-              color: {INK_MUTED};
-              font-size: 10px;
-              font-weight: 600;
-              letter-spacing: 0.06em;
+              color: {MUTED}; font-size: 10px; font-weight: 600;
+              letter-spacing: 0.08em;
             }}
             """
         )
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 14, 16, 10)
+        root.setContentsMargins(18, 16, 18, 12)
         root.setSpacing(0)
 
         # Header
         head = QHBoxLayout()
-        head.setSpacing(4)
         titles = QVBoxLayout()
-        titles.setSpacing(2)
+        titles.setSpacing(3)
         title = QLabel("IRA")
-        title.setStyleSheet(f"color:{BLUE_100}; font-size:15px; font-weight:700; letter-spacing:0.02em;")
+        title.setStyleSheet(f"color:{TEXT}; font-size:16px; font-weight:700; letter-spacing:0.04em;")
         self.status_line = QLabel("Not connected")
-        self.status_line.setStyleSheet(f"color:{INK_MUTED}; font-size:11px;")
+        self.status_line.setStyleSheet(f"color:{MUTED}; font-size:11px;")
         titles.addWidget(title)
         titles.addWidget(self.status_line)
         head.addLayout(titles, 1)
@@ -243,7 +312,7 @@ class ChatPanel(QWidget):
         self.btn_expand.clicked.connect(self._toggle_expand)
         btn_min = QPushButton("–")
         btn_min.setObjectName("icon")
-        btn_min.setToolTip("Minimize to bubble")
+        btn_min.setToolTip("Minimize")
         btn_min.clicked.connect(self.minimize_requested.emit)
         btn_close = QPushButton("×")
         btn_close.setObjectName("icon")
@@ -253,32 +322,32 @@ class ChatPanel(QWidget):
             head.addWidget(b)
         root.addLayout(head)
 
-        div1 = QFrame()
-        div1.setObjectName("divider")
-        div1.setFixedHeight(1)
-        root.addSpacing(10)
-        root.addWidget(div1)
-        root.addSpacing(10)
+        div = QFrame()
+        div.setObjectName("divider")
+        div.setFixedHeight(1)
+        root.addSpacing(12)
+        root.addWidget(div)
+        root.addSpacing(12)
 
         # Auth
         self.auth = QWidget()
         auth_l = QVBoxLayout(self.auth)
-        auth_l.setContentsMargins(8, 24, 8, 24)
+        auth_l.setContentsMargins(8, 20, 8, 20)
         auth_l.setSpacing(10)
         auth_l.addStretch(1)
         auth_title = QLabel("Connect to SmartStart")
         auth_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        auth_title.setStyleSheet(f"color:{BLUE_100}; font-size:15px; font-weight:600;")
+        auth_title.setStyleSheet(f"color:{TEXT}; font-size:15px; font-weight:600;")
         self.auth_status = QLabel("Waiting for employee sign-in")
         self.auth_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.auth_status.setStyleSheet(f"color:{INK_MUTED}; font-size:12px;")
+        self.auth_status.setStyleSheet(f"color:{MUTED}; font-size:12px;")
         auth_copy = QLabel(
             "Open SmartStart, choose Intern or FTE,\n"
             "and select your profile. IRA unlocks automatically."
         )
         auth_copy.setAlignment(Qt.AlignmentFlag.AlignCenter)
         auth_copy.setWordWrap(True)
-        auth_copy.setStyleSheet(f"color:{INK_MUTED}; font-size:12.5px; line-height:1.4;")
+        auth_copy.setStyleSheet(f"color:{MUTED}; font-size:12.5px;")
         self.connect_btn = QPushButton("Open SmartStart")
         self.connect_btn.setObjectName("cta")
         self.connect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -292,43 +361,47 @@ class ChatPanel(QWidget):
         auth_l.addStretch(1)
         root.addWidget(self.auth, 1)
 
-        # Signed-in body
+        # Body
         self.body = QWidget()
         body_l = QVBoxLayout(self.body)
         body_l.setContentsMargins(0, 0, 0, 0)
-        body_l.setSpacing(10)
+        body_l.setSpacing(12)
 
         self.identity = QLabel("")
-        self.identity.setStyleSheet(f"color:{INK_MUTED}; font-size:12px;")
+        self.identity.setStyleSheet(f"color:{MUTED}; font-size:12px;")
         body_l.addWidget(self.identity)
+
+        self.progress = ProgressCard()
+        self.progress.hide()
+        body_l.addWidget(self.progress)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setMinimumHeight(100)
+        self.scroll.setMinimumHeight(120)
         self.chat_inner = QWidget()
         self.chat_inner.setObjectName("chatInner")
         self.chat_layout = QVBoxLayout(self.chat_inner)
         self.chat_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.chat_layout.setSpacing(10)
+        self.chat_layout.setSpacing(12)
         self.chat_layout.setContentsMargins(0, 0, 4, 0)
         self.scroll.setWidget(self.chat_inner)
         body_l.addWidget(self.scroll, 1)
 
         footer = QVBoxLayout()
-        footer.setSpacing(8)
+        footer.setSpacing(10)
         self.suggest_label = QLabel("SUGGESTED")
         self.suggest_label.setObjectName("section")
         footer.addWidget(self.suggest_label)
         self.suggest_host = QWidget()
-        self.suggest_flow = _FlowLayout(self.suggest_host, spacing=6)
+        self.suggest_flow = _FlowLayout(self.suggest_host, spacing=8)
         self.suggest_host.setLayout(self.suggest_flow)
         footer.addWidget(self.suggest_host)
 
         row = QHBoxLayout()
-        row.setSpacing(8)
+        row.setSpacing(10)
         self.input = QLineEdit()
-        self.input.setPlaceholderText("Ask about onboarding…")
+        self.input.setPlaceholderText("Ask IRA anything…")
         self.input.returnPressed.connect(self._submit)
         self.send_btn = QPushButton("Send")
         self.send_btn.setObjectName("send")
@@ -340,13 +413,12 @@ class ChatPanel(QWidget):
 
         root.addWidget(self.body, 1)
 
-        # Quiet resize grip — no “resize” label
         grip_row = QHBoxLayout()
-        grip_row.setContentsMargins(0, 6, 0, 0)
+        grip_row.setContentsMargins(0, 8, 0, 0)
         grip_row.addStretch()
         grip = QSizeGrip(self)
         grip.setFixedSize(12, 12)
-        grip.setStyleSheet(f"background: {LINE}; border-radius: 2px;")
+        grip.setStyleSheet(f"background:{LINE}; border-radius:2px;")
         grip_row.addWidget(grip)
         root.addLayout(grip_row)
 
@@ -459,17 +531,17 @@ class ChatPanel(QWidget):
 
     def set_online(self, online: bool) -> None:
         if self._unlocked:
-            if online:
-                self.status_line.setText("Connected to SmartStart")
-                self.status_line.setStyleSheet(f"color:#6ee7b7; font-size:11px;")
-            else:
-                self.status_line.setText("SmartStart offline")
-                self.status_line.setStyleSheet(f"color:#fbbf24; font-size:11px;")
+            self.status_line.setText("Connected to SmartStart" if online else "SmartStart offline")
+            self.status_line.setStyleSheet(
+                f"color:{GREEN if online else '#FBBF24'}; font-size:11px;"
+            )
         else:
             self.status_line.setText("Not connected")
-            self.status_line.setStyleSheet(f"color:{INK_MUTED}; font-size:11px;")
+            self.status_line.setStyleSheet(f"color:{MUTED}; font-size:11px;")
             self.auth_status.setText(
-                "SmartStart is running — sign in to continue" if online else "Start SmartStart on port 8000"
+                "SmartStart is running — sign in to continue"
+                if online
+                else "Start SmartStart on port 8000"
             )
 
     def set_locked(self, locked: bool, *, name: str = "", role: str = "", dept: str = "") -> None:
@@ -479,20 +551,34 @@ class ChatPanel(QWidget):
         self.input.setEnabled(not locked)
         self.send_btn.setEnabled(not locked)
         if locked:
+            self.progress.hide()
             self.status_line.setText("Not connected")
-            self.status_line.setStyleSheet(f"color:{INK_MUTED}; font-size:11px;")
+            self.status_line.setStyleSheet(f"color:{MUTED}; font-size:11px;")
             self.set_suggestions([])
             if self._mode == PanelMode.NORMAL:
-                self.resize(self.width(), min(self.height(), 440))
+                self.resize(self.width(), min(self.height(), 460))
         else:
             role_disp = "FTE" if role.upper() == "FTE" else role.capitalize()
             parts = [p for p in (name, role_disp, dept) if p]
             self.identity.setText(" · ".join(parts))
             self.status_line.setText("Connected to SmartStart")
-            self.status_line.setStyleSheet("color:#6ee7b7; font-size:11px;")
+            self.status_line.setStyleSheet(f"color:{GREEN}; font-size:11px;")
             self.input.setFocus()
             if self._mode == PanelMode.NORMAL:
                 self.apply_mode(PanelMode.NORMAL)
+
+    def set_onboarding_progress(self, snap: dict | None) -> None:
+        """Accept a progress_snapshot() dict (pct / laptop / mentor / day1)."""
+        if not snap:
+            self.progress.hide()
+            return
+        self.progress.set_progress(
+            int(snap.get("pct") or 0),
+            laptop=bool(snap.get("laptop")),
+            mentor=bool(snap.get("mentor")),
+            day1=bool(snap.get("day1")),
+        )
+        self.progress.show()
 
     def clear_chat(self) -> None:
         while self.chat_layout.count():
@@ -501,11 +587,43 @@ class ChatPanel(QWidget):
             if w:
                 w.deleteLater()
 
+    def _dim_older_messages(self) -> None:
+        """Soften prior bubbles so the latest message reads as primary."""
+        count = self.chat_layout.count()
+        for i in range(count):
+            item = self.chat_layout.itemAt(i)
+            box = item.widget() if item else None
+            if not box:
+                continue
+            latest = i == count - 1
+            for child in box.findChildren(QLabel):
+                name = child.objectName()
+                if name == "msgBubble":
+                    role = child.property("msgRole") or "ira"
+                    if role == "user":
+                        bg = USER_BUBBLE if latest else "#16253d"
+                        fg = TEXT if latest else MUTED
+                        size = "13.5" if latest else "13"
+                    else:
+                        bg = IRA_BUBBLE if latest else "#E4EAF5"
+                        fg = IRA_TEXT if latest else "#1a2d4d"
+                        size = "13.5" if latest else "13"
+                    child.setStyleSheet(
+                        f"background:{bg}; color:{fg}; border-radius:14px;"
+                        f"padding:14px 16px; font-size:{size}px;"
+                    )
+                elif name == "msgTime":
+                    child.setStyleSheet(
+                        f"color:{'#9aa8bd' if latest else '#5c6b82'}; font-size:9px;"
+                    )
+
     def add_message(self, text: str, *, role: str = "ira") -> None:
-        avail = max(200, self.width() - 52)
-        bubble_w = min(avail, max(190, int(avail * 0.9)))
+        avail = max(200, self.width() - 56)
+        bubble_w = min(avail, max(200, int(avail * 0.88)))
 
         bubble = QLabel(text)
+        bubble.setObjectName("msgBubble")
+        bubble.setProperty("msgRole", role)
         bubble.setWordWrap(True)
         bubble.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
@@ -513,24 +631,24 @@ class ChatPanel(QWidget):
 
         if role == "user":
             bubble.setStyleSheet(
-                f"background:{BLUE_600}; color:#ffffff; border-radius:10px;"
-                "padding:9px 12px; font-size:13px;"
+                f"background:{USER_BUBBLE}; color:{TEXT}; border-radius:14px;"
+                "padding:14px 16px; font-size:13.5px;"
             )
         else:
             bubble.setStyleSheet(
-                f"background:{NAVY_700}; color:{BLUE_100}; border-radius:10px;"
-                f"border:1px solid {LINE}; padding:9px 12px; font-size:13px;"
+                f"background:{IRA_BUBBLE}; color:{IRA_TEXT}; border-radius:14px;"
+                "padding:14px 16px; font-size:13.5px;"
             )
 
-        # Padding allowance so multi-line text isn’t clipped
         fm = QFontMetrics(bubble.font())
-        text_h = fm.boundingRect(0, 0, bubble_w - 24, 4000, Qt.TextFlag.TextWordWrap, text).height()
-        bubble.setMinimumHeight(text_h + 22)
+        text_h = fm.boundingRect(0, 0, bubble_w - 32, 5000, Qt.TextFlag.TextWordWrap, text).height()
+        bubble.setMinimumHeight(text_h + 28)
 
         meta = QLabel(datetime.now().strftime("%H:%M"))
-        meta.setStyleSheet(f"color:{INK_MUTED}; font-size:10px;")
+        meta.setObjectName("msgTime")
+        meta.setStyleSheet("color:#8a97ad; font-size:9px;")
         wrap = QVBoxLayout()
-        wrap.setSpacing(3)
+        wrap.setSpacing(4)
         wrap.setContentsMargins(0, 0, 0, 0)
         align = Qt.AlignmentFlag.AlignRight if role == "user" else Qt.AlignmentFlag.AlignLeft
         wrap.addWidget(bubble, alignment=align)
@@ -538,11 +656,12 @@ class ChatPanel(QWidget):
         box = QWidget()
         box.setLayout(wrap)
         self.chat_layout.addWidget(box)
+        self._dim_older_messages()
         QTimer.singleShot(20, self._scroll_bottom)
 
     def show_typing(self) -> QLabel:
         tip = QLabel("Thinking…")
-        tip.setStyleSheet(f"color:{INK_MUTED}; font-size:12px;")
+        tip.setStyleSheet(f"color:{MUTED}; font-size:12px;")
         self.chat_layout.addWidget(tip)
         QTimer.singleShot(20, self._scroll_bottom)
         return tip

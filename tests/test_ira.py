@@ -8,7 +8,7 @@ from backend.database import store
 from backend.ira_demo import IRA_DEMO_NAME, IRA_DEMO_TICKET, find_ira_demo_id
 from backend.main import app
 from backend.models import HardwareStatus
-from ira.brain import answer, greeting, suggestions_for
+from ira.brain import answer, greeting, progress_snapshot, suggestions_for
 from ira.faq import match_faq
 
 
@@ -104,7 +104,24 @@ def test_faq_offline_match():
     assert match_faq("What should I learn first?")
     assert match_faq("What is my badge number?") is None
     assert suggestions_for(None)
-    assert "onboarding" in greeting(None).lower() or "IRA" in greeting(None)
+    assert "IRA" in greeting(None) or "onboarding" in greeting(None).lower()
+
+
+def test_greeting_and_progress_snapshot():
+    assert "Hey" in greeting(None)
+    with TestClient(app) as client:
+        sid = _sarah_id(client)
+        ctx = client.get(f"/api/ira/{sid}/context").json()
+    g = greeting(ctx)
+    assert "Hey Sarah" in g
+    assert "onboarding update" in g.lower()
+    snap = progress_snapshot(ctx)
+    assert snap is not None
+    assert isinstance(snap["pct"], int)
+    assert snap["mentor"] is True
+    assert snap["laptop"] is False
+    assert "day1" in snap
+    assert progress_snapshot(None) is None
 
 
 def test_ira_session_bridge():

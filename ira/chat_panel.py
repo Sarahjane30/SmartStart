@@ -14,7 +14,6 @@ from PySide6.QtGui import (
     QColor,
     QBrush,
     QPen,
-    QTextDocument,
     QLinearGradient,
     QRadialGradient,
 )
@@ -60,11 +59,11 @@ class PanelMode(str, Enum):
 
 
 SIZES = {
-    PanelMode.NORMAL: (390, 680),
-    PanelMode.EXPANDED: (540, 820),
+    PanelMode.NORMAL: (400, 720),
+    PanelMode.EXPANDED: (560, 860),
 }
-MIN_W, MIN_H = 350, 560
-MAX_W = 680
+MIN_W, MIN_H = 360, 600
+MAX_W = 700
 
 
 class ProgressCard(QWidget):
@@ -74,7 +73,7 @@ class ProgressCard(QWidget):
         super().__init__(parent)
         self._pct = 0
         self._milestones = {"laptop": False, "mentor": False, "day1": False}
-        self.setFixedHeight(86)
+        self.setFixedHeight(78)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def set_progress(self, pct: int, *, laptop: bool, mentor: bool, day1: bool) -> None:
@@ -111,11 +110,11 @@ class ProgressCard(QWidget):
         p.drawRoundedRect(0, 0, w - 1, h - 1, 18, 18)
 
         p.setPen(QColor(MUTED))
-        p.drawText(16, 18, "Onboarding progress")
+        p.drawText(16, 16, "Onboarding progress")
         p.setPen(QColor(BLUE_SOFT))
-        p.drawText(w - 48, 18, f"{self._pct}%")
+        p.drawText(w - 48, 16, f"{self._pct}%")
 
-        track_x, track_y, track_h = 16, 26, 5
+        track_x, track_y, track_h = 16, 24, 5
         track_w = w - 32
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(QColor(BLUE_DIM)))
@@ -136,7 +135,7 @@ class ProgressCard(QWidget):
         gap = track_w // 3
         for i, (kind, label, done) in enumerate(milestones):
             cx = track_x + gap // 2 + i * gap
-            cy = 52
+            cy = 48
             p.setPen(Qt.PenStyle.NoPen)
             if done:
                 glow = QRadialGradient(cx, cy - 2, 14)
@@ -150,7 +149,7 @@ class ProgressCard(QWidget):
             p.drawEllipse(cx - 9, cy - 9, 18, 18)
             self._draw_icon(p, kind, cx, cy, done)
             p.setPen(QColor(TEXT if done else MUTED))
-            p.drawText(cx - 22, cy + 12, 44, 16, Qt.AlignmentFlag.AlignHCenter, label)
+            p.drawText(cx - 22, cy + 10, 44, 16, Qt.AlignmentFlag.AlignHCenter, label)
 
 
 class _SendOrb(QPushButton):
@@ -248,11 +247,9 @@ class ChatPanel(QWidget):
               color: {TEXT};
               border: 1px solid {LINE};
               border-radius: 14px;
-              padding: 8px 10px;
+              padding: 10px 12px;
               font-size: 12px;
               font-weight: 600;
-              min-height: 18px;
-              max-height: 40px;
             }}
             QPushButton#chip:hover {{
               background: {BLUE_DIM};
@@ -294,7 +291,7 @@ class ChatPanel(QWidget):
         content.setObjectName("panelContent")
         content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         content_l = QVBoxLayout(content)
-        content_l.setContentsMargins(18, 14, 14, 12)
+        content_l.setContentsMargins(22, 18, 18, 16)
         content_l.setSpacing(0)
 
         # Header
@@ -367,21 +364,21 @@ class ChatPanel(QWidget):
         self.body = QWidget()
         body_l = QVBoxLayout(self.body)
         body_l.setContentsMargins(0, 0, 0, 0)
-        body_l.setSpacing(18)
+        body_l.setSpacing(20)
 
+        # Compact greeting — two lines only
         greet = QVBoxLayout()
-        greet.setSpacing(2)
-        greet.setContentsMargins(0, 0, 0, 4)
-        self.hello = QLabel("Hi…!")
+        greet.setSpacing(6)
+        greet.setContentsMargins(0, 0, 0, 0)
+        self.hello = QLabel("Hi")
         self.hello.setStyleSheet(
             f"color:{TEXT}; font-size:20px; font-weight:800; letter-spacing:-0.03em;"
         )
-        self.prompt = QLabel("How can I help with your onboarding?")
-        self.prompt.setStyleSheet(f"color:{MUTED}; font-size:12px;")
+        self.prompt = QLabel("")  # unused, kept for API compatibility
+        self.prompt.hide()
         self.identity = QLabel("")
-        self.identity.setStyleSheet(f"color:{MUTED}; font-size:11px;")
+        self.identity.setStyleSheet(f"color:{MUTED}; font-size:12px;")
         greet.addWidget(self.hello)
-        greet.addWidget(self.prompt)
         greet.addWidget(self.identity)
         body_l.addLayout(greet)
 
@@ -392,25 +389,38 @@ class ChatPanel(QWidget):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setMinimumHeight(260)
+        self.scroll.setMinimumHeight(300)
         self.chat_inner = QWidget()
         self.chat_inner.setObjectName("chatInner")
         self.chat_layout = QVBoxLayout(self.chat_inner)
         self.chat_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.chat_layout.setSpacing(22)
-        self.chat_layout.setContentsMargins(4, 8, 8, 12)
+        self.chat_layout.setSpacing(40)
+        self.chat_layout.setContentsMargins(0, 8, 4, 36)
+        self.chat_layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
         self.scroll.setWidget(self.chat_inner)
         body_l.addWidget(self.scroll, 1)
 
-        # Composer bar — MindBot pill input + glow send
+        # Suggestion chips — fixed strip above composer (never in scroll stack)
+        self.suggest_host = QWidget()
+        self.suggest_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.suggest_grid = QGridLayout(self.suggest_host)
+        self.suggest_grid.setContentsMargins(0, 6, 0, 4)
+        self.suggest_grid.setHorizontalSpacing(14)
+        self.suggest_grid.setVerticalSpacing(12)
+        self.suggest_host.hide()
+        body_l.addWidget(self.suggest_host)
+        body_l.addSpacing(10)
+
+        # Composer bar
         composer = QFrame()
+        composer.setObjectName("composerBar")
         composer.setStyleSheet(
-            f"QFrame {{ background:{SURFACE}; border:1px solid {LINE}; border-radius:26px; }}"
+            f"QFrame#composerBar {{ background:{SURFACE}; border:1px solid {LINE};"
+            f" border-radius:26px; margin-top:4px; }}"
         )
-        composer.setContentsMargins(0, 8, 0, 0)
         comp_l = QHBoxLayout(composer)
-        comp_l.setContentsMargins(6, 6, 6, 6)
-        comp_l.setSpacing(6)
+        comp_l.setContentsMargins(8, 8, 8, 8)
+        comp_l.setSpacing(8)
         self.input = QLineEdit()
         self.input.setObjectName("composer")
         self.input.setPlaceholderText("Ask anything…")
@@ -423,23 +433,12 @@ class ChatPanel(QWidget):
         self.send_btn.clicked.connect(self._submit)
         comp_l.addWidget(self.input, 1)
         comp_l.addWidget(self.send_btn, 0)
-        body_l.addSpacing(10)
         body_l.addWidget(composer)
-
-        # Suggestion chips live in the scroll area (added after messages)
-        self.suggest_host = QWidget()
-        self.suggest_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.suggest_grid = QGridLayout(self.suggest_host)
-        self.suggest_grid.setContentsMargins(0, 12, 0, 16)
-        self.suggest_grid.setHorizontalSpacing(12)
-        self.suggest_grid.setVerticalSpacing(12)
-        self.suggest_host.hide()
-        self._suggest_in_layout = False
 
         content_l.addWidget(self.body, 1)
 
         grip_row = QHBoxLayout()
-        grip_row.setContentsMargins(0, 6, 2, 0)
+        grip_row.setContentsMargins(0, 8, 2, 0)
         grip_row.addStretch()
         grip = QSizeGrip(self)
         grip.setFixedSize(12, 12)
@@ -605,10 +604,10 @@ class ChatPanel(QWidget):
         else:
             first = (name or "there").split()[0]
             self._employee_first = first
-            self.hello.setText(f"Hi…! {first}")
+            self.hello.setText(f"Hi, {first}")
             role_disp = "FTE" if role.upper() == "FTE" else role.capitalize()
-            parts = [p for p in (name, role_disp, dept) if p]
-            self.identity.setText(" · ".join(parts))
+            parts = [p for p in (role_disp, dept) if p]
+            self.identity.setText(" · ".join(parts) if parts else "SmartStart onboarding")
             self.status_line.setText("Connected to SmartStart")
             self.status_line.setStyleSheet(f"color:{GREEN}; font-size:11px;")
             if hasattr(self, "_net"):
@@ -630,114 +629,106 @@ class ChatPanel(QWidget):
         self.progress.show()
 
     def clear_chat(self) -> None:
-        self.set_suggestions([])
         while self.chat_layout.count():
             item = self.chat_layout.takeAt(0)
             w = item.widget()
-            if w and w is not self.suggest_host:
+            if w:
                 w.deleteLater()
-        self._suggest_in_layout = False
-        self.suggest_host.setParent(None)
-        self.suggest_host.hide()
+        self.set_suggestions([])
 
     def _bubble_style(self, role: str, *, latest: bool) -> str:
         if role == "user":
             bg = USER_BUBBLE if latest else "#1C2A40"
             return (
-                f"background:{bg}; color:{TEXT}; border-radius:18px;"
-                f"padding:16px 18px; font-size:13px; border:1px solid {LINE};"
+                f"QFrame#msgBubble {{ background:{bg}; border-radius:18px;"
+                f" border:1px solid {LINE}; }}"
+                f" QLabel {{ color:{TEXT}; font-size:13px; background:transparent; border:0; }}"
             )
         bg = IRA_BUBBLE if latest else "#121A2A"
         border = BLUE if latest else LINE
         return (
-            f"background:{bg}; color:{TEXT}; border-radius:18px;"
-            f"padding:16px 18px; font-size:13px; border:1px solid {border};"
+            f"QFrame#msgBubble {{ background:{bg}; border-radius:18px;"
+            f" border:1px solid {border}; }}"
+            f" QLabel {{ color:{TEXT}; font-size:13px; background:transparent; border:0; }}"
         )
 
     def _dim_older_messages(self) -> None:
-        count = self.chat_layout.count()
-        # Ignore trailing suggestion host when finding "latest" message
         msg_indices = [
             i
-            for i in range(count)
-            if (self.chat_layout.itemAt(i).widget() or None) not in (None, self.suggest_host)
+            for i in range(self.chat_layout.count())
+            if self.chat_layout.itemAt(i).widget() is not None
         ]
         latest_i = msg_indices[-1] if msg_indices else -1
         for i in msg_indices:
-            item = self.chat_layout.itemAt(i)
-            box = item.widget() if item else None
+            box = self.chat_layout.itemAt(i).widget()
             if not box:
                 continue
             latest = i == latest_i
-            for child in box.findChildren(QLabel):
-                name = child.objectName()
-                if name == "msgBubble":
+            for child in box.findChildren(QFrame):
+                if child.objectName() == "msgBubble":
                     role = child.property("msgRole") or "ira"
                     child.setStyleSheet(self._bubble_style(role, latest=latest))
-                elif name == "msgMeta":
+            for child in box.findChildren(QLabel):
+                if child.objectName() == "msgMeta":
                     child.setStyleSheet(
                         f"color:{BLUE_SOFT if latest else MUTED}; font-size:10px;"
                         "font-weight:700; letter-spacing:0.06em;"
                     )
-                elif name == "msgTime":
-                    child.setStyleSheet(
-                        f"color:{'#6B7790' if latest else '#4A5568'}; font-size:9px;"
-                    )
 
     def add_message(self, text: str, *, role: str = "ira") -> None:
-        avail = max(220, self.width() - 72)
-        bubble_w = min(avail, max(210, int(avail * 0.84)))
+        avail = max(220, self.width() - 76)
+        bubble_w = min(avail, max(210, int(avail * 0.82)))
 
         box = QWidget()
         box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         wrap = QVBoxLayout(box)
-        wrap.setSpacing(6)
-        wrap.setContentsMargins(0, 6, 0, 10)
+        wrap.setSpacing(8)
+        wrap.setContentsMargins(0, 0, 0, 0)
         align = Qt.AlignmentFlag.AlignRight if role == "user" else Qt.AlignmentFlag.AlignLeft
 
-        meta = QLabel("YOU" if role == "user" else "IRA")
+        who = "YOU" if role == "user" else "IRA"
+        stamp = datetime.now().strftime("%H:%M")
+        meta = QLabel(f"{who}  ·  {stamp}")
         meta.setObjectName("msgMeta")
         meta.setStyleSheet(
             f"color:{BLUE_SOFT}; font-size:10px; font-weight:700; letter-spacing:0.06em;"
         )
         wrap.addWidget(meta, alignment=align)
 
-        bubble = QLabel(text)
+        bubble = QFrame()
         bubble.setObjectName("msgBubble")
         bubble.setProperty("msgRole", role)
-        bubble.setWordWrap(True)
-        bubble.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
         bubble.setFixedWidth(bubble_w)
+        bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         bubble.setStyleSheet(self._bubble_style(role, latest=True))
-        doc = QTextDocument()
-        doc.setDefaultFont(bubble.font())
-        doc.setDocumentMargin(0)
-        doc.setPlainText(text)
-        doc.setTextWidth(max(80, bubble_w - 40))
-        bubble.setMinimumHeight(int(doc.size().height()) + 40)
+        inner = QVBoxLayout(bubble)
+        inner.setContentsMargins(16, 14, 16, 14)
+        inner.setSpacing(0)
+        body = QLabel(text)
+        body.setWordWrap(True)
+        body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        body.setFixedWidth(bubble_w - 32)
+        inner.addWidget(body)
         wrap.addWidget(bubble, alignment=align)
 
-        stamp = QLabel(datetime.now().strftime("%H:%M"))
-        stamp.setObjectName("msgTime")
-        stamp.setStyleSheet("color:#6B7790; font-size:9px;")
-        wrap.addWidget(stamp, alignment=align)
+        self.chat_layout.addWidget(box)
 
-        # Keep chips at the bottom of the scroll stack
-        if self._suggest_in_layout:
-            self.chat_layout.insertWidget(self.chat_layout.count() - 1, box)
-        else:
-            self.chat_layout.addWidget(box)
+        def _fit() -> None:
+            w = max(80, body.width() or (bubble_w - 32))
+            h = max(body.heightForWidth(w), body.sizeHint().height(), 18)
+            body.setFixedHeight(h)
+            bubble.setFixedHeight(h + 28)
+            self.chat_inner.adjustSize()
+
+        _fit()
+        QTimer.singleShot(0, _fit)
         self._dim_older_messages()
         QTimer.singleShot(20, self._scroll_bottom)
 
     def show_typing(self) -> QLabel:
         tip = QLabel("IRA is thinking…")
         tip.setStyleSheet(f"color:{MUTED}; font-size:12px; padding:8px 0;")
-        if self._suggest_in_layout:
-            self.chat_layout.insertWidget(self.chat_layout.count() - 1, tip)
-        else:
-            self.chat_layout.addWidget(tip)
+        self.chat_layout.addWidget(tip)
         QTimer.singleShot(20, self._scroll_bottom)
         return tip
 
@@ -749,25 +740,19 @@ class ChatPanel(QWidget):
                 w.deleteLater()
         show = bool(items) and self._unlocked
         if show:
-            for i, text in enumerate(items[:4]):
+            # Cap at 2 side-by-side chips so the strip never stacks into the composer
+            for i, text in enumerate(items[:2]):
                 btn = QPushButton(text)
                 btn.setObjectName("chip")
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-                btn.setFixedHeight(36)
+                btn.setFixedHeight(40)
+                btn.setMinimumWidth(0)
                 btn.clicked.connect(lambda _=False, t=text: self._quick(t))
-                self.suggest_grid.addWidget(btn, i // 2, i % 2)
-            if not self._suggest_in_layout:
-                self.chat_layout.addWidget(self.suggest_host)
-                self._suggest_in_layout = True
+                self.suggest_grid.addWidget(btn, 0, i)
             self.suggest_host.show()
-            QTimer.singleShot(30, self._scroll_bottom)
         else:
             self.suggest_host.hide()
-            if self._suggest_in_layout:
-                self.chat_layout.removeWidget(self.suggest_host)
-                self._suggest_in_layout = False
-            self.suggest_host.setParent(None)
 
     def _quick(self, text: str) -> None:
         if not self._unlocked:

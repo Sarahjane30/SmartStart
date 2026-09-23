@@ -343,7 +343,12 @@ function renderLearning() {
           </div>
           <span class="badge mod-${m.status}">${labelStatus(m.status)}</span>
         </div>
-        <p class="module-desc">${esc(m.description)}</p>
+        ${
+          m.assigned_by
+            ? `<span class="learn-added">Added by ${esc(m.assigned_by)}${m.due_date ? ` · due ${esc(m.due_date)}` : ""}</span>`
+            : ""
+        }
+        <p class="module-desc">${esc(m.assigned_note || m.description)}</p>
         <div class="module-progress">
           <div class="progress-fill" style="width:${pct}%"></div>
         </div>

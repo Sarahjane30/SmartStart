@@ -51,6 +51,7 @@ const ROLE_TITLES = {
     analytics: ["IT Analytics", "Hardware delays, SLA, access requests and provisioning time"],
   },
   MANAGER: {
+    learning: ["Team Learning", "What your joiners have completed, what they're on now, and courses you've added"],
     dashboard: ["My Team", "Day 1, mentors and first projects for the people who report to you"],
     joiners: ["My Joiners", "Only the people who report to you"],
     actions: ["My Actions", "Day-1 orientation, mentor and project assignment"],
@@ -188,6 +189,7 @@ function render() {
   renderAlerts();
   renderAnalytics();
   renderRoles();
+  if (state.section === "learning") window.renderTeamLearning?.();
 }
 
 function applyRoleShell() {
@@ -942,12 +944,13 @@ async function openJoinerDrawer(id) {
         <h3>Tasks</h3>
         ${tasks}
       </section>
-      <section class="drawer-section">
+      <section class="drawer-section" id="drawer-learning">
         <h3>Learning track</h3>
         <p>${esc(j.learning_track)} · ${esc(j.department_track)}</p>
         <p class="muted tiny">Join date ${esc(j.joining_date)}</p>
       </section>
     `;
+    window.paintDrawerLearning?.(id);
     renderDashboard();
   } catch (err) {
     body.innerHTML = `<p class="load-error">Failed to load joiner: ${esc(err.message)}</p>`;
@@ -1219,6 +1222,7 @@ function setSection(name) {
   // Canvas charts only animate while visible, so repaint when the tab opens.
   if (name === "analytics") renderAnalytics();
   if (name === "roles") renderRoles();
+  if (name === "learning") window.renderTeamLearning?.();
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.section === name);
   });

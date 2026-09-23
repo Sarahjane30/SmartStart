@@ -292,6 +292,11 @@ class LearningModule(BaseModel):
     status: ModuleStatus
     category: str
     required: bool = True
+    assigned_by: Optional[str] = None
+    assigned_note: str = ""
+    assigned_at: Optional[str] = None
+    due_date: Optional[str] = None
+    completed_at: Optional[str] = None
     synthetic: bool = True
 
 

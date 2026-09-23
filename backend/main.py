@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 from typing import Annotated, AsyncIterator, Optional
 
@@ -21,6 +22,10 @@ from backend.alerts import build_alerts
 from backend.analytics import ANALYTICS_AS_OF, build_analytics, joiner_in_role_view
 from backend.database import store
 from backend.employee_experience import (
+    assign_course,
+    course_library,
+    learning_summary,
+    remove_assigned_course,
     build_employee_profile,
     build_learning_track,
     build_module_detail,
@@ -511,6 +516,98 @@ def reopen_bottleneck(joiner_id: str, body: ResolveRequest, session: EmployerSes
     if entry is None:
         raise HTTPException(status_code=404, detail="No resolved bottleneck to reopen")
     return {"joiner_id": joiner_id, "status": "reopened", "reopened": entry, "synthetic": True}
+
+
+class AssignCourseRequest(BaseModel):
+    course_id: Optional[str] = Field(default=None, max_length=40)
+    title: Optional[str] = Field(default=None, max_length=80)
+    minutes: int = Field(default=30, ge=5, le=240)
+    note: str = Field(default="", max_length=300)
+    due_date: Optional[date] = None
+
+
+def _learning_ctx(session: dict, manage: bool = False):
+    ctx = build_role_context(session)
+    key = "manage_learning" if manage else "view_learning"
+    if not ctx.permissions[key]:
+        raise HTTPException(
+            status_code=403,
+            detail="Adding courses is limited to hiring managers and Onboarding Ops."
+            if manage else "Learning progress isn't part of your role's view.",
+        )
+    return ctx
+
+
+@app.get("/api/employer/learning")
+def employer_learning(session: EmployerSession) -> dict:
+    """Learning progress for every joiner in the caller's scope (a manager sees only their team)."""
+    ctx = _learning_ctx(session)
+    rows = []
+    for f in ctx.visible:
+        rows.append({
+            "name": f.joiner.name,
+            "role_type": f.joiner.role_type.value,
+            "department": f.joiner.department,
+            "mentor_name": f.joiner.mentor_name,
+            "current_state": f.joiner.current_state.value,
+            **learning_summary(f.id),
+        })
+    rows.sort(key=lambda r: (r["completion_pct"], r["name"]))
+    return {
+        "joiners": rows,
+        "can_manage": ctx.permissions["manage_learning"],
+        "average_pct": round(sum(r["completion_pct"] for r in rows) / len(rows), 1) if rows else 0.0,
+        "synthetic": True,
+    }
+
+
+@app.get("/api/employer/joiners/{joiner_id}/learning")
+def employer_joiner_learning(joiner_id: str, session: EmployerSession) -> dict:
+    """One joiner's learning track (same data the joiner sees) plus courses the caller may add."""
+    ctx = _learning_ctx(session)
+    ctx.require_joiner(joiner_id)
+    can_manage = ctx.permissions["manage_learning"]
+    return {
+        "track": build_learning_track(joiner_id).model_dump(mode="json"),
+        "summary": learning_summary(joiner_id),
+        "library": course_library(joiner_id) if can_manage else [],
+        "can_manage": can_manage,
+        "synthetic": True,
+    }
+
+
+@app.post("/api/employer/joiners/{joiner_id}/learning")
+def employer_add_course(joiner_id: str, body: AssignCourseRequest, session: EmployerSession) -> dict:
+    """Add an approved (or custom) course to a joiner's learning; it appears in their Learning tab."""
+    ctx = _learning_ctx(session, manage=True)
+    ctx.require_joiner(joiner_id)
+    try:
+        module = assign_course(
+            joiner_id,
+            by=_actor(session),
+            course_id=body.course_id,
+            title=body.title,
+            minutes=body.minutes,
+            note=body.note,
+            due_date=body.due_date,
+        )
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from None
+    return {"module": module.model_dump(mode="json"), "summary": learning_summary(joiner_id), "synthetic": True}
+
+
+@app.delete("/api/employer/joiners/{joiner_id}/learning/{module_id}")
+def employer_remove_course(joiner_id: str, module_id: str, session: EmployerSession) -> dict:
+    """Remove a course an employer added (role-track modules can't be removed)."""
+    ctx = _learning_ctx(session, manage=True)
+    ctx.require_joiner(joiner_id)
+    try:
+        remove_assigned_course(joiner_id, module_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Only courses added by an employer can be removed") from None
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from None
+    return {"summary": learning_summary(joiner_id), "synthetic": True}
 
 
 @app.get("/api/employer/workspace")

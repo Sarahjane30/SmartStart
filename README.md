@@ -102,7 +102,7 @@ and **framing** (alert wording, cards, analytics). `backend/role_context.py` bui
 |------|-----------|-------|-----|-------|
 | HR | `hr.jordan` (Jordan Hale) | Cohort | Dashboard · My Actions · Joiners · Alerts · Analytics | Joiners in view · Documents pending · Document rework · HR actions · At risk |
 | IT | `it.riley` (Riley Chen) | Cohort | Dashboard · IT Requests · Joiners · Alerts · Analytics | Joiners in view · Pending hardware · SLA breaches · Access requests · IT risks |
-| Manager | `mgr.chen` / `mgr.park` / `mgr.singh` / `mgr.cole` | Own team only | Dashboard · My Joiners · My Actions · Alerts | My Joiners · On Track · Need My Action · Project Assignment Pending · Project Ready |
+| Manager | `mgr.chen` / `mgr.park` / `mgr.singh` / `mgr.cole` | Own team only | Dashboard · My Joiners · My Actions · Learning · Alerts | My Joiners · On Track · Need My Action · Project Assignment Pending · Project Ready |
 | Ops | `ops.admin` (Sam Ortiz) | Cohort + All/HR/IT/Manager filters | Dashboard · Alerts · Analytics · Roles & systems | Total Joiners · On Track · At Risk · Blocked · Active Bottlenecks |
 
 Every joiner has the same journey strip for every role (**HR** docs → **IT** laptop & access →

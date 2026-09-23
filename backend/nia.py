@@ -18,6 +18,7 @@ from typing import Callable, Optional
 
 from backend.analytics import ANALYTICS_AS_OF
 from backend.database import store
+from backend.employee_experience import build_learning_track, course_library, learning_summary
 from backend.intelligence import employer_at_risk_explanation
 from backend.models import DocumentStatus, HardwareStatus, OnboardingState
 from backend.owners import build_assignable_owners
@@ -600,9 +601,111 @@ def employee_360(ctx: RoleContext, f: JoinerFacts) -> Reply:
         ("Source", info["source"]),
         ("Next action", recommendation(f, ctx.role)),
     ], "Right now")
+    if perms.get("view_learning"):
+        ls = learning_summary(f.id)
+        r.facts([
+            ("Completion", f"{ls['completion_pct']:.0f}% · {ls['completed_count']} of {ls['total_count']} modules"),
+            ("Now on", ls["current"] or "Nothing available right now"),
+            ("Added by managers", f"{ls['assigned_count']} ({ls['assigned_open']} open)" if ls["assigned_count"] else ""),
+        ], "Learning")
     for s in ("iCIMS", "ServiceNow", "Jira"):
         r.source(s)
     r.suggestions = [f"Why is {first(f)} at risk?", f"Can {first(f)} start their project?", "Where do I fix this?"]
+    return r
+
+
+LEARNING_RE = re.compile(r"learning|course|module|training|lesson")
+_STATUS_WORD = {"complete": "done", "in_progress": "in progress", "available": "up next", "locked": "locked"}
+
+
+def learning_for(ctx: RoleContext, f: JoinerFacts) -> Reply:
+    r = Reply(ctx, "learning")
+    r.focus = f.id
+    track = build_learning_track(f.id)
+    ls = learning_summary(f.id)
+    now = f" and is on **{ls['current']}** now" if ls["current"] else ""
+    r.text = (
+        f"**{f.joiner.name}** has completed {ls['completed_count']} of {ls['total_count']} learning modules "
+        f"({ls['completion_pct']:.0f}%){now}."
+    )
+    if ls["overdue"]:
+        r.text += f" Overdue: {', '.join(ls['overdue'])}."
+    r.bullets([
+        f"{m.title} — {_STATUS_WORD[m.status.value]}" + (f" (added by {m.assigned_by})" if m.assigned_by else "")
+        for m in track.modules
+    ], track.track_name)
+    r.suggestions = [f"Give me a complete picture of {first(f)}", "Who is behind on learning?"]
+    if ctx.permissions.get("manage_learning"):
+        lib = course_library(f.id)
+        if lib:
+            r.suggestions.insert(0, f"Add {lib[0]['title']} to {poss(first(f))} learning")
+    return r
+
+
+def team_learning(ctx: RoleContext) -> Reply:
+    r = Reply(ctx, "learning:team")
+    rows = sorted((learning_summary(f.id) | {"f": f} for f in ctx.visible), key=lambda x: (x["completion_pct"], x["f"].joiner.name))
+    if not rows:
+        r.text = "There's no one in your view yet."
+        return r
+    avg = sum(x["completion_pct"] for x in rows) / len(rows)
+    behind = [x for x in rows if x["completion_pct"] < 30]
+    scope = "your team" if ctx.role == ROLE_MANAGER else "the cohort"
+    r.text = (
+        f"Average learning completion across {scope} is **{avg:.0f}%**. "
+        + (f"{len(behind)} joiner(s) are under 30%, lowest first:" if behind else "No one is under 30%.")
+    )
+    r.bullets([
+        f"{x['f'].joiner.name} — {x['completion_pct']:.0f}% ({x['completed_count']}/{x['total_count']})"
+        + (f", now on {x['current']}" if x["current"] else "")
+        for x in (behind or rows)[:6]
+    ])
+    r.focus = rows[0]["f"].id
+    r.suggestions = [f"How is {first(rows[0]['f'])}'s learning going?"]
+    if ctx.permissions.get("manage_learning"):
+        r.suggestions.append(f"Add a course for {first(rows[0]['f'])}")
+    return r
+
+
+def prepare_course(ctx: RoleContext, text: str, f: Optional[JoinerFacts]) -> Reply:
+    r = Reply(ctx, "add_course")
+    if not ctx.permissions.get("manage_learning"):
+        r.text = NO_ACCESS
+        return r
+    if f is None:
+        r.text = "Which joiner should I add the course for?"
+        return r
+    r.focus = f.id
+    lib = course_library(f.id)
+    low = text.lower()
+    match = next((c for c in lib if c["title"].lower() in low), None) or next(
+        (c for c in lib if c["id"] in re.findall(r"[a-z]+", low)), None
+    )
+    words = set(re.findall(r"[a-z]+", low))
+    have = next(
+        (m for m in build_learning_track(f.id).modules
+         if m.title.lower() in low or m.id.rsplit("-", 1)[-1] in words),
+        None,
+    )
+    if match is None and have is not None:
+        r.text = f"**{have.title}** is already in {poss(first(f))} learning ({_STATUS_WORD[have.status.value]})."
+        r.suggestions = [f"How is {poss(first(f))} learning going?", f"Add a course for {first(f)}"]
+        return r
+    if match is None:
+        r.text = f"Which course should I add to {poss(first(f))} learning? These approved courses aren't in it yet:"
+        r.bullets([f"{c['title']} — {c['category']} · {c['duration_minutes']} min" for c in lib[:6]])
+        r.suggestions = [f"Add {c['title']} to {poss(first(f))} learning" for c in lib[:3]]
+        return r
+    r.text = f"You are about to add **{match['title']}** ({match['duration_minutes']} min) to **{poss(f.joiner.name)}** learning."
+    r.confirm({
+        "action": "add_course",
+        "joiner_id": f.id,
+        "joiner_name": f.joiner.name,
+        "course_id": match["id"],
+        "course_title": match["title"],
+        "confirm_label": "Add course",
+        "note": "It appears in their Learning tab with a notification. Nothing changes until you confirm.",
+    })
     return r
 
 
@@ -961,7 +1064,7 @@ def ask(ctx: RoleContext, message: str, focus_joiner_id: Optional[str] = None) -
     assign_m = re.search(r"\bassign\b(.*?)(?:\bto\b\s+(.+))?$", low)
     owner_q = ""
     name_text = text
-    if assign_m and assign_m.group(2):
+    if assign_m and assign_m.group(2) and not LEARNING_RE.search(low):
         owner_q = assign_m.group(2).strip(" .?!")
         name_text = text[: low.rfind(" to ")]
 
@@ -992,6 +1095,15 @@ def ask(ctx: RoleContext, message: str, focus_joiner_id: Optional[str] = None) -
                 r.link(src, record_refs(target)[src])
             r.focus = target.id
         return r.to_dict()
+
+    if LEARNING_RE.search(low):
+        if not ctx.permissions.get("view_learning"):
+            return Reply(ctx, "denied", NO_ACCESS).to_dict()
+        if re.search(r"\b(add|assign|enrol|enroll|give)\b", low):
+            return prepare_course(ctx, text, target).to_dict()
+        if target:
+            return learning_for(ctx, target).to_dict()
+        return team_learning(ctx).to_dict()
 
     if re.search(r"brief(ing)?|my day|summary|summari[sz]e|catch me up", low):
         return briefing(ctx).to_dict()

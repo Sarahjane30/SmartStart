@@ -125,12 +125,18 @@ function niaLink(b) {
 }
 
 function niaConfirm(b, idx) {
-  const who = b.action === "assign" ? `${b.owner_name} (${b.owner_team})` : "SmartStart";
+  const who =
+    b.action === "assign" ? `${b.owner_name} (${b.owner_team})` : b.action === "add_course" ? "Their Learning tab" : "SmartStart";
   return `<div class="nia-confirm" data-nia-confirm="${idx}">
     <p class="nia-block-title">Confirm action</p>
     <dl class="nia-facts">
       <div><dt>Action</dt><dd>${
-        { assign: "Assign bottleneck owner", resolve: "Mark bottleneck resolved", reopen: "Reopen — still needs help" }[b.action]
+        {
+          assign: "Assign bottleneck owner",
+          resolve: "Mark bottleneck resolved",
+          reopen: "Reopen — still needs help",
+          add_course: `Add course · ${b.course_title}`,
+        }[b.action]
       }</dd></div>
       <div><dt>Joiner</dt><dd>${esc(b.joiner_name)}</dd></div>
       <div><dt>${b.action === "assign" ? "Assign to" : "Where"}</dt><dd>${esc(who)}</dd></div>
@@ -201,6 +207,23 @@ function niaHandleConfirm(card, block, ok) {
         block.owner_name
       )}</strong> in the Command Center.</div>`
     );
+  } else if (block.action === "add_course") {
+    window
+      .addCourse(block.joiner_id, { course_id: block.course_id })
+      .then(() => {
+        card.classList.add("is-done");
+        niaAppend(
+          "bot",
+          `<div class="nia-text">Added <strong>${esc(block.course_title)}</strong> to ${esc(
+            block.joiner_name
+          )}'s learning — they'll see it in their Learning tab with a notification.</div>`
+        );
+      })
+      .catch((err) => {
+        card.classList.add("is-cancelled");
+        niaAppend("bot", `<div class="nia-text">That didn't go through (${esc(err.message)}) — nothing was changed.</div>`);
+      });
+    return;
   } else if (block.action === "resolve" || block.action === "reopen") {
     const poss = `${esc(block.joiner_name)}</strong>${block.joiner_name.endsWith("s") ? "'" : "'s"}`;
     handleAction(block.action, block.joiner_id).then((ok) => {
@@ -276,6 +299,7 @@ async function niaAsk(message, focusId) {
   nia.busy = true;
   niaAppend("user", `<div class="nia-text">${esc(text)}</div>`);
   const typing = niaAppend("bot", `<span class="nia-typing"><i></i><i></i><i></i></span>`, "nia-pending");
+  window.iraGlobe?.setThinking(true);
   try {
     const reply = await niaPost("/api/nia/ask", { message: text, focus_joiner_id: nia.focus });
     typing.remove();
@@ -285,6 +309,7 @@ async function niaAsk(message, focusId) {
     niaAppend("bot", `<div class="nia-text">Something went wrong reaching NIA (${esc(err.message)}).</div>`);
   } finally {
     nia.busy = false;
+    window.iraGlobe?.setThinking(false);
   }
 }
 
@@ -295,6 +320,7 @@ function niaSetOpen(open) {
   niaEl("nia-launcher").classList.toggle("is-open", open);
   niaPaintBadge();
   if (open) {
+    requestAnimationFrame(() => window.iraGlobe?.start());
     nia.ready = nia.ready || niaLoadWelcome();
     setTimeout(() => niaEl("nia-input").focus(), 50);
   }

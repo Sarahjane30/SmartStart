@@ -86,6 +86,7 @@ NAV = {
         {"id": "dashboard", "label": "Dashboard"},
         {"id": "joiners", "label": "My Joiners"},
         {"id": "actions", "label": "My Actions"},
+        {"id": "learning", "label": "Learning"},
         {"id": "alerts", "label": "Alerts"},
     ],
     ROLE_OPS: [
@@ -403,6 +404,8 @@ def _permissions(role: str) -> dict:
         "assign": True,
         "resolve": True,
         "regenerate_cohort": role == ROLE_OPS,
+        "view_learning": role in (ROLE_HR, ROLE_MANAGER, ROLE_OPS),
+        "manage_learning": role in (ROLE_MANAGER, ROLE_OPS),
     }
     base["act_on"] = {
         ROLE_HR: ["documents", "handoff"],

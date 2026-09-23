@@ -59,10 +59,10 @@ class PanelMode(str, Enum):
 
 
 SIZES = {
-    PanelMode.NORMAL: (390, 640),
-    PanelMode.EXPANDED: (540, 780),
+    PanelMode.NORMAL: (390, 680),
+    PanelMode.EXPANDED: (540, 820),
 }
-MIN_W, MIN_H = 350, 540
+MIN_W, MIN_H = 350, 560
 MAX_W = 680
 
 
@@ -73,7 +73,7 @@ class ProgressCard(QWidget):
         super().__init__(parent)
         self._pct = 0
         self._milestones = {"laptop": False, "mentor": False, "day1": False}
-        self.setFixedHeight(88)
+        self.setFixedHeight(76)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def set_progress(self, pct: int, *, laptop: bool, mentor: bool, day1: bool) -> None:
@@ -110,11 +110,11 @@ class ProgressCard(QWidget):
         p.drawRoundedRect(0, 0, w - 1, h - 1, 18, 18)
 
         p.setPen(QColor(MUTED))
-        p.drawText(16, 20, "Onboarding progress")
+        p.drawText(16, 18, "Onboarding progress")
         p.setPen(QColor(BLUE_SOFT))
-        p.drawText(w - 48, 20, f"{self._pct}%")
+        p.drawText(w - 48, 18, f"{self._pct}%")
 
-        track_x, track_y, track_h = 16, 30, 6
+        track_x, track_y, track_h = 16, 26, 5
         track_w = w - 32
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(QColor(BLUE_DIM)))
@@ -135,21 +135,21 @@ class ProgressCard(QWidget):
         gap = track_w // 3
         for i, (kind, label, done) in enumerate(milestones):
             cx = track_x + gap // 2 + i * gap
-            cy = 58
+            cy = 50
             p.setPen(Qt.PenStyle.NoPen)
             if done:
-                glow = QRadialGradient(cx, cy - 2, 16)
+                glow = QRadialGradient(cx, cy - 2, 14)
                 glow.setColorAt(0.0, QColor(61, 126, 255, 90))
                 glow.setColorAt(1.0, QColor(61, 126, 255, 0))
                 p.setBrush(QBrush(glow))
-                p.drawEllipse(cx - 16, cy - 18, 32, 32)
+                p.drawEllipse(cx - 14, cy - 16, 28, 28)
                 p.setBrush(QBrush(QColor(BLUE)))
             else:
                 p.setBrush(QBrush(QColor(SURFACE_2)))
-            p.drawEllipse(cx - 11, cy - 11, 22, 22)
+            p.drawEllipse(cx - 9, cy - 9, 18, 18)
             self._draw_icon(p, kind, cx, cy, done)
             p.setPen(QColor(TEXT if done else MUTED))
-            p.drawText(cx - 24, cy + 16, 48, 14, Qt.AlignmentFlag.AlignHCenter, label)
+            p.drawText(cx - 22, cy + 14, 44, 14, Qt.AlignmentFlag.AlignHCenter, label)
 
 
 class _SendOrb(QPushButton):
@@ -362,14 +362,14 @@ class ChatPanel(QWidget):
         body_l.setSpacing(18)
 
         greet = QVBoxLayout()
-        greet.setSpacing(4)
-        greet.setContentsMargins(0, 0, 0, 0)
+        greet.setSpacing(2)
+        greet.setContentsMargins(0, 0, 0, 4)
         self.hello = QLabel("Hi…!")
         self.hello.setStyleSheet(
-            f"color:{TEXT}; font-size:22px; font-weight:800; letter-spacing:-0.03em;"
+            f"color:{TEXT}; font-size:20px; font-weight:800; letter-spacing:-0.03em;"
         )
         self.prompt = QLabel("How can I help with your onboarding?")
-        self.prompt.setStyleSheet(f"color:{MUTED}; font-size:13px;")
+        self.prompt.setStyleSheet(f"color:{MUTED}; font-size:12px;")
         self.identity = QLabel("")
         self.identity.setStyleSheet(f"color:{MUTED}; font-size:11px;")
         greet.addWidget(self.hello)
@@ -384,7 +384,7 @@ class ChatPanel(QWidget):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setMinimumHeight(180)
+        self.scroll.setMinimumHeight(220)
         self.chat_inner = QWidget()
         self.chat_inner.setObjectName("chatInner")
         self.chat_layout = QVBoxLayout(self.chat_inner)
@@ -729,6 +729,7 @@ class ChatPanel(QWidget):
             btn.setObjectName("chip")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.setFixedHeight(36)
             btn.clicked.connect(lambda _=False, t=text: self._quick(t))
             self.suggest_grid.addWidget(btn, i // 2, i % 2)
 

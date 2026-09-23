@@ -37,5 +37,14 @@ class SmartStartClient:
     def context(self, employee_id: str) -> dict:
         return self._get(f"/api/ira/{employee_id}/context")
 
+    def active_session(self) -> dict:
+        try:
+            return self._get("/api/ira/session")
+        except Exception:
+            return {"active": False, "session": None}
+
     def available(self) -> bool:
         return self.health() is not None
+
+    def portal_login_url(self) -> str:
+        return f"{self.base_url}/?need=employee&ira=1"

@@ -6,11 +6,13 @@ IRA is a separate desktop app; these endpoints are consumed over HTTP only.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 from backend.database import DataStore, store
 from backend.employee_experience import build_employee_profile, build_learning_track, build_notifications
 from backend.models import DocumentStatus, HardwareStatus, OnboardingState
-from backend.synthetic_engine import days_in_pipeline, infer_bottleneck
 
 AS_OF = datetime(2026, 9, 15, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -21,6 +23,45 @@ _STATE_PROGRESS = {
     OnboardingState.DAY1_ORIENTED: 75,
     OnboardingState.PROJECT_READY: 100,
 }
+
+# Shared bridge: SmartStart portal writes this when an employee signs in;
+# IRA polls it so chat unlocks for that identity.
+_active_session: dict[str, Any] | None = None
+
+
+class IraSessionRequest(BaseModel):
+    employee_id: str = Field(min_length=1)
+    employee_name: str | None = None
+    department: str | None = None
+    role_type: str | None = None
+
+
+def get_ira_session() -> dict:
+    if not _active_session:
+        return {"active": False, "session": None, "synthetic": True}
+    return {"active": True, "session": dict(_active_session), "synthetic": True}
+
+
+def set_ira_session(body: IraSessionRequest, db: DataStore | None = None) -> dict:
+    global _active_session
+    db = db or store
+    joiner = db.get_joiner(body.employee_id)
+    if joiner is None:
+        raise KeyError(body.employee_id)
+    _active_session = {
+        "employee_id": joiner.id,
+        "employee_name": body.employee_name or joiner.name,
+        "department": body.department or joiner.department,
+        "role_type": body.role_type or joiner.role_type.value,
+        "signed_in_at": datetime.now(timezone.utc).isoformat(),
+    }
+    return get_ira_session()
+
+
+def clear_ira_session() -> dict:
+    global _active_session
+    _active_session = None
+    return {"active": False, "session": None, "synthetic": True}
 
 
 def list_ira_employees(db: DataStore | None = None) -> dict:

@@ -29,7 +29,14 @@ from backend.employee_experience import (
     submit_feedback,
 )
 from backend.integrations import build_integrations
-from backend.ira_api import build_ira_context, list_ira_employees
+from backend.ira_api import (
+    IraSessionRequest,
+    build_ira_context,
+    clear_ira_session,
+    get_ira_session,
+    list_ira_employees,
+    set_ira_session,
+)
 from backend.owners import build_assignable_owners
 from backend.models import (
     AssignOwnersResponse,
@@ -366,6 +373,27 @@ def integrations(session: EmployerSession):
 
 
 # --- IRA desktop companion (API only — IRA is not a SmartStart page) -------
+
+
+@app.get("/api/ira/session")
+def ira_session_get() -> dict:
+    """Active employee identity shared with the IRA desktop companion."""
+    return get_ira_session()
+
+
+@app.post("/api/ira/session")
+def ira_session_set(body: IraSessionRequest) -> dict:
+    """Called by the SmartStart portal when an employee signs in."""
+    try:
+        return set_ira_session(body)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Employee not found") from None
+
+
+@app.delete("/api/ira/session")
+def ira_session_clear() -> dict:
+    """Clear IRA identity when the employee exits to the portal."""
+    return clear_ira_session()
 
 
 @app.get("/api/ira/employees")

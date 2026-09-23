@@ -24,13 +24,27 @@ def _norm(text: str) -> str:
 
 def suggestions_for(ctx: dict | None) -> list[str]:
     if not ctx:
-        return list(SUGGESTIONS_DEFAULT)
-    out = list(SUGGESTIONS_DEFAULT)
+        return [
+            "What's left for me?",
+            "When is my first day?",
+            "Who is my mentor?",
+            "Am I ready for Day 1?",
+        ]
+    out = [
+        "What's left for me?",
+        "When is my first day?",
+        "Am I ready for Day 1?",
+        "Who is my mentor?",
+    ]
     it = ctx.get("it") or {}
     if it.get("hardware_status") != "Delivered":
-        if "Is my laptop ready?" not in out:
-            out.insert(2, "Is my laptop ready?")
-    return out[:8]
+        out.insert(2, "Is my laptop ready?")
+    # Unique, max 4
+    seen: list[str] = []
+    for q in out:
+        if q not in seen:
+            seen.append(q)
+    return seen[:4]
 
 
 def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
@@ -62,7 +76,7 @@ def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
             return "I don’t have a start date on your record yet."
 
         if any(k in q for k in ("mentor",)):
-            mentor = emp.get("mentor_name")
+            mentor = (emp.get("mentor_name") or "").strip()
             if mentor:
                 return f"Your mentor is {mentor}."
             return "I don’t see a mentor assigned on your record yet."

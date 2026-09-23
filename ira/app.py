@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Optional
 
@@ -27,6 +28,7 @@ class IraApp:
         self.online = False
         self._expanded = False
         self._last_tips: list[str] = []
+        self._session_id: str | None = None
 
         self.bubble = IraBubble()
         self.panel = ChatPanel()
@@ -36,7 +38,7 @@ class IraApp:
         self.panel.minimize_requested.connect(self.minimize)
         self.panel.close_requested.connect(self.quit)
         self.panel.send_message.connect(self._on_send)
-        self.panel.employee_changed.connect(self._on_employee)
+        self.panel.open_smartstart_requested.connect(self.open_smartstart)
         self.panel.refresh_requested.connect(self.refresh_context)
 
         self._place_bubble()
@@ -46,10 +48,9 @@ class IraApp:
 
         self._poll = QTimer()
         self._poll.timeout.connect(self._heartbeat)
-        self._poll.start(12_000)
+        self._poll.start(3_000)
         QTimer.singleShot(200, self._bootstrap)
-        # Open chat once so Windows users notice IRA is not a website
-        QTimer.singleShot(600, self.expand)
+        QTimer.singleShot(500, self.expand)
 
     def _place_bubble(self) -> None:
         screen = QGuiApplication.primaryScreen()
@@ -63,7 +64,6 @@ class IraApp:
             else:
                 x, y = 100, 100
         x, y = int(x), int(y)
-        # Clamp onto the visible desktop (bad saved coords hide IRA on Windows)
         if geo is not None:
             max_x = geo.right() - self.bubble.width()
             max_y = geo.bottom() - self.bubble.height()
@@ -74,98 +74,109 @@ class IraApp:
     def _persist_bubble_pos(self, x: int, y: int) -> None:
         self.cfg = update_config(bubble_x=x, bubble_y=y)
 
-    def _bootstrap(self) -> None:
-        self.refresh_context()
-        self._load_employees()
-        emp_id = self.cfg.get("employee_id")
-        if emp_id:
-            self._select_employee(str(emp_id), greet=True)
+    def open_smartstart(self) -> None:
+        url = self.client.portal_login_url()
+        webbrowser.open(url)
+        if not self.panel._unlocked:
+            self.panel.identity.setText("Waiting for SmartStart sign-in…")
         else:
-            self.panel.clear_chat()
-            self.panel.add_message(greeting(None), role="ira")
-            self.panel.set_suggestions(suggestions_for(None))
+            self.panel.add_message(
+                "Opened SmartStart. You can switch profiles there anytime.",
+                role="ira",
+            )
+
+    def _bootstrap(self) -> None:
+        self.online = self.client.available()
+        self.panel.set_online(self.online)
+        self._sync_session(force_greet=True)
 
     def _heartbeat(self) -> None:
         was = self.online
         self.online = self.client.available()
         self.panel.set_online(self.online)
-        if self.online and self.cfg.get("employee_id"):
+        self._sync_session(force_greet=False)
+        if self.online and self._session_id:
             try:
-                self.ctx = self.client.context(str(self.cfg["employee_id"]))
+                self.ctx = self.client.context(self._session_id)
             except Exception:
                 self.ctx = None
             tips = proactive_tips(self.ctx)
             new = [t for t in tips if t not in self._last_tips]
             if new and not self._expanded:
                 self.bubble.pulse_notify()
-                self.bubble.caption.setText("IRA · tip")
-                QTimer.singleShot(4000, lambda: self.bubble.caption.setText("IRA"))
             self._last_tips = tips
         if self.online and not was:
-            self._load_employees()
+            self._sync_session(force_greet=False)
 
-    def _load_employees(self) -> None:
-        if not self.client.available():
-            self.online = False
-            self.panel.set_online(False)
+    def _sync_session(self, *, force_greet: bool) -> None:
+        if not self.online:
+            self.panel.set_locked(True)
+            self._session_id = None
+            self.ctx = None
             return
-        try:
-            employees = self.client.list_employees()
-            self.online = True
-            self.panel.set_online(True)
-            # Prefer Sarah Jane in the list order for demos
-            employees = sorted(
-                employees,
-                key=lambda e: (0 if "Sarah Jane" in str(e.get("name")) else 1, e.get("name") or ""),
-            )
-            self.panel.set_employees(employees, self.cfg.get("employee_id"))
-        except Exception:
-            self.online = False
-            self.panel.set_online(False)
 
-    def refresh_context(self) -> None:
-        self.online = self.client.available()
-        self.panel.set_online(self.online)
-        emp_id = self.cfg.get("employee_id")
-        if not emp_id or not self.online:
+        data = self.client.active_session()
+        sess = data.get("session") if data.get("active") else None
+        if not sess:
+            if self._session_id is not None or force_greet:
+                self._session_id = None
+                self.ctx = None
+                self.panel.set_locked(True)
+                self.panel.clear_chat()
             return
+
+        emp_id = str(sess.get("employee_id") or "")
+        name = str(sess.get("employee_name") or "Employee")
+        if not emp_id:
+            self.panel.set_locked(True)
+            return
+
+        changed = emp_id != self._session_id
+        self._session_id = emp_id
+        self.cfg = update_config(employee_id=emp_id)
         try:
-            self.ctx = self.client.context(str(emp_id))
-            self.panel.set_suggestions(suggestions_for(self.ctx))
+            self.ctx = self.client.context(emp_id)
         except Exception:
             self.ctx = None
 
-    def _select_employee(self, employee_id: str, *, greet: bool = True) -> None:
-        self.cfg = update_config(employee_id=employee_id)
-        self.refresh_context()
-        if greet:
+        self.panel.set_locked(False, name=name)
+        if changed or force_greet:
             self.panel.clear_chat()
             self.panel.add_message(greeting(self.ctx), role="ira")
             tips = proactive_tips(self.ctx)
             if tips:
-                self.panel.add_message("Quick update:\n" + "\n".join(f"• {t}" for t in tips), role="ira")
+                self.panel.add_message(
+                    "Quick update:\n" + "\n".join(f"• {t}" for t in tips),
+                    role="ira",
+                )
             self.panel.set_suggestions(suggestions_for(self.ctx))
 
-    def _on_employee(self, employee_id: str) -> None:
-        self._select_employee(employee_id, greet=True)
+    def refresh_context(self) -> None:
+        self._sync_session(force_greet=False)
+        if self._session_id and self.ctx:
+            self.panel.set_suggestions(suggestions_for(self.ctx))
 
     def expand(self) -> None:
         if self._expanded:
             return
         self._expanded = True
         bx, by = self.bubble.x(), self.bubble.y()
-        self.panel.move(max(8, bx - self.panel.width() + self.bubble.width()), max(8, by - self.panel.height() + 40))
+        self.panel.move(
+            max(8, bx - self.panel.width() + self.bubble.width()),
+            max(8, by - self.panel.height() + 40),
+        )
         self.bubble.hide()
         self.panel.show()
         self.panel.raise_()
         self.panel.activateWindow()
-        self.refresh_context()
-        self._load_employees()
+        self._sync_session(force_greet=False)
 
     def minimize(self) -> None:
         self._expanded = False
-        # Anchor bubble near panel if still on screen
-        self.bubble.move(self.panel.x() + self.panel.width() - self.bubble.width(), self.panel.y() + self.panel.height() - self.bubble.height())
+        self.bubble.move(
+            self.panel.x() + self.panel.width() - self.bubble.width(),
+            self.panel.y() + self.panel.height() - self.bubble.height(),
+        )
         self._persist_bubble_pos(self.bubble.x(), self.bubble.y())
         self.panel.hide()
         self.bubble.show()
@@ -176,27 +187,27 @@ class IraApp:
         QApplication.instance().quit()
 
     def _on_send(self, text: str) -> None:
+        if not self._session_id:
+            self.panel.set_locked(True)
+            return
         self.panel.add_message(text, role="user")
         tip = self.panel.show_typing()
 
         def _reply() -> None:
             tip.deleteLater()
-            # Fresh context when online so status changes show up mid-demo
-            if self.online and self.cfg.get("employee_id"):
+            if self.online and self._session_id:
                 try:
-                    self.ctx = self.client.context(str(self.cfg["employee_id"]))
+                    self.ctx = self.client.context(self._session_id)
                 except Exception:
                     pass
-            reply = answer(text, self.ctx, online=self.online)
+            reply = answer(text, self.ctx, online=self.online and bool(self.ctx))
             self.panel.add_message(reply, role="ira")
-            self.panel.set_suggestions(suggestions_for(self.ctx))
 
         QTimer.singleShot(350, _reply)
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv
-    # High-DPI friendly — Round improves Windows layered-window stability
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.Round
     )
@@ -208,11 +219,12 @@ def main(argv: list[str] | None = None) -> int:
     pkg = Path(_ira_pkg.__file__).resolve().parent
     print()
     print("=" * 56)
-    print("  IRA desktop companion is starting…")
-    print(f"  Code loaded from: {pkg}")
-    print("  This is NOT a website / NOT http://127.0.0.1:8000")
-    print("  Look for the IRA window on your desktop / taskbar.")
-    print("  Keep SmartStart running in the other terminal.")
+    print("  IRA desktop companion")
+    print(f"  Loaded from: {pkg}")
+    print("  1) Keep SmartStart running on :8000")
+    print("  2) Click “Open SmartStart to sign in” in IRA")
+    print("  3) Pick your employee profile in the portal")
+    print("  4) Return — chat unlocks automatically")
     print("=" * 56)
     print()
     _ = IraApp()

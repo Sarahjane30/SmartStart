@@ -66,7 +66,17 @@ python -m uvicorn backend.main:app --reload --port 8000
 python -m ira
 ```
 
-IRA appears as a tiny always-on-top bubble (default: bottom-right). Click to expand a ~320×450 chat panel. Drag the bubble to reposition; position is remembered in `~/.smartstart-ira/config.json` (Windows: `%USERPROFILE%\.smartstart-ira\config.json`).
+IRA appears as a tiny always-on-top bubble (default: bottom-right). Click to expand a resizable chat panel. Drag the bubble to reposition; position is remembered in `~/.smartstart-ira/config.json` (Windows: `%USERPROFILE%\.smartstart-ira\config.json`).
+
+### Sign-in flow (required)
+
+1. Start SmartStart on port 8000.
+2. Launch IRA — you’ll see **Sign in to SmartStart**.
+3. Click **Open SmartStart to sign in** (opens the portal).
+4. Choose **Employee → Intern/FTE → your profile** (e.g. Sarah Jane).
+5. Return to IRA — chat unlocks for that identity automatically.
+
+IRA polls `GET /api/ira/session`. The portal writes the session on employee sign-in.
 
 ## Demo walkthrough
 

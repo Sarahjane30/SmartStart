@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QMouseEvent
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QGraphicsDropShadowEffect
+from PySide6.QtGui import QColor, QPainter, QBrush, QMouseEvent, QPainterPath
+from PySide6.QtWidgets import QWidget
 
-from ira.platform_ui import use_layered_effects
 from ira.winflags import companion_window_flags
 
 
@@ -20,43 +19,21 @@ class IraBubble(QWidget):
         super().__init__(parent)
         self.setWindowTitle("IRA")
         self.setWindowFlags(companion_window_flags())
-        self.setFixedSize(76, 92)
+        from ira.platform_ui import IS_WINDOWS
+
+        if IS_WINDOWS:
+            # Opaque circular-ish panel — avoids layered window crashes
+            self.setStyleSheet("background:#0b1220; border-radius:32px;")
+        else:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedSize(64, 64)
+        self.setToolTip("IRA — your onboarding companion")
         self._drag_offset: QPoint | None = None
         self._press_pos = QPoint()
         self._did_drag = False
-        self._pulse = 0.0
+        self._pulse = 0.35
         self._pulse_dir = 1
-
-        if use_layered_effects():
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        else:
-            # Opaque frame — avoids UpdateLayeredWindowIndirect failures on Windows
-            self.setStyleSheet(
-                "IraBubble { background-color: #0f172a; border-radius: 16px;"
-                " border: 1px solid #1e293b; }"
-            )
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-        layout.setSpacing(2)
-
-        self.orb = _Orb(self)
-        layout.addWidget(self.orb, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        self.caption = QLabel("IRA")
-        self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.caption.setStyleSheet(
-            "color: #e8eef8; font-size: 11px; font-weight: 700;"
-            "background: #1e293b; border-radius: 8px; padding: 2px 8px;"
-        )
-        layout.addWidget(self.caption)
-
-        if use_layered_effects():
-            shadow = QGraphicsDropShadowEffect(self)
-            shadow.setBlurRadius(18)
-            shadow.setOffset(0, 4)
-            shadow.setColor(QColor(0, 0, 0, 110))
-            self.orb.setGraphicsEffect(shadow)
+        self._flash = 0
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
@@ -70,7 +47,26 @@ class IraBubble(QWidget):
         elif self._pulse <= 0.0:
             self._pulse = 0.0
             self._pulse_dir = 1
-        self.orb.set_pulse(self._pulse)
+        if self._flash:
+            self._flash -= 1
+        self.update()
+
+    def paintEvent(self, _event) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Soft circular clip for Windows Hit-testing
+        path = QPainterPath()
+        path.addEllipse(2, 2, 60, 60)
+        p.setClipPath(path)
+
+        glow = int(50 + 40 * self._pulse) + (30 if self._flash else 0)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(QColor(14, 165, 233, min(glow, 120))))
+        p.drawEllipse(2, 2, 60, 60)
+        p.setBrush(QBrush(QColor(2, 132, 199)))
+        p.drawEllipse(10, 10, 44, 44)
+        p.setBrush(QBrush(QColor(224, 242, 254)))
+        p.drawEllipse(24, 24, 16, 16)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -97,35 +93,5 @@ class IraBubble(QWidget):
             event.accept()
 
     def pulse_notify(self) -> None:
-        self.orb.flash()
-
-
-class _Orb(QWidget):
-    def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self.setFixedSize(52, 52)
-        self._pulse = 0.35
-        self._flash = 0
-
-    def set_pulse(self, value: float) -> None:
-        self._pulse = value
+        self._flash = 16
         self.update()
-
-    def flash(self) -> None:
-        self._flash = 12
-        self.update()
-
-    def paintEvent(self, _event) -> None:
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        glow = int(40 + 50 * self._pulse) + (20 if self._flash else 0)
-        if self._flash:
-            self._flash -= 1
-        cx, cy, r = 26, 26, 20
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QBrush(QColor(56, 189, 248, glow)))
-        p.drawEllipse(cx - r - 4, cy - r - 4, (r + 4) * 2, (r + 4) * 2)
-        p.setBrush(QBrush(QColor(14, 165, 233)))
-        p.drawEllipse(cx - r, cy - r, r * 2, r * 2)
-        p.setBrush(QBrush(QColor(224, 242, 254)))
-        p.drawEllipse(cx - 7, cy - 7, 14, 14)

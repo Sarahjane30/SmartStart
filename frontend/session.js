@@ -59,5 +59,6 @@ function requireEmployeeSession() {
 
 function exitToPortal() {
   clearSession();
+  fetch("/api/ira/session", { method: "DELETE" }).catch(() => {});
   window.location.href = "/?reset=1";
 }

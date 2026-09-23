@@ -107,6 +107,27 @@ def test_faq_offline_match():
     assert "onboarding" in greeting(None).lower() or "IRA" in greeting(None)
 
 
+def test_ira_session_bridge():
+    with TestClient(app) as client:
+        assert client.get("/api/ira/session").json()["active"] is False
+        sid = _sarah_id(client)
+        posted = client.post(
+            "/api/ira/session",
+            json={
+                "employee_id": sid,
+                "employee_name": "Sarah Jane",
+                "department": "Data Engineering",
+                "role_type": "INTERN",
+            },
+        )
+        assert posted.status_code == 200
+        body = posted.json()
+        assert body["active"] is True
+        assert body["session"]["employee_id"] == sid
+        assert client.get("/api/ira/session").json()["active"] is True
+        assert client.delete("/api/ira/session").json()["active"] is False
+
+
 def test_ira_reflects_ticket_update():
     """Demo step: ServiceNow-style laptop update is visible to IRA via API."""
     with TestClient(app) as client:

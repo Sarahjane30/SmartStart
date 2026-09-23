@@ -17,7 +17,6 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import (
-    QBitmap,
     QBrush,
     QColor,
     QEnterEvent,
@@ -25,11 +24,9 @@ from PySide6.QtGui import (
     QPainter,
     QPen,
     QRadialGradient,
-    QRegion,
 )
 from PySide6.QtWidgets import QWidget
 
-from ira.platform_ui import IS_WINDOWS
 from ira.winflags import companion_window_flags
 
 SIZE = 72  # px — resting visual diameter
@@ -59,21 +56,17 @@ class IraBubble(QWidget):
         # Fixed HWND size = max hover size. Scale is paint-only (no resize flicker).
         self.setFixedSize(HOVER_SIZE, HOVER_SIZE)
         self.setToolTip("IRA — click to open")
+        # Per-pixel alpha — no mask (mask + translucency = square corners on Windows)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
         self.setAutoFillBackground(False)
+        self.clearMask()
+        pal = self.palette()
+        pal.setColor(self.backgroundRole(), QColor(0, 0, 0, 0))
+        self.setPalette(pal)
         self.setStyleSheet("background: transparent; border: 0;")
-
-        # Windows: translucency + setMask fight each other — layered windows
-        # ignore the region mask and leave opaque square corners. Use a hard
-        # circular mask with an opaque navy fill instead (same approach as ChatPanel).
-        if IS_WINDOWS:
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-            self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
-        else:
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
-
-        self._apply_circle_mask()
 
         self._drag_offset: QPoint | None = None
         self._press_pos = QPoint()
@@ -101,32 +94,6 @@ class IraBubble(QWidget):
 
     hoverAmount = Property(float, _get_hover, _set_hover)
 
-    def _apply_circle_mask(self) -> None:
-        """Clip HWND to a circle — this is what kills square corners on Windows."""
-        s = max(1, self.width())
-        if IS_WINDOWS:
-            # QBitmap mask is more reliable than QRegion on Win10/11 DWM
-            bmp = QBitmap(s, s)
-            bmp.fill(Qt.GlobalColor.color0)  # color0 = outside (clipped away)
-            mp = QPainter(bmp)
-            mp.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-            mp.setPen(Qt.PenStyle.NoPen)
-            mp.setBrush(Qt.GlobalColor.color1)  # color1 = visible
-            mp.drawEllipse(0, 0, s - 1, s - 1)
-            mp.end()
-            self.setMask(bmp)
-        else:
-            self.setMask(QRegion(0, 0, s, s, QRegion.RegionType.Ellipse))
-
-    def showEvent(self, event) -> None:
-        super().showEvent(event)
-        # Tool windows on Windows often need the mask re-applied after show
-        self._apply_circle_mask()
-
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-        self._apply_circle_mask()
-
     def _animate_hover(self, target: float) -> None:
         self._hover_anim.stop()
         self._hover_anim.setStartValue(self._hover)
@@ -144,6 +111,13 @@ class IraBubble(QWidget):
 
     def _visual_size(self) -> float:
         return SIZE + (HOVER_SIZE - SIZE) * self._hover
+
+    def _in_globe(self, pos: QPointF) -> bool:
+        """Ignore clicks in the transparent corners of the square HWND."""
+        cx = cy = self.width() / 2
+        r = self._visual_size() * 0.5
+        dx, dy = pos.x() - cx, pos.y() - cy
+        return (dx * dx + dy * dy) <= (r * r)
 
     def _seed_points(self) -> list[_Pt]:
         rng = random.Random(7)
@@ -185,42 +159,26 @@ class IraBubble(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         canvas = float(self.width())
-        cx = cy = canvas / 2
 
-        if IS_WINDOWS:
-            # Opaque circular fill — mask already clipped the HWND to a circle,
-            # so this never shows square corners. Keep the disc fully painted.
-            base = QRadialGradient(cx, cy, canvas * 0.5)
-            base.setColorAt(0.0, QColor(18, 28, 64))
-            base.setColorAt(0.65, QColor(8, 13, 29))
-            base.setColorAt(1.0, QColor(4, 6, 15))
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QBrush(base))
-            p.drawEllipse(QPointF(cx, cy), canvas * 0.5 - 0.5, canvas * 0.5 - 0.5)
-        else:
-            # Per-pixel alpha path (Linux/mac)
-            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-            p.fillRect(0, 0, int(canvas), int(canvas), QColor(0, 0, 0, 0))
-            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+        # Fully transparent clear — desktop shows through (no navy disc, no square)
+        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+        p.fillRect(0, 0, int(canvas), int(canvas), QColor(0, 0, 0, 0))
+        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
 
         w = self._visual_size()
+        cx = cy = canvas / 2
         R = w * 0.34
 
-        flash_boost = 40 if self._flash else 0
-        wash = QRadialGradient(cx, cy, R * 1.7)
-        if IS_WINDOWS:
-            # Opaque wash (no alpha holes that would flash system chrome)
-            wash.setColorAt(0.0, QColor(23, 34, 72))
-            wash.setColorAt(0.55, QColor(10, 16, 36))
-            wash.setColorAt(1.0, QColor(4, 6, 15))
-        else:
-            wash.setColorAt(0.0, QColor(18, 28, 64, 160 + flash_boost))
-            wash.setColorAt(0.55, QColor(8, 13, 29, 110))
-            wash.setColorAt(0.85, QColor(6, 10, 24, 35))
-            wash.setColorAt(1.0, QColor(0, 0, 0, 0))
+        # Very soft atmosphere only — fades to 0 so the orb bg stays transparent
+        flash_boost = 30 if self._flash else 0
+        wash = QRadialGradient(cx, cy, R * 1.55)
+        wash.setColorAt(0.0, QColor(18, 28, 64, 70 + flash_boost))
+        wash.setColorAt(0.45, QColor(10, 16, 40, 36))
+        wash.setColorAt(0.75, QColor(8, 12, 28, 12))
+        wash.setColorAt(1.0, QColor(0, 0, 0, 0))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(wash))
-        p.drawEllipse(QPointF(cx, cy), R * 1.7, R * 1.7)
+        p.drawEllipse(QPointF(cx, cy), R * 1.55, R * 1.55)
 
         spin = self._t * 0.16
         tilt = -0.2
@@ -280,6 +238,9 @@ class IraBubble(QWidget):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
+            if not self._in_globe(event.position()):
+                event.ignore()
+                return
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             self._press_pos = event.globalPosition().toPoint()
             self._did_drag = False
@@ -294,6 +255,9 @@ class IraBubble(QWidget):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
+            if self._drag_offset is None:
+                event.ignore()
+                return
             if self._did_drag:
                 self.moved_to.emit(self.x(), self.y())
             else:

@@ -155,3 +155,13 @@ def require_employer(
     if not token:
         raise HTTPException(status_code=401, detail="Employer login required")
     return parse_token(token)
+
+
+def optional_employer(
+    authorization: Optional[str] = Header(default=None),
+    x_smartstart_token: Optional[str] = Header(default=None, alias="X-SmartStart-Token"),
+) -> Optional[dict]:
+    """Employer session when a token is sent; None for anonymous callers (public endpoints)."""
+    if not authorization and not x_smartstart_token:
+        return None
+    return require_employer(authorization, x_smartstart_token)

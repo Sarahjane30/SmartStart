@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.auth import list_demo_accounts, login, require_employer
+from backend.auth import list_demo_accounts, login, optional_employer, require_employer
 from backend.chatbot import build_chatbot
 from backend.predictor import build_predictions
 from backend.recommender import build_recommendations
@@ -41,6 +41,15 @@ from backend.ira_api import (
     set_ira_session,
 )
 from backend.owners import build_assignable_owners
+from backend.role_context import (
+    ROLE_OPS,
+    access_items,
+    build_role_context,
+    build_role_insights,
+    build_workspace,
+    present_alerts,
+    role_actions,
+)
 from backend.models import (
     AssignOwnersResponse,
     RecommendationsResponse,
@@ -70,6 +79,7 @@ from backend.synthetic_engine import days_in_pipeline, generate_cohort, infer_bo
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 NO_CACHE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
 EmployerSession = Annotated[dict, Depends(require_employer)]
+OptionalEmployerSession = Annotated[Optional[dict], Depends(optional_employer)]
 
 API_DESCRIPTION = """
 SmartStart Layers 1–4 — Synthetic onboarding data engine, Employer Command Center,
@@ -150,10 +160,15 @@ def auth_me(session: EmployerSession) -> dict:
 
 @app.get("/api/joiners", response_model=list[Joiner])
 def list_joiners(
+    session: OptionalEmployerSession,
     role_type: RoleType | None = Query(default=None),
     state: OnboardingState | None = Query(default=None),
 ) -> list[Joiner]:
+    """Public roster for the synthetic sign-in picker; manager sessions see their team only."""
     rows = store.list_joiners()
+    manager_id = _manager_scope(session) if session else None
+    if manager_id:
+        rows = [j for j in rows if j.manager_id == manager_id]
     if role_type is not None:
         rows = [j for j in rows if j.role_type == role_type]
     if state is not None:
@@ -162,27 +177,31 @@ def list_joiners(
 
 
 @app.get("/api/joiners/{joiner_id}", response_model=JoinerDetail)
-def get_joiner(joiner_id: str) -> JoinerDetail:
-    joiner = store.get_joiner(joiner_id)
-    if joiner is None:
+def get_joiner(joiner_id: str, session: EmployerSession) -> JoinerDetail:
+    """Full joiner record + journey, scoped to the caller's role context."""
+    ctx = build_role_context(session)
+    if store.get_joiner(joiner_id) is None:
         raise HTTPException(status_code=404, detail="Joiner not found")
-    documents = store.get_documents(joiner_id)
-    ticket = store.get_ticket_for_joiner(joiner_id)
-    if documents is None or ticket is None:
-        raise HTTPException(status_code=500, detail="Incomplete synthetic bundle")
+    facts = ctx.require_joiner(joiner_id)
     return JoinerDetail(
-        joiner=joiner,
-        documents=documents,
-        it_ticket=ticket,
-        days_in_pipeline=days_in_pipeline(joiner, now=ANALYTICS_AS_OF),
-        bottleneck=infer_bottleneck(joiner.current_state, documents, ticket),
+        joiner=facts.joiner,
+        documents=facts.docs,
+        it_ticket=facts.ticket,
+        days_in_pipeline=facts.days,
+        bottleneck=facts.bottleneck,
+        queue=facts.queue,
+        journey=facts.journey,
+        viewer_role=ctx.role,
+        role_actions=role_actions(facts, ctx.role),
+        access=access_items(facts.ticket),
     )
 
 
 @app.get("/api/joiners/{joiner_id}/owners", response_model=AssignOwnersResponse)
 def joiner_owners(joiner_id: str, session: EmployerSession) -> AssignOwnersResponse:
     """Assignable team owners for a joiner's current bottleneck (Assign modal)."""
-    _ = session
+    if store.get_joiner(joiner_id) is not None:
+        build_role_context(session).require_joiner(joiner_id)
     try:
         return build_assignable_owners(joiner_id)
     except KeyError as exc:
@@ -192,7 +211,8 @@ def joiner_owners(joiner_id: str, session: EmployerSession) -> AssignOwnersRespo
 @app.get("/api/joiners/{joiner_id}/intelligence")
 def joiner_intelligence(joiner_id: str, session: EmployerSession) -> dict:
     """Explain risk / blockers / next actions for Command Center (synthetic)."""
-    _ = session
+    if store.get_joiner(joiner_id) is not None:
+        build_role_context(session).require_joiner(joiner_id)
     from backend.intelligence import employer_at_risk_explanation
 
     try:
@@ -211,9 +231,10 @@ def employer_at_risk(
     from backend.intelligence import employer_at_risk_explanation
     from backend.predictor import build_predictions
 
-    _ = session
+    ctx = build_role_context(session)
+    role_view = ctx.resolve_view(role_view)
     rows = []
-    for j in store.list_joiners():
+    for j in (f.joiner for f in ctx.visible):
         docs = store.get_documents(j.id)
         ticket = store.get_ticket_for_joiner(j.id)
         if docs is None or ticket is None:
@@ -311,8 +332,9 @@ def regenerate(
     n_interns: int = Query(default=15, ge=0, le=100),
     n_ftes: int = Query(default=15, ge=0, le=100),
 ) -> dict[str, int | str]:
-    """Rebuild the in-memory synthetic cohort (dev/demo only)."""
-    _ = session
+    """Rebuild the in-memory synthetic cohort (dev/demo only, Ops accounts)."""
+    if build_role_context(session).role != ROLE_OPS:
+        raise HTTPException(status_code=403, detail="Only Onboarding Ops can regenerate the cohort")
     generate_cohort(n_interns=n_interns, n_ftes=n_ftes, seed=seed)
     clear_feedback()
     return {
@@ -339,17 +361,14 @@ def dashboard(
     role_type: RoleType | None = Query(default=None),
     state: OnboardingState | None = Query(default=None),
 ) -> DashboardResponse:
-    """Employer Command Center table: joiners + states (synthetic only)."""
-    manager_id = _manager_scope(session)
-    # Manager accounts default their lens to their team + Manager queue when All is selected.
-    effective_view = role_view
-    if manager_id and role_view == EmployerRole.ALL:
-        effective_view = EmployerRole.ALL
+    """Employer Command Center table: joiners + states, scoped by role context."""
+    ctx = build_role_context(session)
+    effective_view = ctx.resolve_view(role_view)
+    actionable = {f.id for f in ctx.actionable}
 
     rows: list[DashboardJoinerRow] = []
-    for joiner in store.list_joiners():
-        if manager_id and joiner.manager_id != manager_id:
-            continue
+    for facts in ctx.visible:
+        joiner = facts.joiner
         if role_type is not None and joiner.role_type != role_type:
             continue
         if state is not None and joiner.current_state != state:
@@ -389,6 +408,11 @@ def dashboard(
                 hardware_status=ticket.hardware_status,
                 it_sla_breached=ticket.sla_breached,
                 assigned_tasks=joiner.assigned_tasks,
+                queue=facts.queue,
+                health=facts.health,
+                risk_score=facts.risk_score,
+                journey=facts.journey,
+                actionable=joiner.id in actionable,
                 synthetic=True,
             )
         )
@@ -406,24 +430,10 @@ def alerts(
     session: EmployerSession,
     role_view: EmployerRole = Query(default=EmployerRole.ALL),
 ):
-    """Synthetic SLA breaches + pending-task alerts."""
-    manager_id = _manager_scope(session)
-    payload = build_alerts()
-    alerts_list = payload.alerts
-    if role_view != EmployerRole.ALL:
-        alerts_list = [
-            a
-            for a in alerts_list
-            if a.role_view in {role_view.value, EmployerRole.ALL.value, "Ops"}
-        ]
-    if manager_id:
-        team_ids = {j.id for j in store.list_joiners() if j.manager_id == manager_id}
-        alerts_list = [
-            a
-            for a in alerts_list
-            if a.joiner_id is None or a.joiner_id in team_ids
-        ]
-    return payload.model_copy(update={"alerts": alerts_list, "total": len(alerts_list)})
+    """Synthetic SLA / pending-task alerts, worded and scoped for the caller's role."""
+    ctx = build_role_context(session)
+    view = ctx.resolve_view(role_view)
+    return present_alerts(ctx, build_alerts(), view)
 
 
 @app.get("/api/analytics")
@@ -431,8 +441,23 @@ def analytics(
     session: EmployerSession,
     role_view: EmployerRole = Query(default=EmployerRole.ALL),
 ):
-    """KPIs from synthetic timestamps, scoped to an employer persona lens."""
-    return build_analytics(role_view=role_view, manager_id=_manager_scope(session))
+    """KPIs from synthetic timestamps, scoped to the role context + optional queue lens."""
+    ctx = build_role_context(session)
+    view = ctx.resolve_view(role_view)
+    payload = build_analytics(role_view=view, manager_id=ctx.manager_id)
+    return payload.model_copy(update={"role_insights": build_role_insights(ctx)})
+
+
+@app.get("/api/employer/context")
+def employer_context(session: EmployerSession) -> dict:
+    """Reusable role context: user, role, visible/actionable joiners, bottlenecks, permissions."""
+    return build_role_context(session).to_dict()
+
+
+@app.get("/api/employer/workspace")
+def employer_workspace(session: EmployerSession) -> dict:
+    """Role workspace: nav, cards, action queue and per-joiner journeys for the signed-in role."""
+    return build_workspace(build_role_context(session))
 
 
 @app.get("/api/integrations")

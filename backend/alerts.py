@@ -30,6 +30,9 @@ def build_alerts(db: DataStore | None = None) -> AlertsResponse:
     stalled_joiners: list[str] = []
     orientation_joiners: list[str] = []
     project_joiners: list[str] = []
+    members: dict[str, list[str]] = {
+        "sla": [], "docs": [], "rework": [], "stalled": [], "day1": [], "project": [],
+    }
 
     for joiner in joiners:
         docs = db.get_documents(joiner.id)
@@ -39,19 +42,25 @@ def build_alerts(db: DataStore | None = None) -> AlertsResponse:
 
         if ticket.sla_breached and ticket.hardware_status != HardwareStatus.DELIVERED:
             sla_joiners.append(joiner.name)
+            members["sla"].append(joiner.id)
         if docs.status == DocumentStatus.PENDING:
             docs_pending_joiners.append(joiner.name)
+            members["docs"].append(joiner.id)
         if docs.rework_flag:
             rework_joiners.append(joiner.name)
+            members["rework"].append(joiner.id)
 
         days = days_in_pipeline(joiner, now=ALERTS_AS_OF)
         bottleneck = infer_bottleneck(joiner.current_state, docs, ticket)
         if days >= 10 and joiner.current_state != OnboardingState.PROJECT_READY:
             stalled_joiners.append(joiner.name)
+            members["stalled"].append(joiner.id)
         if joiner.current_state == OnboardingState.IT_PROVISIONED:
             orientation_joiners.append(joiner.name)
+            members["day1"].append(joiner.id)
         if joiner.current_state == OnboardingState.DAY1_ORIENTED:
             project_joiners.append(joiner.name)
+            members["project"].append(joiner.id)
 
         # Per-joiner high-signal alerts (cap noise).
         if ticket.sla_breached and ticket.hardware_status != HardwareStatus.DELIVERED:
@@ -127,6 +136,7 @@ def build_alerts(db: DataStore | None = None) -> AlertsResponse:
                 joiner_name=None,
                 role_view="IT",
                 created_at=ALERTS_AS_OF,
+                joiner_ids=list(members["sla"]),
                 synthetic=True,
             ),
         )
@@ -146,6 +156,7 @@ def build_alerts(db: DataStore | None = None) -> AlertsResponse:
                 joiner_name=None,
                 role_view="HR",
                 created_at=ALERTS_AS_OF,
+                joiner_ids=list(members["docs"]),
                 synthetic=True,
             ),
         )
@@ -163,6 +174,7 @@ def build_alerts(db: DataStore | None = None) -> AlertsResponse:
                 joiner_name=None,
                 role_view="HR",
                 created_at=ALERTS_AS_OF,
+                joiner_ids=list(members["rework"]),
                 synthetic=True,
             )
         )
@@ -181,6 +193,7 @@ def build_alerts(db: DataStore | None = None) -> AlertsResponse:
                 joiner_name=None,
                 role_view="HR",
                 created_at=ALERTS_AS_OF,
+                joiner_ids=list(members["day1"]),
                 synthetic=True,
             )
         )
@@ -199,6 +212,7 @@ def build_alerts(db: DataStore | None = None) -> AlertsResponse:
                 joiner_name=None,
                 role_view="Manager",
                 created_at=ALERTS_AS_OF,
+                joiner_ids=list(members["project"]),
                 synthetic=True,
             )
         )
@@ -217,6 +231,7 @@ def build_alerts(db: DataStore | None = None) -> AlertsResponse:
                 joiner_name=None,
                 role_view="All",
                 created_at=ALERTS_AS_OF,
+                joiner_ids=list(members["stalled"]),
                 synthetic=True,
             )
         )

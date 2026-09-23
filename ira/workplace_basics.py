@@ -381,12 +381,25 @@ def question(topic_id: str) -> str:
     return f"How do I {t[0].lower()}{t[1:]}?"
 
 
+def _fit(t: dict, nervous: set[str]) -> int:
+    """How well a topic matches what the employee is unsure about (primary worry counts double)."""
+    if not nervous:
+        return 0
+    return len(set(t["nervous"]) & nervous) + (2 if t["nervous"][0] in nervous else 0)
+
+
+def recommended_ids(profile: dict | None, limit: int = 4) -> list[str]:
+    nervous = traits(profile)["nervous"]
+    scored = [(_fit(t, nervous), i, t["id"]) for i, t in enumerate(TOPICS)]
+    return [tid for score, _, tid in sorted(scored, key=lambda s: (-s[0], s[1])) if score > 0][:limit]
+
+
 def catalogue(profile: dict | None = None) -> list[dict]:
-    tr = traits(profile)
+    recs = recommended_ids(profile)
     return [
         {
             "id": t["id"], "title": t["title"], "group": t["group"], "why": t["why"],
-            "practice": t["practice"], "recommended": bool(set(t["nervous"]) & tr["nervous"]),
+            "practice": t["practice"], "recommended": t["id"] in recs,
             "question": question(t["id"]),
         }
         for t in TOPICS

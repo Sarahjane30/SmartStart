@@ -47,7 +47,7 @@ async function loadWorkspace() {
     window.history.replaceState({}, "", `/employee?id=${encodeURIComponent(state.employeeId)}`);
   }
   const id = encodeURIComponent(state.employeeId);
-  const [profile, track, notifications, feedback, workspace, chatbot] =
+  const [profile, track, notifications, feedback, workspace, chatbot, iraProfile, basics] =
     await Promise.all([
       fetchJSON(`/api/employee/${id}`),
       fetchJSON(`/api/learningtrack/${id}`),
@@ -55,7 +55,11 @@ async function loadWorkspace() {
       fetchJSON(`/api/feedback?joiner_id=${id}`),
       fetchJSON(`/api/employee/${id}/workspace`),
       fetchJSON(`/api/chatbot/${id}`),
+      fetchJSON(`/api/ira/${id}/profile`),
+      fetchJSON(`/api/ira/${id}/basics`),
     ]);
+  state.iraProfile = iraProfile;
+  state.basics = basics;
   state.profile = profile;
   state.track = track;
   state.notifications = notifications;
@@ -96,6 +100,8 @@ function renderAll() {
   renderTeam();
   renderFeedback();
   renderHomeExtras();
+  renderBasics();
+  renderOnboard();
   setTab(state.tab || "home");
 }
 
@@ -783,6 +789,13 @@ function renderChat() {
 
   const bubbles = state.chatTurns.map((t, i) => {
     const label = t.role === "user" ? "You" : "IRA";
+    if (t.coachResult) return coachCard(t.coachResult, i);
+    if (t.persona) {
+      const who = t.persona === "your team" ? "Team" : t.persona;
+      return `<div class="bubble assistant cx-persona"><div class="bubble-meta">${esc(who)} · played by IRA</div><p>${esc(
+        t.text
+      )}</p></div>`;
+    }
     if (t.draft) {
       const intro = t.text.split("\n\nTo:")[0];
       return `<div class="bubble ${t.role} has-draft"><div class="bubble-meta">${label}</div><p>${esc(intro)}</p>
@@ -805,9 +818,9 @@ function renderChat() {
   const asked = new Set(
     state.chatTurns.filter((t) => t.role === "user").map((t) => t.text.trim().toLowerCase())
   );
-  const suggested = (state.chatSuggestions || initial)
-    .filter((q) => !asked.has(q.trim().toLowerCase()))
-    .slice(0, 3);
+  const suggested = state.coach
+    ? []
+    : (state.chatSuggestions || initial).filter((q) => !asked.has(q.trim().toLowerCase())).slice(0, 4);
   document.getElementById("faq-chips").innerHTML = suggested
     .map(
       (q) =>
@@ -820,6 +833,8 @@ function renderChat() {
     btn.addEventListener("click", () => askChat(btn.dataset.q));
   });
   wireDraftCards();
+  wireCoachCards();
+  renderCoachBanner();
   const log = document.getElementById("chat-log");
   log.scrollTop = log.scrollHeight;
 }
@@ -828,7 +843,8 @@ async function askChat(query) {
   if (state.chatThinking) return;
   const id = encodeURIComponent(state.employeeId);
   if (!state.chatTurns) state.chatTurns = (state.chatbot?.turns || []).slice();
-  const asked = state.chatTurns.filter((t) => t.role === "user").map((t) => t.text);
+  if (state.coach) return coachSend(query);
+  const asked = state.chatTurns.filter((t) => t.role === "user").map((t) => t.text).slice(-12);
   state.chatTurns.push({ role: "user", text: query });
   state.chatThinking = true;
   window.iraGlobe?.setThinking(true);
@@ -842,9 +858,13 @@ async function askChat(query) {
     const wait = 900 - (performance.now() - started);
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     const reply = (data.turns || []).filter((t) => t.role === "assistant").pop();
+    if (data.coach) {
+      state.chatThinking = false;
+      enterCoach(data.coach);
+      return;
+    }
     if (reply) state.chatTurns.push(data.draft ? { ...reply, draft: { ...data.draft } } : reply);
-    if (data.suggestions?.length) state.chatSuggestions = data.suggestions;
-  } finally {
+    if (data.suggestions?.length) state.chatSuggestions = data.suggestions;  } finally {
     state.chatThinking = false;
     window.iraGlobe?.setThinking(false);
     renderChat();
@@ -1307,6 +1327,11 @@ function wireUI() {
     }
   });
 
+  document.getElementById("ira-personalise")?.addEventListener("click", openPersonalise);
+  document.getElementById("ira-practice")?.addEventListener("click", () => {
+    if (state.coach) endCoach(true);
+    askChat("Let's practise");
+  });
   document.getElementById("wx-drawer-close").addEventListener("click", closeDrawer);
   document.getElementById("wx-drawer-back").addEventListener("click", drawerBack);
   document.getElementById("wx-drawer-backdrop").addEventListener("click", closeDrawer);

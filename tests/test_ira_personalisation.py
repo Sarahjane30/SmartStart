@@ -35,7 +35,7 @@ def test_every_basics_topic_has_why_and_matches_its_own_question():
 
 def test_recommended_basics_follow_nervous_answers():
     recs = {t["id"] for t in workplace_basics.catalogue(INTERN_A) if t["recommended"]}
-    assert {"email", "blocked", "intro_manager"} <= recs
+    assert {"email", "intro_manager"} <= recs and len(recs) <= 4
     assert not any(t["recommended"] for t in workplace_basics.catalogue(INTERN_B))
 
 

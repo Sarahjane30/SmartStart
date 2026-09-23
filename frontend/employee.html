@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=26" />
+  <link rel="stylesheet" href="/static/style.css?v=27" />
 </head>
 <body class="employee-page">
   <div id="workspace" class="wx">
@@ -24,6 +24,7 @@
         <button type="button" class="wx-nav-btn active" data-tab="home">Home</button>
         <button type="button" class="wx-nav-btn" data-tab="learning">Learning</button>
         <button type="button" class="wx-nav-btn" data-tab="ask">IRA</button>
+        <button type="button" class="wx-nav-btn" data-tab="basics">Basics</button>
         <button type="button" class="wx-nav-btn" data-tab="people">People</button>
         <button type="button" class="wx-nav-btn" data-tab="team">Team</button>
         <button type="button" class="wx-nav-btn" data-tab="feedback">Feedback</button>
@@ -108,7 +109,8 @@
         <section class="wx-ira-strip">
           <div>
             <strong>Not sure where to go?</strong>
-            <span class="muted tiny">Ask IRA — policies, apps, people, or your own onboarding.</span>
+            <span class="muted tiny">Ask IRA — policies, apps, people, or your own onboarding.
+              New to office life? <button type="button" class="btn-link wx-inline-link" data-goto="basics">Workplace Basics →</button></span>
           </div>
           <div class="wx-ira-chips" id="home-recs"></div>
         </section>
@@ -137,13 +139,19 @@
         <header class="wx-section-head">
           <div>
             <h1>IRA</h1>
-            <p class="muted">I know Waters — apps, teams, processes, docs</p>
+            <p class="muted">I know Waters — and I learn how to help you</p>
+          </div>
+          <div class="wx-head-actions">
+            <button type="button" class="btn-secondary" id="ira-practice">Practice mode</button>
+            <button type="button" class="btn-secondary" id="ira-personalise">Personalise IRA</button>
           </div>
         </header>
         <div class="wx-ask">
+          <div class="cx-banner" id="coach-banner" hidden></div>
           <div class="ira-stage">
             <canvas id="ira-globe" class="ira-globe" aria-hidden="true"></canvas>
             <div id="chat-log" class="chat-log" aria-live="polite"></div>
+            <div id="ira-onboard" class="gk-overlay" hidden></div>
           </div>
           <div class="faq-chips" id="faq-chips"></div>
           <form id="chat-form" class="chat-form">
@@ -151,6 +159,17 @@
             <button class="btn-primary" type="submit">Ask</button>
           </form>
         </div>
+      </section>
+
+      <section class="emp-tab" id="tab-basics">
+        <header class="wx-section-head">
+          <div>
+            <h1>Workplace Basics</h1>
+            <p class="muted">The unwritten rules nobody tells you — what to say, and why it works</p>
+          </div>
+          <button type="button" class="btn-secondary" data-goto="ask" id="basics-ask">Ask IRA instead</button>
+        </header>
+        <div id="basics-list" class="bx-list"></div>
       </section>
 
       <section class="emp-tab" id="tab-people">
@@ -271,6 +290,7 @@
   <script src="/static/session.js?v=17"></script>
   <script src="/static/motion.js?v=17"></script>
   <script src="/static/ira-globe.js?v=18"></script>
-  <script src="/static/employee.js?v=26"></script>
+  <script src="/static/ira-personal.js?v=27"></script>
+  <script src="/static/employee.js?v=27"></script>
 </body>
 </html>

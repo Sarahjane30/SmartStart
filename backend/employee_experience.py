@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 
 from backend.database import DataStore, store
 from backend.models import (
@@ -39,11 +40,25 @@ AS_OF = datetime(2026, 9, 15, 12, 0, 0, tzinfo=timezone.utc)
 _FEEDBACK: list[FeedbackRecord] = []
 # joiner_id -> module suffixes the joiner finished in the Learning tab.
 _COMPLETED: dict[str, set[str]] = {}
+_COMPLETED_AT: dict[tuple[str, str], str] = {}
+# joiner_id -> courses an employer added on top of the role track (in assignment order).
+_ASSIGNED: dict[str, list[dict]] = {}
+ASSIGNED_PREFIX = "add-"
+
+# Extra synthetic courses a manager can add; lessons exist for any id also in learning_content.
+_EXTRA_COURSES = [
+    ("feedback", "Giving & receiving feedback", "Ask for feedback early and turn it into next steps.", 25, "Team"),
+    ("privacy", "Data privacy in practice", "Handling customer and employee data day to day.", 30, "Compliance"),
+    ("present", "Presenting your work", "Short demos, status updates and stakeholder readouts.", 30, "Communication"),
+    ("sql", "SQL for analysis", "Select, join and aggregate against a sandbox dataset.", 45, "Engineering Foundations"),
+]
 
 
 def clear_feedback() -> None:
     _FEEDBACK.clear()
     _COMPLETED.clear()
+    _COMPLETED_AT.clear()
+    _ASSIGNED.clear()
 
 
 def list_feedback(joiner_id: str | None = None) -> list[FeedbackRecord]:
@@ -162,6 +177,87 @@ def _status_for_module(index: int, stage_i: int, total: int) -> ModuleStatus:
     return ModuleStatus.LOCKED
 
 
+def _library() -> dict[str, tuple[str, str, int, str]]:
+    """Every approved course: all role/track templates plus the extra catalog, keyed by id."""
+    out: dict[str, tuple[str, str, int, str]] = {}
+    for role in RoleType:
+        for track in DepartmentTrack:
+            for suffix, title, desc, minutes, cat in _module_catalog(role, track):
+                out.setdefault(suffix, (title, desc, minutes, cat))
+    for suffix, title, desc, minutes, cat in _EXTRA_COURSES:
+        out.setdefault(suffix, (title, desc, minutes, cat))
+    return out
+
+
+def course_library(joiner_id: str, db: DataStore | None = None) -> list[dict]:
+    """Approved courses not already in this joiner's learning."""
+    track = build_learning_track(joiner_id, db=db)
+    have = {_module_suffix(joiner_id, m.id).removeprefix(ASSIGNED_PREFIX) for m in track.modules}
+    return [
+        {"id": cid, "title": t, "description": d, "duration_minutes": m, "category": c}
+        for cid, (t, d, m, c) in _library().items()
+        if cid not in have
+    ]
+
+
+def assign_course(
+    joiner_id: str,
+    *,
+    by: str,
+    course_id: Optional[str] = None,
+    title: Optional[str] = None,
+    minutes: int = 30,
+    note: str = "",
+    due_date: Optional[date] = None,
+    db: DataStore | None = None,
+) -> LearningModule:
+    """Add an approved (or custom) course to a joiner's learning. Raises ValueError on bad input."""
+    db = db or store
+    if db.get_joiner(joiner_id) is None:
+        raise KeyError(joiner_id)
+    assigned = _ASSIGNED.setdefault(joiner_id, [])
+    if course_id:
+        lib = _library()
+        if course_id not in lib:
+            raise ValueError("That course isn't in the approved library.")
+        if course_id not in {c["id"] for c in course_library(joiner_id, db=db)}:
+            raise ValueError("That course is already in their learning.")
+        t, d, m, c = lib[course_id]
+        entry = {"suffix": f"{ASSIGNED_PREFIX}{course_id}", "title": t, "description": d, "minutes": m, "category": c}
+    else:
+        clean = (title or "").strip()
+        if not clean:
+            raise ValueError("Pick a course from the library or give the custom course a title.")
+        n = sum(1 for a in assigned if a["suffix"].startswith(f"{ASSIGNED_PREFIX}custom")) + 1
+        entry = {
+            "suffix": f"{ASSIGNED_PREFIX}custom{n}",
+            "title": clean[:80],
+            "description": note.strip()[:160] or "Custom course added by your manager.",
+            "minutes": max(5, min(int(minutes or 30), 240)),
+            "category": "Team",
+        }
+    entry.update({
+        "by": by,
+        "note": note.strip()[:300],
+        "due_date": due_date.isoformat() if due_date else None,
+        "at": datetime.now(timezone.utc).isoformat(),
+    })
+    assigned.append(entry)
+    track = build_learning_track(joiner_id, db=db)
+    return next(m for m in track.modules if m.id == f"{joiner_id}-MOD-{entry['suffix']}")
+
+
+def remove_assigned_course(joiner_id: str, module_id: str) -> None:
+    suffix = _module_suffix(joiner_id, module_id)
+    assigned = _ASSIGNED.get(joiner_id, [])
+    entry = next((a for a in assigned if a["suffix"] == suffix), None)
+    if entry is None:
+        raise KeyError(module_id)
+    if suffix in _COMPLETED.get(joiner_id, set()):
+        raise ValueError("They've already completed this course.")
+    assigned.remove(entry)
+
+
 def build_learning_track(joiner_id: str, db: DataStore | None = None) -> LearningTrackResponse:
     db = db or store
     joiner = db.get_joiner(joiner_id)
@@ -192,6 +288,25 @@ def build_learning_track(joiner_id: str, db: DataStore | None = None) -> Learnin
                 status=status,
                 category=category,
                 required=True,
+                completed_at=_COMPLETED_AT.get((joiner_id, suffix)),
+                synthetic=True,
+            )
+        )
+    for a in _ASSIGNED.get(joiner_id, []):
+        modules.append(
+            LearningModule(
+                id=f"{joiner_id}-MOD-{a['suffix']}",
+                title=a["title"],
+                description=a["description"],
+                duration_minutes=a["minutes"],
+                status=ModuleStatus.COMPLETE if a["suffix"] in done else ModuleStatus.AVAILABLE,
+                category=a["category"],
+                required=True,
+                assigned_by=a["by"],
+                assigned_note=a["note"],
+                due_date=a["due_date"],
+                assigned_at=a["at"],
+                completed_at=_COMPLETED_AT.get((joiner_id, a["suffix"])),
                 synthetic=True,
             )
         )
@@ -228,7 +343,7 @@ def build_module_detail(
     if idx is None:
         raise KeyError(module_id)
     module = track.modules[idx]
-    content = content_for(suffix) or {}
+    content = content_for(suffix) or content_for(suffix.removeprefix(ASSIGNED_PREFIX)) or {}
     check = content.get("check")
     unlock_hint = ""
     if module.status == ModuleStatus.LOCKED:
@@ -259,7 +374,36 @@ def complete_module(
     if module.status == ModuleStatus.LOCKED:
         raise ValueError("Module is locked — finish the previous module first.")
     _COMPLETED.setdefault(joiner_id, set()).add(suffix)
+    _COMPLETED_AT.setdefault((joiner_id, suffix), datetime.now(timezone.utc).isoformat())
     return build_learning_track(joiner_id, db=db)
+
+
+def learning_summary(joiner_id: str, db: DataStore | None = None) -> dict:
+    """Compact progress for employer views (team learning, drawer, NIA)."""
+    track = build_learning_track(joiner_id, db=db)
+    mods = track.modules
+    current = next((m for m in mods if m.status == ModuleStatus.IN_PROGRESS), None) or next(
+        (m for m in mods if m.status == ModuleStatus.AVAILABLE), None
+    )
+    added = [m for m in mods if m.assigned_by]
+    today = AS_OF.date()
+    overdue = [
+        m for m in added
+        if m.status != ModuleStatus.COMPLETE and m.due_date and date.fromisoformat(m.due_date) < today
+    ]
+    return {
+        "joiner_id": joiner_id,
+        "track_name": track.track_name,
+        "completion_pct": track.completion_pct,
+        "completed_count": track.completed_count,
+        "total_count": track.total_count,
+        "current": current.title if current else None,
+        "current_status": current.status.value if current else None,
+        "assigned_count": len(added),
+        "assigned_open": sum(1 for m in added if m.status != ModuleStatus.COMPLETE),
+        "overdue": [m.title for m in overdue],
+        "locked_count": sum(1 for m in mods if m.status == ModuleStatus.LOCKED),
+    }
 
 
 def build_notifications(joiner_id: str, db: DataStore | None = None) -> NotificationsResponse:
@@ -357,6 +501,21 @@ def build_notifications(joiner_id: str, db: DataStore | None = None) -> Notifica
                 message=f"Hardware status: {ticket.hardware_status.value}. We'll notify you when it's ready.",
                 created_at=base - timedelta(hours=8),
                 read=True,
+                synthetic=True,
+            )
+        )
+
+    for a in _ASSIGNED.get(joiner_id, []):
+        due = f" Due {a['due_date']}." if a["due_date"] else ""
+        notes.append(
+            EmployeeNotification(
+                id=f"{joiner_id}-N-{a['suffix']}",
+                kind=NotificationKind.ACTION,
+                title=f"New course from {a['by']}",
+                message=f"{a['by']} added “{a['title']}” to your learning.{due}"
+                + (f" Note: {a['note']}" if a["note"] else ""),
+                created_at=datetime.fromisoformat(a["at"]),
+                read=False,
                 synthetic=True,
             )
         )

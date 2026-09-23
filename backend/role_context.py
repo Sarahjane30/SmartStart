@@ -31,6 +31,7 @@ from backend.models import (
     Joiner,
     OnboardingState,
 )
+from backend import resolutions
 from backend.predictor import build_predictions
 from backend.synthetic_engine import days_in_pipeline, infer_bottleneck
 
@@ -85,6 +86,7 @@ NAV = {
         {"id": "dashboard", "label": "Dashboard"},
         {"id": "joiners", "label": "My Joiners"},
         {"id": "actions", "label": "My Actions"},
+        {"id": "learning", "label": "Learning"},
         {"id": "alerts", "label": "Alerts"},
     ],
     ROLE_OPS: [
@@ -134,6 +136,9 @@ class JoinerFacts:
     journey: list[dict]
     blocked: bool
     health: str
+    # queue (HR / IT / Manager) -> resolution entry recorded against the current bottleneck
+    resolved: dict = field(default_factory=dict)
+    reopened: dict = field(default_factory=dict)
 
     @property
     def id(self) -> str:
@@ -259,7 +264,18 @@ def joiner_facts(joiner: Joiner, db: DataStore | None = None) -> Optional[Joiner
         journey=journey,
         blocked=blocked,
         health=health,
+        resolved=resolutions.resolved_for(joiner.id, bottleneck),
+        reopened=resolutions.reopened_for(joiner.id, bottleneck),
     )
+
+
+def lens_queue(f: JoinerFacts, role: str) -> str:
+    """The owner queue a role's work on this joiner belongs to (Ops acts on the joiner's own queue)."""
+    return {ROLE_HR: "HR", ROLE_IT: "IT", ROLE_MANAGER: "Manager"}.get(role, f.queue)
+
+
+def is_resolved_for(f: JoinerFacts, role: str) -> bool:
+    return lens_queue(f, role) in f.resolved
 
 
 # --- Role actions (what each role can do on one joiner) ----------------------
@@ -356,6 +372,8 @@ def role_actions(f: JoinerFacts, role: str) -> list[dict]:
 
 
 def _is_actionable(f: JoinerFacts, role: str) -> bool:
+    if is_resolved_for(f, role):
+        return False
     if role == ROLE_HR:
         return f.queue == "HR"
     if role == ROLE_IT:
@@ -386,6 +404,8 @@ def _permissions(role: str) -> dict:
         "assign": True,
         "resolve": True,
         "regenerate_cohort": role == ROLE_OPS,
+        "view_learning": role in (ROLE_HR, ROLE_MANAGER, ROLE_OPS),
+        "manage_learning": role in (ROLE_MANAGER, ROLE_OPS),
     }
     base["act_on"] = {
         ROLE_HR: ["documents", "handoff"],
@@ -594,6 +614,8 @@ def joiner_summary(f: JoinerFacts, role: str) -> dict:
         "hardware_status": f.ticket.hardware_status.value,
         "sla_breached": f.sla_open,
         "access_open": f.access_open,
+        "resolution": f.resolved.get(lens_queue(f, role)),
+        "reopened": f.reopened.get(lens_queue(f, role)),
     }
 
 
@@ -613,12 +635,21 @@ def build_workspace(ctx: RoleContext) -> dict:
         "cards": build_cards(ctx),
         "action_queue": [joiner_summary(f, role) for f in ctx.actionable],
         "joiners": [joiner_summary(f, role) for f in ctx.visible],
+        "resolved": [
+            {"joiner_id": f.id, "name": f.joiner.name, **entry}
+            for f in ctx.visible for entry in f.resolved.values()
+            if role == ROLE_OPS or entry["queue"] == lens_queue(f, role)
+        ],
         "focus": PRIORITIES[role],
         "as_of": ANALYTICS_AS_OF.isoformat(),
     }
 
 
 # --- Role-aware alerts -------------------------------------------------------
+
+
+_ALERT_QUEUE = {"IT": "IT", "HR": "HR", "MGR": "Manager"}
+_ROLLUP_QUEUE = {"IT-SLA": "IT", "HR-DOCS": "HR", "HR-REWORK": "HR", "HR-DAY1": "Manager", "MGR-PROJECT": "Manager"}
 
 
 def _names(ctx: RoleContext, ids: Iterable[str], limit: int = 4) -> str:
@@ -634,6 +665,8 @@ def _word_joiner_alert(a: Alert, ctx: RoleContext) -> Optional[dict]:
     name = f.joiner.name
     t = f.ticket
     kind = a.id.split("-")[1]  # IT / HR / MGR
+    if _ALERT_QUEUE.get(kind) in f.resolved:
+        return None
     role = ctx.role
     if role == ROLE_OPS:
         return {"action_required": False}
@@ -678,12 +711,25 @@ def _word_joiner_alert(a: Alert, ctx: RoleContext) -> Optional[dict]:
     }
 
 
+def _rollup_ids(a: Alert, ctx: RoleContext) -> list[str]:
+    queue = _ROLLUP_QUEUE.get(a.id.replace("ALT-ROLLUP-", ""))
+    out = []
+    for i in a.joiner_ids:
+        f = ctx.facts(i)
+        if f is None:
+            continue
+        if queue in f.resolved if queue else is_resolved_for(f, ctx.role):
+            continue
+        out.append(i)
+    return out
+
+
 def _word_rollup(a: Alert, ctx: RoleContext) -> Optional[dict]:
-    ids = [i for i in a.joiner_ids if ctx.can_see(i)]
+    key = a.id.replace("ALT-ROLLUP-", "")
+    ids = _rollup_ids(a, ctx)
     n = len(ids)
     if n == 0:
         return None
-    key = a.id.replace("ALT-ROLLUP-", "")
     role = ctx.role
     if role == ROLE_OPS:
         text = {
@@ -734,8 +780,7 @@ def present_alerts(ctx: RoleContext, base: AlertsResponse, view: EmployerRole) -
             words = _word_rollup(a, ctx)
             if words is None:
                 continue
-            if ctx.role != ROLE_OPS:
-                words["joiner_ids"] = [i for i in a.joiner_ids if ctx.can_see(i)]
+            words["joiner_ids"] = _rollup_ids(a, ctx)
         update = {k: v for k, v in words.items() if v is not None}
         update["audience"] = ctx.role
         update["event_title"] = a.title

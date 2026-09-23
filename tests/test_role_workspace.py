@@ -92,7 +92,7 @@ def test_manager_sees_only_their_joiners():
         ws = client.get("/api/employer/workspace", headers=h).json()
         assert ws["role"] == "MANAGER"
         assert ws["can_switch_queues"] is False
-        assert _nav(ws) == ["Dashboard", "My Joiners", "My Actions", "Alerts"]
+        assert _nav(ws) == ["Dashboard", "My Joiners", "My Actions", "Learning", "Alerts"]
         assert _cards(ws) == ["My Joiners", "On Track", "Need My Action", "Project Assignment Pending", "Project Ready"]
         assert set(ws["visible_joiners"]) == mine
         assert set(ws["actionable_joiners"]) <= mine

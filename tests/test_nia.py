@@ -206,6 +206,6 @@ def test_frontend_panel_is_wired():
     assert "/static/nia.js" in html
     js = (FRONTEND / "nia.js").read_text()
     assert "/api/nia/ask" in js and "/api/nia/briefing" in js
-    assert "confirmAssign(" in js and 'handleAction("resolve"' in js
+    assert "confirmAssign(" in js and "handleAction(block.action" in js
     assert "<iframe" not in js and "<iframe" not in html
     assert "data-nia-ask" in (FRONTEND / "app.js").read_text()

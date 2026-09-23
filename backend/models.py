@@ -196,6 +196,7 @@ class DashboardJoinerRow(BaseModel):
     risk_score: Optional[float] = None
     journey: list[dict] = Field(default_factory=list)
     actionable: bool = False
+    resolved: bool = False
     synthetic: bool = True
 
 
@@ -291,6 +292,11 @@ class LearningModule(BaseModel):
     status: ModuleStatus
     category: str
     required: bool = True
+    assigned_by: Optional[str] = None
+    assigned_note: str = ""
+    assigned_at: Optional[str] = None
+    due_date: Optional[str] = None
+    completed_at: Optional[str] = None
     synthetic: bool = True
 
 

@@ -102,7 +102,7 @@ and **framing** (alert wording, cards, analytics). `backend/role_context.py` bui
 |------|-----------|-------|-----|-------|
 | HR | `hr.jordan` (Jordan Hale) | Cohort | Dashboard · My Actions · Joiners · Alerts · Analytics | Joiners in view · Documents pending · Document rework · HR actions · At risk |
 | IT | `it.riley` (Riley Chen) | Cohort | Dashboard · IT Requests · Joiners · Alerts · Analytics | Joiners in view · Pending hardware · SLA breaches · Access requests · IT risks |
-| Manager | `mgr.chen` / `mgr.park` / `mgr.singh` / `mgr.cole` | Own team only | Dashboard · My Joiners · My Actions · Alerts | My Joiners · On Track · Need My Action · Project Assignment Pending · Project Ready |
+| Manager | `mgr.chen` / `mgr.park` / `mgr.singh` / `mgr.cole` | Own team only | Dashboard · My Joiners · My Actions · Learning · Alerts | My Joiners · On Track · Need My Action · Project Assignment Pending · Project Ready |
 | Ops | `ops.admin` (Sam Ortiz) | Cohort + All/HR/IT/Manager filters | Dashboard · Alerts · Analytics · Roles & systems | Total Joiners · On Track · At Risk · Blocked · Active Bottlenecks |
 
 Every joiner has the same journey strip for every role (**HR** docs → **IT** laptop & access →
@@ -160,6 +160,45 @@ first action-queue row, and its bottleneck counts match the dashboard table.
 | GET | `/api/nia/briefing` | Role-aware welcome, suggested prompts, proactive nudges |
 | POST | `/api/nia/ask` | `{message, focus_joiner_id?}` → `{intent, text, blocks[facts/bullets/joiners/link/confirm], sources, suggestions, focus_joiner_id}` |
 
+NIA's panel uses the same particle-globe backdrop as IRA (`ira-globe.js`). The globe speeds up while NIA is thinking.
+
+### Resolve and "Still needs help"
+
+**Resolve** (in the table, the drawer, or a NIA confirm card) is stored on the server
+(`backend/resolutions.py`), per joiner and per owner queue (HR / IT / Manager). A resolved item leaves
+the role's alerts (joiner alerts and rollup counts), the action queue, "Needs you now" and NIA's
+priority and list answers. It then appears under **Alerts → Resolved**, where **Still needs help** reopens it.
+Reopened items return to the queue with a *Still needs help* tag. IT resolving a laptop issue doesn't
+hide HR's document work for the same joiner. If the joiner's bottleneck changes, the old resolution
+stops applying.
+
+### Manager learning
+
+Hiring managers get a **Learning** page:
+- Each joiner's completion, current module and added courses, lowest progress first.
+- **View progress** shows the full module list.
+- **+ Add course** adds a course from the approved library, or a custom one, with an optional due date
+  and a note to the joiner.
+
+Added courses show up in the joiner's own Learning tab ("Added by Ava Chen · due …"), with a
+notification. They can be removed until the joiner completes them. The joiner drawer shows the same
+learning block. NIA answers "How is Sarah's learning going?" and "Who is behind on learning?", and
+prepares "Add SQL for analysis to Sarah's learning" as a confirm card.
+
+Learning permissions:
+- **Manager (own team) and Ops:** view progress and add courses.
+- **HR:** view only.
+- **IT:** no learning view.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/employer/joiners/{id}/resolve` | Resolve the caller's part of the bottleneck |
+| POST | `/api/employer/joiners/{id}/reopen` | "Still needs help": reopen it |
+| GET | `/api/employer/learning` | Learning progress for everyone in scope |
+| GET | `/api/employer/joiners/{id}/learning` | One joiner's track, summary and addable library |
+| POST | `/api/employer/joiners/{id}/learning` | Add a course: `{course_id}` or `{title, minutes}`, plus optional `note` and `due_date` |
+| DELETE | `/api/employer/joiners/{id}/learning/{module_id}` | Remove an added course that isn't completed yet |
+
 Demo: sign in as `hr.jordan`, `it.riley`, `mgr.chen` or `ops.admin`, then click **NIA**. Try
 "Who needs my attention?", "Why is Sarah at risk?", "Where do I fix this?", "Who isn't project-ready?"
 or "Which team needs attention?".
@@ -178,6 +217,7 @@ backend/
   analytics.py            # KPI calculations
   role_context.py         # Role scope, actions, alert wording, role analytics
   nia.py                  # NIA — employer assistant over the role context
+  resolutions.py          # Resolved / reopened bottlenecks (per owner queue)
   alerts.py               # Synthetic alert generator
   integrations.py         # Mock system connectors
   employee_experience.py  # Profile / learning / notifications / feedback
@@ -188,6 +228,8 @@ frontend/
   style.css
   app.js                  # Employer Fetch + charts
   nia.js                  # NIA floating assistant panel
+  employer-learning.js    # Team learning, drawer learning, Add course
+  ira-globe.js            # Particle globe shared by IRA and NIA
   employee.js             # Employee dashboard Fetch UI
   ai.js                   # AI Features Fetch UI
 tests/

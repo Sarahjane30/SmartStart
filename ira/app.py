@@ -87,7 +87,7 @@ class IraApp:
     def open_smartstart(self) -> None:
         webbrowser.open(self.client.portal_login_url())
         self.panel.auth_status.setText("● Waiting for SmartStart…")
-        self.panel.auth_status.setStyleSheet("color:#5B93FF; font-size:13px;")
+        self.panel.auth_status.setStyleSheet("color:#9db2ff; font-size:13px;")
 
     def _bootstrap(self) -> None:
         self.online = self.client.available()

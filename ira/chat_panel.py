@@ -37,20 +37,21 @@ from ira.network_anim import NetworkSphere
 
 EDGE = 8
 
-# MindBot-inspired dark navy + electric blue (SmartStart enterprise)
-BG = "#070B14"
-BG_ELEV = "#0E1524"
-SURFACE = "#141C2E"
-SURFACE_2 = "#1A2438"
-IRA_BUBBLE = "#161F33"
-USER_BUBBLE = "#243552"
-LINE = "#243049"
-TEXT = "#F4F7FF"
-MUTED = "#8B97B0"
-BLUE = "#3D7EFF"
-BLUE_SOFT = "#5B93FF"
-BLUE_DIM = "#1E3A6E"
-GREEN = "#3DDC97"
+# SmartStart design tokens (frontend/style.css :root)
+BG = "#04060f"          # --navy-900
+BG_ELEV = "#080d1d"     # --navy-800
+SURFACE = "#0e1631"     # --navy-700
+SURFACE_2 = "#172248"   # --navy-600
+IRA_BUBBLE = "#0e1631"  # --navy-700
+USER_BUBBLE = "#172248" # --navy-600
+LINE = "#243356"
+TEXT = "#eaeeff"        # sidebar ink
+MUTED = "#9db2ff"       # sidebar accent (soft)
+MUTED_DIM = "#8a97b8"
+BLUE = "#1f3bff"        # SmartStart glow / brand electric
+BLUE_SOFT = "#9db2ff"   # sidebar highlight
+BLUE_DIM = "#0b1f4a"    # --blue-700
+GREEN = "#22d3ee"       # --cyan (connected)
 
 
 class PanelMode(str, Enum):
@@ -82,7 +83,7 @@ class ProgressCard(QWidget):
         self.update()
 
     def _draw_icon(self, p: QPainter, kind: str, cx: int, cy: int, done: bool) -> None:
-        color = QColor("#061018" if done else MUTED)
+        color = QColor("#04060f" if done else MUTED_DIM)
         p.setPen(QPen(color, 1.5))
         p.setBrush(Qt.BrushStyle.NoBrush)
         if kind == "laptop":
@@ -109,7 +110,7 @@ class ProgressCard(QWidget):
         p.setBrush(QBrush(grad))
         p.drawRoundedRect(0, 0, w - 1, h - 1, 18, 18)
 
-        p.setPen(QColor(MUTED))
+        p.setPen(QColor(MUTED_DIM))
         p.drawText(16, 16, "Your readiness")
         p.setPen(QColor(BLUE_SOFT))
         p.drawText(w - 48, 16, f"{self._pct}%")
@@ -139,8 +140,8 @@ class ProgressCard(QWidget):
             p.setPen(Qt.PenStyle.NoPen)
             if done:
                 glow = QRadialGradient(cx, cy - 2, 14)
-                glow.setColorAt(0.0, QColor(61, 126, 255, 90))
-                glow.setColorAt(1.0, QColor(61, 126, 255, 0))
+                glow.setColorAt(0.0, QColor(31, 59, 255, 90))
+                glow.setColorAt(1.0, QColor(31, 59, 255, 0))
                 p.setBrush(QBrush(glow))
                 p.drawEllipse(cx - 14, cy - 16, 28, 28)
                 p.setBrush(QBrush(QColor(BLUE)))
@@ -148,7 +149,7 @@ class ProgressCard(QWidget):
                 p.setBrush(QBrush(QColor(SURFACE_2)))
             p.drawEllipse(cx - 9, cy - 9, 18, 18)
             self._draw_icon(p, kind, cx, cy, done)
-            p.setPen(QColor(TEXT if done else MUTED))
+            p.setPen(QColor(TEXT if done else MUTED_DIM))
             p.drawText(cx - 26, cy + 12, 52, 16, Qt.AlignmentFlag.AlignHCenter, label)
 
 
@@ -168,9 +169,9 @@ class _SendOrb(QPushButton):
         r = QRectF(2, 2, self.width() - 4, self.height() - 4)
         glow = QRadialGradient(r.center(), r.width() * 0.7)
         if self.isEnabled():
-            glow.setColorAt(0.0, QColor(61, 126, 255, 120))
-            glow.setColorAt(0.55, QColor(61, 126, 255, 40))
-            glow.setColorAt(1.0, QColor(61, 126, 255, 0))
+            glow.setColorAt(0.0, QColor(31, 59, 255, 120))
+            glow.setColorAt(0.55, QColor(31, 59, 255, 40))
+            glow.setColorAt(1.0, QColor(31, 59, 255, 0))
             p.setBrush(QBrush(glow))
             p.setPen(Qt.PenStyle.NoPen)
             p.drawEllipse(QRectF(0, 0, self.width(), self.height()))
@@ -182,7 +183,7 @@ class _SendOrb(QPushButton):
             p.setBrush(QBrush(QColor(LINE)))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawEllipse(r)
-        p.setPen(QColor("#FFFFFF" if self.isEnabled() else MUTED))
+        p.setPen(QColor("#FFFFFF" if self.isEnabled() else MUTED_DIM))
         p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "↑")
 
 
@@ -236,14 +237,14 @@ class ChatPanel(QWidget):
               selection-background-color: {BLUE_DIM};
             }}
             QLineEdit#composer:focus {{ border-color: {BLUE}; }}
-            QLineEdit#composer:disabled {{ color: {MUTED}; }}
+            QLineEdit#composer:disabled {{ color: {MUTED_DIM}; }}
             QPushButton#icon {{
-              background: transparent; color: {MUTED}; border: 0;
+              background: transparent; color: {MUTED_DIM}; border: 0;
               font-size: 15px; padding: 6px 8px; border-radius: 10px;
             }}
-            QPushButton#icon:hover {{ background: {SURFACE}; color: {TEXT}; }}
+            QPushButton#icon:hover {{ background: {SURFACE_2}; color: {TEXT}; }}
             QPushButton#chip {{
-              background: {SURFACE};
+              background: {SURFACE_2};
               color: {TEXT};
               border: 1px solid {LINE};
               border-radius: 14px;
@@ -253,12 +254,12 @@ class ChatPanel(QWidget):
             }}
             QPushButton#chip:hover {{
               background: {BLUE_DIM};
-              border-color: {BLUE};
+              border-color: {BLUE_SOFT};
               color: #ffffff;
             }}
             QPushButton#cta {{
               background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                stop:0 {BLUE}, stop:1 {BLUE_SOFT});
+                stop:0 {BLUE}, stop:1 #3d6ab0);
               color: #ffffff;
               border: 0;
               border-radius: 22px;
@@ -266,7 +267,7 @@ class ChatPanel(QWidget):
               padding: 14px 28px;
               font-size: 14px;
             }}
-            QPushButton#cta:hover {{ background: {BLUE_SOFT}; }}
+            QPushButton#cta:hover {{ background: #3d6ab0; }}
             QScrollArea {{ border: 0; background: transparent; }}
             QWidget#chatInner {{ background: transparent; }}
             QScrollBar:vertical {{
@@ -304,7 +305,7 @@ class ChatPanel(QWidget):
             f"color:{TEXT}; font-size:15px; font-weight:800; letter-spacing:0.04em;"
         )
         self.status_line = QLabel("Not connected")
-        self.status_line.setStyleSheet(f"color:{MUTED}; font-size:11px;")
+        self.status_line.setStyleSheet(f"color:{MUTED_DIM}; font-size:11px;")
         titles.addWidget(brand)
         titles.addWidget(self.status_line)
         head.addLayout(titles, 1)
@@ -339,14 +340,14 @@ class ChatPanel(QWidget):
         )
         self.auth_status = QLabel("Waiting for employee sign-in")
         self.auth_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.auth_status.setStyleSheet(f"color:{MUTED}; font-size:13px;")
+        self.auth_status.setStyleSheet(f"color:{MUTED_DIM}; font-size:13px;")
         auth_copy = QLabel(
             "Apps, teams, processes, docs — ask me anything.\n"
             "Sign in via SmartStart and I unlock with your profile."
         )
         auth_copy.setAlignment(Qt.AlignmentFlag.AlignCenter)
         auth_copy.setWordWrap(True)
-        auth_copy.setStyleSheet(f"color:{MUTED}; font-size:12.5px;")
+        auth_copy.setStyleSheet(f"color:{MUTED_DIM}; font-size:12.5px;")
         self.connect_btn = QPushButton("Get Started")
         self.connect_btn.setObjectName("cta")
         self.connect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -377,7 +378,7 @@ class ChatPanel(QWidget):
         self.prompt = QLabel("")  # unused, kept for API compatibility
         self.prompt.hide()
         self.identity = QLabel("")
-        self.identity.setStyleSheet(f"color:{MUTED}; font-size:12px;")
+        self.identity.setStyleSheet(f"color:{MUTED_DIM}; font-size:12px;")
         greet.addWidget(self.hello)
         greet.addWidget(self.identity)
         body_l.addLayout(greet)
@@ -574,11 +575,11 @@ class ChatPanel(QWidget):
         if self._unlocked:
             self.status_line.setText("Connected to SmartStart" if online else "SmartStart offline")
             self.status_line.setStyleSheet(
-                f"color:{GREEN if online else '#FBBF24'}; font-size:11px;"
+                f"color:{GREEN if online else '#f59e0b'}; font-size:11px;"
             )
         else:
             self.status_line.setText("Not connected")
-            self.status_line.setStyleSheet(f"color:{MUTED}; font-size:11px;")
+            self.status_line.setStyleSheet(f"color:{MUTED_DIM}; font-size:11px;")
             self.auth_status.setText(
                 "SmartStart is running — sign in to continue"
                 if online
@@ -595,7 +596,7 @@ class ChatPanel(QWidget):
             self.progress.hide()
             self._employee_first = ""
             self.status_line.setText("Not connected")
-            self.status_line.setStyleSheet(f"color:{MUTED}; font-size:11px;")
+            self.status_line.setStyleSheet(f"color:{MUTED_DIM}; font-size:11px;")
             self.set_suggestions([])
             if hasattr(self, "_net"):
                 self._net.set_hero(True)
@@ -638,14 +639,14 @@ class ChatPanel(QWidget):
 
     def _bubble_style(self, role: str, *, latest: bool) -> str:
         if role == "user":
-            bg = USER_BUBBLE if latest else "#1C2A40"
+            bg = USER_BUBBLE if latest else "#0b1226"
             return (
                 f"QFrame#msgBubble {{ background:{bg}; border-radius:18px;"
                 f" border:1px solid {LINE}; }}"
                 f" QLabel {{ color:{TEXT}; font-size:13px; background:transparent; border:0; }}"
             )
-        bg = IRA_BUBBLE if latest else "#121A2A"
-        border = BLUE if latest else LINE
+        bg = IRA_BUBBLE if latest else "#080d1d"
+        border = BLUE_SOFT if latest else LINE
         return (
             f"QFrame#msgBubble {{ background:{bg}; border-radius:18px;"
             f" border:1px solid {border}; }}"
@@ -671,7 +672,7 @@ class ChatPanel(QWidget):
             for child in box.findChildren(QLabel):
                 if child.objectName() == "msgMeta":
                     child.setStyleSheet(
-                        f"color:{BLUE_SOFT if latest else MUTED}; font-size:10px;"
+                        f"color:{BLUE_SOFT if latest else MUTED_DIM}; font-size:10px;"
                         "font-weight:700; letter-spacing:0.06em;"
                     )
 
@@ -727,7 +728,7 @@ class ChatPanel(QWidget):
 
     def show_typing(self) -> QLabel:
         tip = QLabel("IRA is thinking…")
-        tip.setStyleSheet(f"color:{MUTED}; font-size:12px; padding:8px 0;")
+        tip.setStyleSheet(f"color:{MUTED_DIM}; font-size:12px; padding:8px 0;")
         self.chat_layout.addWidget(tip)
         QTimer.singleShot(20, self._scroll_bottom)
         return tip

@@ -21,7 +21,7 @@ class IraBubble(QWidget):
         self.setFixedSize(64, 64)
         self.setToolTip("IRA")
         if IS_WINDOWS:
-            self.setStyleSheet("background:#070B14; border-radius:32px;")
+            self.setStyleSheet("background:#04060f; border-radius:32px;")
         else:
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
@@ -52,22 +52,22 @@ class IraBubble(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         cx, cy = self.width() / 2, self.height() / 2
 
-        # Outer soft glow
+        # Outer soft glow — SmartStart #1f3bff
         glow_r = 30 + 6 * self._pulse + (4 if self._flash else 0)
         glow = QRadialGradient(cx, cy, glow_r)
         alpha = int(70 + 50 * self._pulse) + (30 if self._flash else 0)
-        glow.setColorAt(0.0, QColor(61, 126, 255, min(alpha, 140)))
-        glow.setColorAt(0.55, QColor(61, 126, 255, 28))
-        glow.setColorAt(1.0, QColor(61, 126, 255, 0))
+        glow.setColorAt(0.0, QColor(31, 59, 255, min(alpha, 140)))
+        glow.setColorAt(0.55, QColor(31, 59, 255, 28))
+        glow.setColorAt(1.0, QColor(31, 59, 255, 0))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(glow))
         p.drawEllipse(QRectF(0, 0, 64, 64))
 
-        # Core orb
+        # Core orb — navy → brand blue
         core = QRadialGradient(cx - 4, cy - 6, 22)
-        core.setColorAt(0.0, QColor(120, 170, 255))
-        core.setColorAt(0.45, QColor(61, 126, 255))
-        core.setColorAt(1.0, QColor(20, 40, 90))
+        core.setColorAt(0.0, QColor(157, 178, 255))   # #9db2ff
+        core.setColorAt(0.45, QColor(31, 59, 255))     # #1f3bff
+        core.setColorAt(1.0, QColor(11, 31, 74))       # #0b1f4a
         p.setBrush(QBrush(core))
         p.drawEllipse(QRectF(14, 14, 36, 36))
 

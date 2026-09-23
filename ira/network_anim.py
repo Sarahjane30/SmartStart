@@ -94,20 +94,20 @@ class NetworkSphere(QWidget):
         clip.addRoundedRect(0, 0, w, h, 22, 22)
         p.setClipPath(clip)
 
-        # Flat navy — nothing else
-        p.fillRect(self.rect(), QColor(8, 14, 28))
+        # Flat navy-900 — SmartStart --navy-900
+        p.fillRect(self.rect(), QColor(4, 6, 15))
 
-        # Soft center lift (still navy family)
+        # Soft center lift (navy-800 → navy-700)
         base = QRadialGradient(w * 0.5, h * 0.45, max(w, h) * 0.65)
         if self._hero:
-            base.setColorAt(0.0, QColor(20, 34, 64, 160))
-            base.setColorAt(0.55, QColor(12, 20, 40, 70))
-            base.setColorAt(1.0, QColor(8, 14, 28, 0))
+            base.setColorAt(0.0, QColor(14, 22, 49, 180))   # navy-700
+            base.setColorAt(0.55, QColor(8, 13, 29, 80))    # navy-800
+            base.setColorAt(1.0, QColor(4, 6, 15, 0))
             gain = 0.55
         else:
-            base.setColorAt(0.0, QColor(16, 28, 52, 90))
-            base.setColorAt(0.6, QColor(10, 18, 36, 40))
-            base.setColorAt(1.0, QColor(8, 14, 28, 0))
+            base.setColorAt(0.0, QColor(14, 22, 49, 100))
+            base.setColorAt(0.6, QColor(8, 13, 29, 45))
+            base.setColorAt(1.0, QColor(4, 6, 15, 0))
             gain = 0.28
         p.fillRect(self.rect(), QBrush(base))
 
@@ -123,13 +123,12 @@ class NetworkSphere(QWidget):
             rr = orb.size * pulse * (1.05 if self._hero else 0.9)
 
             if orb.hue == "cyan":
-                core = QColor(120, 200, 240)
+                core = QColor(34, 211, 238)      # --cyan
             elif orb.hue == "white":
-                core = QColor(230, 236, 255)
+                core = QColor(234, 238, 255)     # #eaeeff
             else:
-                core = QColor(90, 130, 255)
+                core = QColor(31, 59, 255)       # #1f3bff
 
-            # Wide soft falloff = blurred look (no hard dots)
             a0 = int((55 if self._hero else 28) * gain)
             grad = QRadialGradient(ox, oy, rr)
             grad.setColorAt(0.0, QColor(core.red(), core.green(), core.blue(), a0))
@@ -140,4 +139,4 @@ class NetworkSphere(QWidget):
             p.drawEllipse(QPointF(ox, oy), rr, rr)
 
         # Frost so light stays behind content
-        p.fillRect(self.rect(), QColor(8, 14, 28, 90 if self._hero else 130))
+        p.fillRect(self.rect(), QColor(4, 6, 15, 90 if self._hero else 130))

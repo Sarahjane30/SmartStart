@@ -87,7 +87,7 @@ class IraApp:
     def open_smartstart(self) -> None:
         webbrowser.open(self.client.portal_login_url())
         self.panel.auth_status.setText("● Waiting for SmartStart…")
-        self.panel.auth_status.setStyleSheet("color:#163A7A; font-size:12px;")
+        self.panel.auth_status.setStyleSheet("color:#5B93FF; font-size:13px;")
 
     def _bootstrap(self) -> None:
         self.online = self.client.available()
@@ -221,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
     print("=" * 52)
     print("  IRA — SmartStart onboarding assistant")
     print(f"  {pkg}")
-    print("  Ask-style panel · navy chrome · light chat · edge resize")
+    print("  Dark MindBot-style panel · glow send · edge resize")
     print("  Connect via SmartStart employee sign-in")
     print("=" * 52)
     print()

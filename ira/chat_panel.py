@@ -384,7 +384,7 @@ class ChatPanel(QWidget):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setMinimumHeight(220)
+        self.scroll.setMinimumHeight(260)
         self.chat_inner = QWidget()
         self.chat_inner.setObjectName("chatInner")
         self.chat_layout = QVBoxLayout(self.chat_inner)
@@ -394,21 +394,12 @@ class ChatPanel(QWidget):
         self.scroll.setWidget(self.chat_inner)
         body_l.addWidget(self.scroll, 1)
 
-        # Suggestion chips — QGridLayout so gaps never collapse
-        self.suggest_host = QWidget()
-        self.suggest_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.suggest_grid = QGridLayout(self.suggest_host)
-        self.suggest_grid.setContentsMargins(0, 8, 0, 8)
-        self.suggest_grid.setHorizontalSpacing(12)
-        self.suggest_grid.setVerticalSpacing(12)
-        body_l.addWidget(self.suggest_host)
-        body_l.addSpacing(4)
-
         # Composer bar — MindBot pill input + glow send
         composer = QFrame()
         composer.setStyleSheet(
             f"QFrame {{ background:{SURFACE}; border:1px solid {LINE}; border-radius:26px; }}"
         )
+        composer.setContentsMargins(0, 8, 0, 0)
         comp_l = QHBoxLayout(composer)
         comp_l.setContentsMargins(6, 6, 6, 6)
         comp_l.setSpacing(6)
@@ -424,7 +415,18 @@ class ChatPanel(QWidget):
         self.send_btn.clicked.connect(self._submit)
         comp_l.addWidget(self.input, 1)
         comp_l.addWidget(self.send_btn, 0)
+        body_l.addSpacing(10)
         body_l.addWidget(composer)
+
+        # Suggestion chips live in the scroll area (added after messages)
+        self.suggest_host = QWidget()
+        self.suggest_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.suggest_grid = QGridLayout(self.suggest_host)
+        self.suggest_grid.setContentsMargins(0, 12, 0, 16)
+        self.suggest_grid.setHorizontalSpacing(12)
+        self.suggest_grid.setVerticalSpacing(12)
+        self.suggest_host.hide()
+        self._suggest_in_layout = False
 
         content_l.addWidget(self.body, 1)
 
@@ -621,11 +623,15 @@ class ChatPanel(QWidget):
         self.progress.show()
 
     def clear_chat(self) -> None:
+        self.set_suggestions([])
         while self.chat_layout.count():
             item = self.chat_layout.takeAt(0)
             w = item.widget()
-            if w:
+            if w and w is not self.suggest_host:
                 w.deleteLater()
+        self._suggest_in_layout = False
+        self.suggest_host.setParent(None)
+        self.suggest_host.hide()
 
     def _bubble_style(self, role: str, *, latest: bool) -> str:
         if role == "user":
@@ -643,12 +649,19 @@ class ChatPanel(QWidget):
 
     def _dim_older_messages(self) -> None:
         count = self.chat_layout.count()
-        for i in range(count):
+        # Ignore trailing suggestion host when finding "latest" message
+        msg_indices = [
+            i
+            for i in range(count)
+            if (self.chat_layout.itemAt(i).widget() or None) not in (None, self.suggest_host)
+        ]
+        latest_i = msg_indices[-1] if msg_indices else -1
+        for i in msg_indices:
             item = self.chat_layout.itemAt(i)
             box = item.widget() if item else None
             if not box:
                 continue
-            latest = i == count - 1
+            latest = i == latest_i
             for child in box.findChildren(QLabel):
                 name = child.objectName()
                 if name == "msgBubble":
@@ -671,7 +684,6 @@ class ChatPanel(QWidget):
         box = QWidget()
         box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         wrap = QVBoxLayout(box)
-        # Vertical margins keep bubbles from stacking on top of each other
         wrap.setSpacing(6)
         wrap.setContentsMargins(0, 6, 0, 10)
         align = Qt.AlignmentFlag.AlignRight if role == "user" else Qt.AlignmentFlag.AlignLeft
@@ -691,7 +703,6 @@ class ChatPanel(QWidget):
         bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
         bubble.setFixedWidth(bubble_w)
         bubble.setStyleSheet(self._bubble_style(role, latest=True))
-        # Padding (16*2) + border (1*2) + line slack — never undersize or text spills
         doc = QTextDocument()
         doc.setDefaultFont(bubble.font())
         doc.setDocumentMargin(0)
@@ -705,14 +716,21 @@ class ChatPanel(QWidget):
         stamp.setStyleSheet("color:#6B7790; font-size:9px;")
         wrap.addWidget(stamp, alignment=align)
 
-        self.chat_layout.addWidget(box)
+        # Keep chips at the bottom of the scroll stack
+        if self._suggest_in_layout:
+            self.chat_layout.insertWidget(self.chat_layout.count() - 1, box)
+        else:
+            self.chat_layout.addWidget(box)
         self._dim_older_messages()
         QTimer.singleShot(20, self._scroll_bottom)
 
     def show_typing(self) -> QLabel:
         tip = QLabel("IRA is thinking…")
         tip.setStyleSheet(f"color:{MUTED}; font-size:12px; padding:8px 0;")
-        self.chat_layout.addWidget(tip)
+        if self._suggest_in_layout:
+            self.chat_layout.insertWidget(self.chat_layout.count() - 1, tip)
+        else:
+            self.chat_layout.addWidget(tip)
         QTimer.singleShot(20, self._scroll_bottom)
         return tip
 
@@ -723,15 +741,26 @@ class ChatPanel(QWidget):
             if w:
                 w.deleteLater()
         show = bool(items) and self._unlocked
-        self.suggest_host.setVisible(show)
-        for i, text in enumerate(items[:4]):
-            btn = QPushButton(text)
-            btn.setObjectName("chip")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            btn.setFixedHeight(36)
-            btn.clicked.connect(lambda _=False, t=text: self._quick(t))
-            self.suggest_grid.addWidget(btn, i // 2, i % 2)
+        if show:
+            for i, text in enumerate(items[:4]):
+                btn = QPushButton(text)
+                btn.setObjectName("chip")
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                btn.setFixedHeight(36)
+                btn.clicked.connect(lambda _=False, t=text: self._quick(t))
+                self.suggest_grid.addWidget(btn, i // 2, i % 2)
+            if not self._suggest_in_layout:
+                self.chat_layout.addWidget(self.suggest_host)
+                self._suggest_in_layout = True
+            self.suggest_host.show()
+            QTimer.singleShot(30, self._scroll_bottom)
+        else:
+            self.suggest_host.hide()
+            if self._suggest_in_layout:
+                self.chat_layout.removeWidget(self.suggest_host)
+                self._suggest_in_layout = False
+            self.suggest_host.setParent(None)
 
     def _quick(self, text: str) -> None:
         if not self._unlocked:

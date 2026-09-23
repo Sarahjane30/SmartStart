@@ -243,11 +243,12 @@ class ChatPanel(QWidget):
               background: {SURFACE};
               color: {TEXT};
               border: 1px solid {LINE};
-              border-radius: 16px;
-              padding: 10px 12px;
+              border-radius: 14px;
+              padding: 8px 10px;
               font-size: 12px;
               font-weight: 600;
-              min-height: 36px;
+              min-height: 18px;
+              max-height: 40px;
             }}
             QPushButton#chip:hover {{
               background: {BLUE_DIM};
@@ -358,7 +359,7 @@ class ChatPanel(QWidget):
         self.body = QWidget()
         body_l = QVBoxLayout(self.body)
         body_l.setContentsMargins(0, 0, 0, 0)
-        body_l.setSpacing(16)
+        body_l.setSpacing(18)
 
         greet = QVBoxLayout()
         greet.setSpacing(4)
@@ -397,10 +398,11 @@ class ChatPanel(QWidget):
         self.suggest_host = QWidget()
         self.suggest_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.suggest_grid = QGridLayout(self.suggest_host)
-        self.suggest_grid.setContentsMargins(0, 4, 0, 4)
+        self.suggest_grid.setContentsMargins(0, 8, 0, 8)
         self.suggest_grid.setHorizontalSpacing(12)
         self.suggest_grid.setVerticalSpacing(12)
         body_l.addWidget(self.suggest_host)
+        body_l.addSpacing(4)
 
         # Composer bar — MindBot pill input + glow send
         composer = QFrame()

@@ -83,6 +83,41 @@ def list_ira_employees(db: DataStore | None = None) -> dict:
     return {"total": len(rows), "employees": rows, "synthetic": True}
 
 
+_CONSULT_ROLES = {"mentor": ["mentor"], "hr": ["hr"], "it": ["it"], "mgr": ["manager"]}
+
+
+def _directory_people(joiner_id: str, db: DataStore) -> list[dict]:
+    """Team + consult contacts IRA may address emails to (no one outside this list)."""
+    from backend.employee_experience import build_team_workspace
+
+    ws = build_team_workspace(joiner_id, db=db)
+    people: dict[str, dict] = {}
+    for m in ws.members:
+        if m.is_self or not m.email:
+            continue
+        rel = m.relationship.lower()
+        roles = ["manager"] if "manager" in rel else ["mentor", "buddy"] if rel else []
+        people[m.name] = {
+            "name": m.name,
+            "email": m.email,
+            "title": m.title,
+            "ask_about": m.ask_about,
+            "roles": roles,
+        }
+    for c in ws.consult:
+        if not c.email:
+            continue
+        key = c.id.rsplit("-C-", 1)[-1]
+        entry = people.setdefault(
+            c.name,
+            {"name": c.name, "email": c.email, "title": c.role_label, "ask_about": c.focus, "roles": []},
+        )
+        for r in _CONSULT_ROLES.get(key, []):
+            if r not in entry["roles"]:
+                entry["roles"].append(r)
+    return list(people.values())
+
+
 def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
     """Single payload IRA uses for context-aware answers."""
     db = db or store
@@ -228,6 +263,7 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
             }
             for n in notes.notifications[:6]
         ],
+        "people": _directory_people(joiner_id, db),
         "synthetic": True,
         "as_of": AS_OF.isoformat(),
         "note": (

@@ -277,6 +277,39 @@ class LearningModule(BaseModel):
     synthetic: bool = True
 
 
+class LessonStep(BaseModel):
+    title: str
+    body: str
+
+
+class LearningResource(BaseModel):
+    """Something a module links to: a policy, a mock portal, a person, or an IRA question."""
+
+    label: str
+    kind: str  # policy | portal | person | ira
+    target: str
+    note: str = ""
+
+
+class KnowledgeCheck(BaseModel):
+    question: str
+    options: list[str]
+    answer_index: int
+    explanation: str
+
+
+class LearningModuleDetail(BaseModel):
+    module: LearningModule
+    summary: str
+    lessons: list[LessonStep]
+    takeaways: list[str]
+    resources: list[LearningResource]
+    check: Optional[KnowledgeCheck] = None
+    ask_ira: list[str] = Field(default_factory=list)
+    unlock_hint: str = ""
+    synthetic: bool = True
+
+
 class LearningTrackResponse(BaseModel):
     joiner_id: str
     track_name: str
@@ -386,6 +419,14 @@ class ChatTurn(BaseModel):
     synthetic: bool = True
 
 
+class EmailDraft(BaseModel):
+    to_name: str
+    to_email: str
+    subject: str
+    body: str
+    synthetic: bool = True
+
+
 class ChatbotResponse(BaseModel):
     joiner_id: str
     role_type: RoleType
@@ -394,6 +435,7 @@ class ChatbotResponse(BaseModel):
     turns: list[ChatTurn] = Field(default_factory=list)
     query: Optional[str] = None
     suggestions: list[str] = Field(default_factory=list)
+    draft: Optional["EmailDraft"] = None
     synthetic: bool = True
     note: str = "IRA — knows Waters from approved synthetic sources (not a live LLM; no production actions)."
 
@@ -453,6 +495,9 @@ class ConsultContact(BaseModel):
     channel: str
     availability: str
     focus: str
+    email: str = ""
+    portal: str = ""  # icims | servicenow | jira | ""
+    portal_label: str = ""
     synthetic: bool = True
 
 
@@ -479,6 +524,7 @@ class Colleague(BaseModel):
     expertise: list[str] = Field(default_factory=list)
     ask_about: str = ""
     channel: str = ""
+    email: str = ""
     is_self: bool = False
     synthetic: bool = True
 

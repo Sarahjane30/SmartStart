@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from backend.database import DataStore, store
-from backend.models import ChatbotResponse, ChatFAQ, ChatTurn, RoleType
+from backend.models import ChatbotResponse, ChatFAQ, ChatTurn, EmailDraft, RoleType
 
 _BASE_FAQS: list[tuple[str, str, str, str, tuple[str, ...]]] = [
     (
@@ -178,6 +178,7 @@ def build_chatbot(
 ) -> ChatbotResponse:
     db = db or store
     suggestions: list[str] = []
+    draft: EmailDraft | None = None
     joiner = db.get_joiner(joiner_id)
     if joiner is None:
         raise KeyError(joiner_id)
@@ -210,10 +211,15 @@ def build_chatbot(
             from ira.brain import answer as ira_answer
             from ira.brain import followups_for
 
+            from ira.email_draft import draft_email, is_draft_request
+
             ctx = build_ira_context(joiner_id, db=db)
             text = ira_answer(query, ctx, online=True)
             turns.append(ChatTurn(role="assistant", text=text, synthetic=True))
             suggestions = followups_for(query, text, ctx, asked=set(asked or []))
+            if is_draft_request(query):
+                found = draft_email(query, ctx)
+                draft = EmailDraft(**found) if found else None
         except Exception:
             matched = _match_faq(query, catalog)
             if matched:
@@ -247,5 +253,6 @@ def build_chatbot(
         turns=turns,
         query=query,
         suggestions=suggestions,
+        draft=draft,
         synthetic=True,
     )

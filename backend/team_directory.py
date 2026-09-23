@@ -6,8 +6,18 @@ Deterministic per department so every joiner in a department sees the same team.
 from __future__ import annotations
 
 import hashlib
+import re
+import unicodedata
 
 from backend.models import Colleague, RoleType
+
+EMAIL_DOMAIN = "synthetic.smartstart.example"
+
+
+def work_email(name: str) -> str:
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    parts = re.findall(r"[a-z]+", ascii_name.lower())
+    return f"{'.'.join(parts) or 'colleague'}@{EMAIL_DOMAIN}"
 
 # (title, expertise, ask me about)
 _Role = tuple[str, tuple[str, ...], str]
@@ -186,6 +196,7 @@ def build_colleagues(
             expertise=["Team priorities", "Goals & reviews", "Approvals"],
             ask_about="Your goals, priorities, leave approval and project assignment",
             channel="Teams · 1:1 weekly",
+            email=work_email(manager_name),
         ),
         Colleague(
             id=f"{slug}-mentor",
@@ -195,6 +206,7 @@ def build_colleagues(
             expertise=list(roles[0][1]) if roles else ["Onboarding"],
             ask_about="Anything while you settle in — tools, norms, who to ask",
             channel="Slack DM",
+            email=work_email(mentor_name),
         ),
     ]
     for (title, expertise, ask), name in zip(roles, names):
@@ -206,6 +218,7 @@ def build_colleagues(
                 expertise=list(expertise),
                 ask_about=ask,
                 channel="Slack · #" + slug,
+                email=work_email(name),
             )
         )
     members.append(

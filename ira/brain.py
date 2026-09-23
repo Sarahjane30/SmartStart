@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
+from ira.email_draft import directory_reply, draft_reply, is_draft_request
 from ira.faq import match_faq
 from ira.policy_kb import answer_from_policies
 
@@ -123,6 +124,15 @@ def followups_for(
     q = _norm(query)
     r = _norm(reply)
     picks: list[str] = []
+    if is_draft_request(query):
+        people = [p for p in (ctx or {}).get("people") or [] if p.get("email")]
+        mentor = next((p for p in people if "mentor" in p.get("roles", [])), None)
+        manager = next((p for p in people if "manager" in p.get("roles", [])), None)
+        if mentor:
+            picks.append(f"Draft an email to {mentor['name']} about a weekly check-in")
+        if manager:
+            picks.append(f"Draft an email to {manager['name']} about project assignment")
+        picks.append("Who handles payroll questions?")
     for keys, items in _FOLLOWUP_TOPICS:
         if any(k in q for k in keys):
             picks.extend(items)
@@ -255,6 +265,12 @@ def answer(
     q = _norm(query)
     if not q:
         return "Ask about Waters apps, teams, processes, docs, or your own onboarding record."
+
+    if is_draft_request(raw):
+        return draft_reply(raw, ctx)
+    directory = directory_reply(raw, ctx)
+    if directory:
+        return directory
 
     # --- Identity / help -------------------------------------------------
     if any(

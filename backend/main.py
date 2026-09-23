@@ -22,6 +22,8 @@ from backend.database import store
 from backend.employee_experience import (
     build_employee_profile,
     build_learning_track,
+    build_module_detail,
+    complete_module,
     build_notifications,
     build_team_workspace,
     clear_feedback,
@@ -54,6 +56,7 @@ from backend.models import (
     FeedbackResponse,
     Joiner,
     JoinerDetail,
+    LearningModuleDetail,
     LearningTrackResponse,
     MetricsSummary,
     NotificationsResponse,
@@ -535,6 +538,71 @@ def learning_track(joiner_id: str) -> LearningTrackResponse:
         return build_learning_track(joiner_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Learning track not found") from None
+
+
+@app.get(
+    "/api/learningtrack/{joiner_id}/modules/{module_id}",
+    response_model=LearningModuleDetail,
+)
+def learning_module(joiner_id: str, module_id: str) -> LearningModuleDetail:
+    """Lessons, resources and a knowledge check for one learning module."""
+    try:
+        return build_module_detail(joiner_id, module_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Module not found") from None
+
+
+@app.post(
+    "/api/learningtrack/{joiner_id}/modules/{module_id}/complete",
+    response_model=LearningTrackResponse,
+)
+def learning_module_complete(joiner_id: str, module_id: str) -> LearningTrackResponse:
+    """Mark a module complete (synthetic, in-memory) and return the updated track."""
+    try:
+        return complete_module(joiner_id, module_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Module not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+
+
+@app.get("/api/policies")
+def policies_index() -> dict:
+    """Approved policy library (HR, Finance, Legal, Information Security)."""
+    from ira.policy_kb import load_policies
+
+    return {
+        "policies": [
+            {
+                "slug": d.slug,
+                "title": d.title,
+                "category": d.category,
+                "owner": d.owner,
+                "updated": d.updated,
+            }
+            for d in load_policies()
+        ],
+        "synthetic": True,
+    }
+
+
+@app.get("/api/policies/{slug}")
+def policy_detail(slug: str) -> dict:
+    """Full text of one approved policy, split into sections."""
+    from ira.policy_kb import load_policies
+
+    doc = next((d for d in load_policies() if d.slug == slug), None)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    return {
+        "slug": doc.slug,
+        "title": doc.title,
+        "category": doc.category,
+        "owner": doc.owner,
+        "updated": doc.updated,
+        "sections": [{"heading": s.heading, "body": s.body} for s in doc.sections],
+        "synthetic": True,
+    }
 
 
 @app.get("/api/notifications/{joiner_id}", response_model=NotificationsResponse)

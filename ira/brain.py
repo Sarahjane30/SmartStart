@@ -12,6 +12,7 @@ import re
 from typing import Optional
 
 from ira.faq import match_faq
+from ira.policy_kb import answer_from_policies
 
 # Optional backend imports — desktop package may run with SmartStart on path
 try:
@@ -81,6 +82,63 @@ def suggestions_for(ctx: dict | None) -> list[str]:
         if q not in seen:
             seen.append(q)
     return seen[:3]
+
+
+_FOLLOWUP_TOPICS: list[tuple[tuple[str, ...], list[str]]] = [
+    (("leave", "holiday", "time off", "vacation", "sick"),
+     ["How many leave days do I get?", "Where is the holiday calendar?", "Who approves my leave?"]),
+    (("salary", "payroll", "payslip", "stipend", "paid", "tax"),
+     ["When will I get my salary?", "Where is my payslip?", "When do I declare tax investments?"]),
+    (("expense", "reimburs", "travel", "meal", "claim", "procure", "purchase", "corporate card"),
+     ["What is the daily meal limit?", "What can't be reimbursed?", "Can I buy software with a card?"]),
+    (("password", "mfa", "okta", "phishing", "security", "malware", "lost laptop"),
+     ["What if I clicked a phishing link?", "Can I use ChatGPT at work?", "How do I share files externally?"]),
+    (("confidential", "nda", "intellectual", "open source", "gift", "bribe", "privacy", "personal data", "conflict"),
+     ["What gifts can I accept?", "Who owns the code I write?", "Can I work on side projects?"]),
+    (("conduct", "dress", "harass", "posh", "benefit", "insurance", "wellness", "parental", "hybrid", "work from home"),
+     ["What is the dress code?", "How do I raise a concern?", "What benefits do I get?"]),
+    (("laptop", "servicenow", "hardware", "ticket", "vpn", "software"),
+     ["Can it delay me?", "How do I reset my password?", "How do I report phishing?"]),
+    (("jira", "project"),
+     ["Why can't I access my project?", "Who do I ask about my project?", "What is Jira?"]),
+    (("git", "learning", "course", "module", "training"),
+     ["Why do I need Git Basics?", "What happens if I don't finish Git Basics?", "What should I learn?"]),
+    (("briefing", "next", "priorit", "blocking", "ready", "onboarding", "left for me"),
+     ["What's blocking me?", "Am I ready for Day 1?", "What should I learn?"]),
+    (("mentor", "manager"),
+     ["Who is my mentor?", "Who is my manager?", "Who approves my leave?"]),
+]
+
+
+def followups_for(
+    query: str,
+    reply: str,
+    ctx: dict | None,
+    *,
+    asked: set[str] | None = None,
+    limit: int = 3,
+) -> list[str]:
+    """Next questions to offer after an answer — related to the topic, never repeats."""
+    done = {_norm(a) for a in (asked or set())} | {_norm(query)}
+    q = _norm(query)
+    r = _norm(reply)
+    picks: list[str] = []
+    for keys, items in _FOLLOWUP_TOPICS:
+        if any(k in q for k in keys):
+            picks.extend(items)
+    for keys, items in _FOLLOWUP_TOPICS:
+        if any(k in r for k in keys):
+            picks.extend(items)
+    picks.extend(suggestions_for(ctx))
+    picks.extend(SUGGESTIONS_DEFAULT)
+    picks.extend(["What is the dress code?", "How do I report phishing?", "How do I claim expenses?"])
+    out: list[str] = []
+    for p in picks:
+        if _norm(p) not in done and p not in out:
+            out.append(p)
+        if len(out) >= limit:
+            break
+    return out
 
 
 _DISCLAIMER_SHORT = (
@@ -274,9 +332,13 @@ def answer(
         if any(
             k in q
             for k in (
-                "how many leave",
                 "leave balance",
-                "how much leave",
+                "leaves do i have",
+                "leave do i have",
+                "leave days do i have",
+                "leave left",
+                "leaves left",
+                "remaining leave",
                 "salary amount",
                 "how much do i get paid",
                 "exact salary",
@@ -296,7 +358,10 @@ def answer(
             role = (ctx["employee"].get("role_type") or "").lower()
 
         # Who handles / who do I ask
-        if any(k in q for k in ("who handles", "who do i ask", "who do i contact", "who owns", "who can help")):
+        if any(
+            k in q
+            for k in ("who handles", "who do i ask", "who do i contact", "who owns", "who can help", "who approves")
+        ):
             hits = find_entities(q, role=role, limit=3)
             if hits:
                 ent = hits[0]
@@ -322,6 +387,13 @@ def answer(
                     f"Next: {ent.navigate_hint}\n"
                     f"Source: {ent.source} · {ent.owner}"
                 )
+
+        policy = answer_from_policies(q, strict=True)
+        if policy:
+            mgr = ((ctx or {}).get("employee") or {}).get("manager_name")
+            if mgr and "Your manager on record" in policy:
+                policy = policy.replace("Your manager on record", f"Your manager on record, {mgr},")
+            return policy
 
         # What is X / explain terminology
         if q.startswith("what is ") or q.startswith("what's ") or q.startswith("whats ") or "explain" in q:
@@ -649,18 +721,27 @@ def answer(
             if hits and personalize_knowledge_answer is not None:
                 return personalize_knowledge_answer(hits[0], ctx)
 
+        policy = answer_from_policies(raw, strict=False)
+        if policy:
+            return policy
         faq = match_faq(query)
         if faq:
             return faq
         return _NO_SOURCE
 
     # Offline / no context
+    policy = answer_from_policies(q, strict=True)
+    if policy:
+        return policy
     if find_entities is not None:
         hits = find_entities(q, limit=1)
         if hits and explain_entity is not None:
             prefix = "" if online else "(Offline knowledge) "
             return prefix + explain_entity(hits[0])
 
+    policy = answer_from_policies(raw, strict=False)
+    if policy:
+        return policy
     faq = match_faq(query)
     if faq:
         prefix = "" if online else "(Offline FAQ) "

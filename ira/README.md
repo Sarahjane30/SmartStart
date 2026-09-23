@@ -113,6 +113,24 @@ Pinned demo facts (synthetic):
 - **Offline:** general FAQ (apps, HR, IT, Day 1, learning). Never invents employee-specific facts.
 - **Governance:** no autonomous production actions; humans keep approvals and system changes.
 - **Proactive tips:** subtle pulse on the bubble when context suggests a useful nudge (not spammy).
+- **Follow-up chips:** after every answer IRA offers 3 related next questions it hasn't been asked yet.
+
+## Policy library
+
+`ira/knowledge_base/*.md` holds 15 approved synthetic baseline policies that IRA quotes and cites:
+
+| Domain | Policies |
+|--------|----------|
+| HR | Leave & Attendance, Code of Conduct, Working Hours & Hybrid, Benefits & Insurance, Anti-Harassment & POSH |
+| Finance | Payroll & Salary, Travel & Expense, Procurement & Corporate Card |
+| Legal | Confidentiality & IP, Anti-Bribery & Gifts, Data Privacy |
+| Information Security | Acceptable Use, Password & MFA, Incident & Phishing, Data Classification |
+
+Each file has front matter (`title`, `category`, `owner`, `updated`, `keywords`) and `## Section` blocks.
+`ira/policy_kb.py` scores sections against the question and answers with the best section plus
+`Source: <policy> › <section> · <owner>`. Add or edit a Markdown file to extend the baseline — no code changes.
+Personal record answers (my manager, my laptop, my first day) still take priority, and individual
+balances or pay amounts are never estimated.
 
 ## SmartStart APIs used
 
@@ -139,6 +157,8 @@ ira/
   client.py        # httpx → SmartStart
   brain.py         # context-aware replies (no hallucination)
   faq.py           # offline knowledge base
+  policy_kb.py     # policy library retrieval + citations
+  knowledge_base/  # HR / Finance / Legal / InfoSec policy Markdown
   config.py        # ~/.smartstart-ira/config.json
 ```
 

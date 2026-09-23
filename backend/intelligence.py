@@ -386,6 +386,13 @@ def format_blockers_text(blockers: list[dict[str, Any]], *, project_focus: bool 
 
 
 def format_next_actions_text(actions: list[dict[str, Any]], progress_pct: int) -> str:
+    if not any(a["kind"] in {"do", "wait"} for a in actions):
+        return (
+            f"You're {progress_pct}% through onboarding and there's nothing waiting on you right now.\n"
+            "Good next steps: review your week-1 checklist with your manager, or ask me about "
+            "policies, apps, or your learning plan.\n"
+            "Source: SmartStart · Employee onboarding record"
+        )
     lines = [f"You're about {progress_pct}% through onboarding on record.", ""]
     lines.append("Next priorities:")
     for a in actions:

@@ -11,7 +11,7 @@ from PySide6.QtCore import QTimer, Qt, QRect
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication, QWidget
 
-from ira.brain import answer, greeting, suggestions_for
+from ira.brain import answer, followups_for, greeting, suggestions_for
 from ira.bubble import IraBubble
 from ira.chat_panel import ChatPanel, PanelMode
 from ira.client import SmartStartClient
@@ -235,6 +235,10 @@ class IraApp:
             )
             self.panel.add_message(reply, role="ira")
             self._history.append(("ira", reply))
+            asked = {t for r, t in self._history if r == "user"}
+            self.panel.set_suggestions(
+                followups_for(text, reply, self.ctx, asked=asked)
+            )
 
         QTimer.singleShot(900, _reply)
 

@@ -108,7 +108,7 @@ class ChatPanel(QWidget):
               border-radius: 16px;
             }}
             QWidget#panelContent {{ background: transparent; }}
-            QLabel {{ color: {INK}; font-size: 12px; }}
+            QLabel {{ color: {INK}; font-size: 11px; }}
             QPushButton#icon {{
               background: transparent; color: {MUTED}; border: 0;
               font-size: 13px; padding: 3px 5px; border-radius: 8px;
@@ -119,8 +119,8 @@ class ChatPanel(QWidget):
               color: {INK};
               border: 1px solid {LINE};
               border-radius: 13px;
-              padding: 0 11px;
-              font-size: 11px;
+              padding: 0 10px;
+              font-size: 10px;
               font-weight: 600;
             }}
             QPushButton#chip:hover {{
@@ -143,9 +143,9 @@ class ChatPanel(QWidget):
               border: 0;
               border-radius: 10px;
               font-weight: 700;
-              padding: 0 16px;
-              font-size: 12px;
-              min-width: 52px;
+              padding: 0 14px;
+              font-size: 11px;
+              min-width: 48px;
             }}
             QPushButton#askBtn:hover {{ background: {NAVY_DEEP}; }}
             QPushButton#askBtn:disabled {{ background: #c5cddf; color: #ffffff; }}
@@ -256,12 +256,12 @@ class ChatPanel(QWidget):
         greet.setContentsMargins(0, 0, 0, 0)
         self.hello = QLabel("Hi")
         self.hello.setStyleSheet(
-            f"color:{INK}; font-size:15px; font-weight:700; letter-spacing:-0.02em;"
+            f"color:{INK}; font-size:13px; font-weight:700; letter-spacing:-0.02em;"
         )
         self.prompt = QLabel("")
         self.prompt.hide()
         self.identity = QLabel("")
-        self.identity.setStyleSheet(f"color:{MUTED}; font-size:10.5px;")
+        self.identity.setStyleSheet(f"color:{MUTED}; font-size:9.5px;")
         greet.addWidget(self.hello)
         greet.addWidget(self.identity)
         body_l.addLayout(greet)
@@ -310,8 +310,8 @@ class ChatPanel(QWidget):
               color: {INK};
               border: 1px solid {LINE};
               border-radius: 10px;
-              padding: 0 14px;
-              font-size: 12px;
+              padding: 0 12px;
+              font-size: 11px;
               selection-background-color: #dbe4f5;
             }}
             QLineEdit#composer:focus {{ border-color: #b8c4dc; }}
@@ -570,17 +570,17 @@ class ChatPanel(QWidget):
             return (
                 f"QFrame#msgBubble {{ background:{NAVY}; border-radius:14px;"
                 f" border:1px solid {NAVY_DEEP}; }}"
-                f" QLabel#bubbleWho {{ color:rgba(255,255,255,0.75); font-size:9px;"
+                f" QLabel#bubbleWho {{ color:rgba(255,255,255,0.75); font-size:8px;"
                 f" font-weight:800; letter-spacing:0.06em; background:transparent; border:0; }}"
-                f" QLabel#bubbleBody {{ color:#ffffff; font-size:12px;"
+                f" QLabel#bubbleBody {{ color:#ffffff; font-size:10.5px;"
                 f" background:transparent; border:0; }}"
             )
         return (
             f"QFrame#msgBubble {{ background:{CARD}; border-radius:14px;"
             f" border:1px solid {LINE}; }}"
-            f" QLabel#bubbleWho {{ color:{MUTED}; font-size:9px;"
+            f" QLabel#bubbleWho {{ color:{MUTED}; font-size:8px;"
             f" font-weight:800; letter-spacing:0.06em; background:transparent; border:0; }}"
-            f" QLabel#bubbleBody {{ color:{INK}; font-size:12px;"
+            f" QLabel#bubbleBody {{ color:{INK}; font-size:10.5px;"
             f" background:transparent; border:0; }}"
         )
 
@@ -602,8 +602,8 @@ class ChatPanel(QWidget):
         bubble.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         bubble.setStyleSheet(self._bubble_style(role))
         inner = QVBoxLayout(bubble)
-        inner.setContentsMargins(12, 10, 12, 10)
-        inner.setSpacing(4)
+        inner.setContentsMargins(11, 8, 11, 8)
+        inner.setSpacing(3)
 
         who = QLabel("YOU" if role == "user" else "IRA")
         who.setObjectName("bubbleWho")
@@ -611,7 +611,7 @@ class ChatPanel(QWidget):
         body.setObjectName("bubbleBody")
         body.setWordWrap(True)
         body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        body.setFixedWidth(bubble_w - 24)
+        body.setFixedWidth(bubble_w - 22)
         inner.addWidget(who)
         inner.addWidget(body)
         wrap.addWidget(bubble, alignment=align)
@@ -619,11 +619,10 @@ class ChatPanel(QWidget):
         self.chat_layout.addWidget(box)
 
         def _fit() -> None:
-            w = max(72, body.width() or (bubble_w - 24))
-            h = max(body.heightForWidth(w), body.sizeHint().height(), 14)
+            w = max(72, body.width() or (bubble_w - 22))
+            h = max(body.heightForWidth(w), body.sizeHint().height(), 12)
             body.setFixedHeight(h)
-            # who (~14) + spacing + padding
-            bubble.setFixedHeight(h + 14 + 4 + 20)
+            bubble.setFixedHeight(h + who.sizeHint().height() + 3 + 16)
             self.chat_inner.adjustSize()
 
         _fit()
@@ -632,7 +631,7 @@ class ChatPanel(QWidget):
 
     def show_typing(self) -> QLabel:
         tip = QLabel("IRA is thinking…")
-        tip.setStyleSheet(f"color:{MUTED}; font-size:10.5px; padding:2px 0;")
+        tip.setStyleSheet(f"color:{MUTED}; font-size:9.5px; padding:2px 0;")
         self.chat_layout.addWidget(tip)
         self.set_thinking(True)
         QTimer.singleShot(20, self._scroll_bottom)

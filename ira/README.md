@@ -1,8 +1,12 @@
-# IRA — I know Waters (desktop)
+# IRA — intelligent onboarding companion (desktop)
 
-**IRA is not a website.** It is a lightweight **desktop** knowledge companion that floats above your wallpaper and talks to SmartStart over HTTP APIs.
+**IRA is not a website.** It is a lightweight **desktop** companion that floats
+above your wallpaper and talks to SmartStart over HTTP APIs.
 
-IRA **knows Waters** — apps, teams, processes, docs, owners, and how they connect. Employees, new joiners, contractors, and authorized partners ask one place instead of hunting across systems. Hackathon build: approved tools + synthetic / public data only. Role-aware answers from sandbox sources; never invents facts, never changes production systems.
+IRA helps employees navigate Waters — apps, teams, processes, docs, IT, HR,
+learning — and their own onboarding record. Ask What / Where / Who / What next /
+Why / What if. Answers stay evidence-backed from approved / synthetic sources;
+IRA never invents facts and never changes production systems.
 
 ```text
 Windows / Linux desktop

@@ -185,6 +185,72 @@ def joiner_owners(joiner_id: str, session: EmployerSession) -> AssignOwnersRespo
         raise HTTPException(status_code=404, detail="Joiner not found") from exc
 
 
+@app.get("/api/joiners/{joiner_id}/intelligence")
+def joiner_intelligence(joiner_id: str, session: EmployerSession) -> dict:
+    """Explain risk / blockers / next actions for Command Center (synthetic)."""
+    _ = session
+    from backend.intelligence import employer_at_risk_explanation
+
+    try:
+        return employer_at_risk_explanation(joiner_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Joiner not found") from exc
+
+
+@app.get("/api/employer/at-risk")
+def employer_at_risk(
+    session: EmployerSession,
+    role_view: EmployerRole = Query(default=EmployerRole.ALL),
+    limit: int = Query(default=8, ge=1, le=30),
+) -> dict:
+    """Joiners with elevated synthetic risk + explained drivers for HR/IT/Manager queues."""
+    from backend.intelligence import employer_at_risk_explanation
+    from backend.predictor import build_predictions
+
+    _ = session
+    rows = []
+    for j in store.list_joiners():
+        docs = store.get_documents(j.id)
+        ticket = store.get_ticket_for_joiner(j.id)
+        if docs is None or ticket is None:
+            continue
+        bn = infer_bottleneck(j.current_state, docs, ticket)
+        if not joiner_in_role_view(
+            j,
+            docs.status,
+            ticket.hardware_status,
+            ticket.sla_breached,
+            role_view,
+            bottleneck=bn,
+        ):
+            continue
+        try:
+            pred = build_predictions(j.id)
+        except KeyError:
+            continue
+        if pred.overall_risk_score < 45:
+            continue
+        expl = employer_at_risk_explanation(j.id)
+        rows.append(
+            {
+                "id": j.id,
+                "name": j.name,
+                "department": j.department,
+                "role_type": j.role_type.value,
+                "manager_name": j.manager_name,
+                "current_state": j.current_state.value,
+                "risk_score": expl["risk_score"],
+                "risk_level": expl["risk_level"],
+                "headline": expl["headline"],
+                "why": expl["why"],
+                "recommended": expl["recommended"],
+                "primary_blocker": (expl["blockers"][0]["title"] if expl["blockers"] else None),
+            }
+        )
+    rows.sort(key=lambda r: r["risk_score"], reverse=True)
+    return {"total": len(rows[:limit]), "joiners": rows[:limit], "synthetic": True}
+
+
 @app.get("/api/metrics/summary", response_model=MetricsSummary)
 def metrics_summary() -> MetricsSummary:
     joiners = store.list_joiners()

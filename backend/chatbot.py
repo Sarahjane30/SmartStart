@@ -194,37 +194,46 @@ def build_chatbot(
 
     first = joiner.name.split()[0]
     greeting = (
-        f"Hi {first} — I’m IRA. I know Waters for your {joiner.role_type.value} profile. "
-        f"Ask me anything about apps, teams, processes, docs, or your own record."
+        f"Hi {first} — I’m IRA, your intelligent onboarding companion. "
+        f"Ask What / Where / Who / What next for your {joiner.role_type.value} profile."
     )
 
     turns: list[ChatTurn] = [ChatTurn(role="assistant", text=greeting, synthetic=True)]
 
     if query:
         turns.append(ChatTurn(role="user", text=query.strip(), synthetic=True))
-        matched = _match_faq(query, catalog)
-        if matched:
-            fid, _q, answer = matched
-            turns.append(
-                ChatTurn(
-                    role="assistant",
-                    text=answer,
-                    matched_faq_id=f"{joiner_id}-FAQ-{fid}",
-                    synthetic=True,
+        # Prefer shared IRA intelligence (knowledge + personal context)
+        try:
+            from backend.ira_api import build_ira_context
+            from ira.brain import answer as ira_answer
+
+            ctx = build_ira_context(joiner_id, db=db)
+            text = ira_answer(query, ctx, online=True)
+            turns.append(ChatTurn(role="assistant", text=text, synthetic=True))
+        except Exception:
+            matched = _match_faq(query, catalog)
+            if matched:
+                fid, _q, answer = matched
+                turns.append(
+                    ChatTurn(
+                        role="assistant",
+                        text=answer,
+                        matched_faq_id=f"{joiner_id}-FAQ-{fid}",
+                        synthetic=True,
+                    )
                 )
-            )
-        else:
-            turns.append(
-                ChatTurn(
-                    role="assistant",
-                    text=(
-                        "I don’t have that in the approved synthetic sources yet. Try apps, "
-                        "teams, processes, documents, mentor, hardware, learning, or "
-                        "governance — or open the owning system for a change. I won’t invent an answer."
-                    ),
-                    synthetic=True,
+            else:
+                turns.append(
+                    ChatTurn(
+                        role="assistant",
+                        text=(
+                            "I don’t have that in the approved synthetic sources yet. Try apps, "
+                            "teams, processes, documents, mentor, hardware, learning, or "
+                            "governance — or open the owning system for a change. I won’t invent an answer."
+                        ),
+                        synthetic=True,
+                    )
                 )
-            )
 
     return ChatbotResponse(
         joiner_id=joiner_id,

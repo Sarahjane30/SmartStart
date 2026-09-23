@@ -47,6 +47,7 @@ class IraApp:
 
         self.bubble = IraBubble()
         self.panel = ChatPanel()
+        self._history: list[tuple[str, str]] = []
 
         self.bubble.clicked.connect(self.open_panel)
         self.bubble.moved_to.connect(self._persist_bubble_pos)
@@ -216,6 +217,7 @@ class IraApp:
             self.panel.set_locked(True)
             return
         self.panel.add_message(text, role="user")
+        self._history.append(("user", text))
         tip = self.panel.show_typing()
 
         def _reply() -> None:
@@ -225,8 +227,14 @@ class IraApp:
                     self.ctx = self.client.context(self._session_id)
                 except Exception:
                     pass
-            reply = answer(text, self.ctx, online=self.online and bool(self.ctx))
+            reply = answer(
+                text,
+                self.ctx,
+                online=self.online and bool(self.ctx),
+                history=list(self._history[-8:]),
+            )
             self.panel.add_message(reply, role="ira")
+            self._history.append(("ira", reply))
 
         QTimer.singleShot(300, _reply)
 
@@ -245,9 +253,10 @@ def main(argv: list[str] | None = None) -> int:
         pkg = Path(_ira_pkg.__file__).resolve().parent
         print()
         print("=" * 52)
-        print("  IRA — I know Waters")
+        print("  IRA — intelligent onboarding companion")
         print(f"  {pkg}")
-        print("  – collapses to blue orb (stays on desktop)")
+        print("  – What / Where / Who / What next")
+        print("  – collapses to orb (stays on desktop)")
         print("  × quits   ·   click orb to reopen")
         print("=" * 52)
         print()

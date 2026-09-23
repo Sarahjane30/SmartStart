@@ -94,6 +94,14 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
     ticket = db.get_ticket_for_joiner(joiner_id)
     assert joiner is not None and docs is not None and ticket is not None
 
+    from backend.intelligence import (
+        build_blockers,
+        build_briefing,
+        build_next_best_actions,
+        build_risk_summary,
+    )
+    from backend.knowledge import role_recommended_apps
+
     progress = _STATE_PROGRESS.get(joiner.current_state, 0)
     open_tasks = list(joiner.assigned_tasks)
     if docs.status != DocumentStatus.COMPLETE:
@@ -118,6 +126,21 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
         "learning_started": learning.completion_pct > 0,
         "project_ready": project_ready,
     }
+
+    blockers = build_blockers(joiner_id, db=db)
+    next_best = build_next_best_actions(joiner_id, db=db)
+    briefing = build_briefing(joiner_id, db=db)
+    risk = build_risk_summary(joiner_id, db=db)
+    apps = [
+        {
+            "id": a.id,
+            "name": a.name,
+            "summary": a.summary,
+            "owner": a.owner,
+            "navigate_hint": a.navigate_hint,
+        }
+        for a in role_recommended_apps(joiner.role_type.value)
+    ]
 
     return {
         "employee": {
@@ -162,6 +185,15 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
             "completion_pct": learning.completion_pct,
             "completed_count": learning.completed_count,
             "total_count": learning.total_count,
+            "modules": [
+                {
+                    "title": m.title,
+                    "status": m.status.value,
+                    "duration_minutes": m.duration_minutes,
+                    "category": m.category,
+                }
+                for m in learning.modules
+            ],
             "next_modules": [
                 m.title
                 for m in learning.modules
@@ -180,6 +212,13 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
                 "projects": "Jira (via SmartStart onboarding state)",
             },
         },
+        "intelligence": {
+            "blockers": blockers,
+            "next_best_actions": next_best,
+            "briefing": briefing,
+            "risk": risk,
+            "recommended_apps": apps,
+        },
         "notifications": [
             {
                 "kind": n.kind.value,
@@ -191,5 +230,12 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
         ],
         "synthetic": True,
         "as_of": AS_OF.isoformat(),
-        "note": "Aggregated for IRA desktop companion — not a SmartStart UI page.",
+        "note": (
+            "Aggregated for IRA — enterprise navigation + personal onboarding context. "
+            "Not a SmartStart UI page."
+        ),
+        "positioning": (
+            "SmartStart is an intelligent employee experience platform. "
+            "IRA is the always-available companion for What / Where / Who / What next."
+        ),
     }

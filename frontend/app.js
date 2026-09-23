@@ -485,6 +485,36 @@ async function openJoinerDrawer(id) {
 
     const act = state.actions[id];
     const bn = detail.bottleneck || row?.bottleneck;
+
+    let intelHtml = "";
+    try {
+      const intel = await fetchJSON(`/api/joiners/${encodeURIComponent(id)}/intelligence`);
+      const why = (intel.why || []).map((d) => `<li>${esc(d)}</li>`).join("") || "<li>No drivers listed</li>";
+      const blockers = (intel.blockers || [])
+        .slice(0, 3)
+        .map(
+          (b) =>
+            `<li><strong>${esc(b.title)}</strong> — ${esc(b.status)} · Owner: ${esc(b.owner)}</li>`
+        )
+        .join("");
+      intelHtml = `
+      <section class="drawer-section">
+        <h3>Intelligence · ${esc(intel.risk_level || "—")} risk (${Number(intel.risk_score || 0).toFixed(0)})</h3>
+        <p class="alert-title">${esc(intel.headline || "Onboarding watch")}</p>
+        <p class="muted tiny">Why this score</p>
+        <ul class="drawer-tasks">${why}</ul>
+        ${
+          blockers
+            ? `<p class="muted tiny">Blockers</p><ul class="drawer-tasks">${blockers}</ul>`
+            : ""
+        }
+        <p><strong>Recommended:</strong> ${esc(intel.recommended || "Continue standard cadence")}</p>
+        <p class="muted tiny">Synthetic · evidence from SmartStart predictors + onboarding record</p>
+      </section>`;
+    } catch (_err) {
+      intelHtml = "";
+    }
+
     body.innerHTML = `
       <dl class="drawer-meta">
         <div><dt>State</dt><dd>${stateBadge(j.current_state)}</dd></div>
@@ -495,6 +525,7 @@ async function openJoinerDrawer(id) {
           detail.it_ticket.sla_breached ? ' <span class="badge danger">SLA</span>' : ""
         }</dd></div>
       </dl>
+      ${intelHtml}
       <section class="drawer-section">
         <h3>Bottleneck</h3>
         ${bottleneckTag(bn)}

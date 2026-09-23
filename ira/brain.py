@@ -80,7 +80,7 @@ def suggestions_for(ctx: dict | None) -> list[str]:
     for q in out:
         if q not in seen:
             seen.append(q)
-    return seen[:2]
+    return seen[:3]
 
 
 _DISCLAIMER_SHORT = (

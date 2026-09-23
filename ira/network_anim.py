@@ -44,7 +44,8 @@ class NetworkSphere(QWidget):
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
-        self._timer.start(40)
+        # Defer first frames — avoids some Windows first-paint crashes
+        QTimer.singleShot(80, lambda: self._timer.start(40))
 
     def set_hero(self, hero: bool) -> None:
         self._hero = hero

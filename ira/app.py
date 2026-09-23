@@ -187,25 +187,37 @@ class IraApp:
 
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv
-    QApplication.setHighDpiScaleFactorRoundingPolicy(
-        Qt.HighDpiScaleFactorRoundingPolicy.Round
-    )
-    app = QApplication(argv)
-    app.setApplicationName("IRA")
-    app.setQuitOnLastWindowClosed(True)
-    import ira as _ira_pkg
+    try:
+        QApplication.setHighDpiScaleFactorRoundingPolicy(
+            Qt.HighDpiScaleFactorRoundingPolicy.Round
+        )
+        app = QApplication(argv)
+        app.setApplicationName("IRA")
+        app.setQuitOnLastWindowClosed(True)
+        import ira as _ira_pkg
 
-    pkg = Path(_ira_pkg.__file__).resolve().parent
-    print()
-    print("=" * 52)
-    print("  IRA — I know Waters")
-    print(f"  {pkg}")
-    print("  Dark MindBot-style panel · glow send · edge resize")
-    print("  Connect via SmartStart employee sign-in")
-    print("=" * 52)
-    print()
-    _ = IraApp()
-    return app.exec()
+        pkg = Path(_ira_pkg.__file__).resolve().parent
+        print()
+        print("=" * 52)
+        print("  IRA — I know Waters")
+        print(f"  {pkg}")
+        print("  SmartStart navy · ask me anything")
+        print("  Connect via SmartStart employee sign-in")
+        print("=" * 52)
+        print()
+        _ = IraApp()
+        return app.exec()
+    except Exception:
+        import traceback
+
+        print("\n*** IRA failed to start ***\n", file=sys.stderr)
+        traceback.print_exc()
+        if sys.platform.startswith("win"):
+            try:
+                input("\nPress Enter to close… ")
+            except EOFError:
+                pass
+        return 1
 
 
 if __name__ == "__main__":

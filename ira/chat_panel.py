@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from ira.winflags import companion_window_flags
 from ira.network_anim import NetworkSphere
+from ira.platform_ui import IS_WINDOWS, use_layered_effects
 
 EDGE = 8
 
@@ -204,7 +205,10 @@ class ChatPanel(QWidget):
 
         content = QWidget()
         content.setObjectName("panelContent")
-        content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        if use_layered_effects():
+            content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        else:
+            content.setStyleSheet("background: transparent;")
         content_l = QVBoxLayout(content)
         content_l.setContentsMargins(22, 18, 18, 16)
         content_l.setSpacing(0)
@@ -359,7 +363,13 @@ class ChatPanel(QWidget):
 
         root.addWidget(content)
         self._content = content
+        # Opaque on Windows — translucent frameless windows often crash / go blank
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        if IS_WINDOWS:
+            self.setStyleSheet(
+                self.styleSheet()
+                + f"\nChatPanel {{ background: {BG}; border-radius: 22px; }}"
+            )
         self.set_locked(True)
 
     def resizeEvent(self, event) -> None:
@@ -369,9 +379,12 @@ class ChatPanel(QWidget):
             self._net.lower()
 
     def paintEvent(self, _event) -> None:
-        # Border only — portal globe paints the fill
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Always paint navy fill so Windows opaque mode never flashes empty
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(QColor(BG)))
+        p.drawRoundedRect(0, 0, self.width(), self.height(), 22, 22)
         p.setPen(QPen(QColor(LINE)))
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawRoundedRect(0, 0, self.width() - 1, self.height() - 1, 22, 22)

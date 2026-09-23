@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import QTimer, Qt
@@ -195,19 +196,22 @@ class IraApp:
 
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv
-    # High-DPI friendly
+    # High-DPI friendly — Round improves Windows layered-window stability
     QApplication.setHighDpiScaleFactorRoundingPolicy(
-        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+        Qt.HighDpiScaleFactorRoundingPolicy.Round
     )
     app = QApplication(argv)
     app.setApplicationName("IRA")
     app.setQuitOnLastWindowClosed(True)
+    import ira as _ira_pkg
+
+    pkg = Path(_ira_pkg.__file__).resolve().parent
     print()
     print("=" * 56)
     print("  IRA desktop companion is starting…")
+    print(f"  Code loaded from: {pkg}")
     print("  This is NOT a website / NOT http://127.0.0.1:8000")
-    print("  Look for the blue IRA bubble on your Windows desktop")
-    print("  (bottom-right). It also appears in the taskbar as IRA.")
+    print("  Look for the IRA window on your desktop / taskbar.")
     print("  Keep SmartStart running in the other terminal.")
     print("=" * 56)
     print()

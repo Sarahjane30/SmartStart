@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QPainter, QPen, QBrush, QMouseEvent
+from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QMouseEvent
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QGraphicsDropShadowEffect
 
-
+from ira.platform_ui import use_layered_effects
 from ira.winflags import companion_window_flags
 
 
@@ -20,16 +20,24 @@ class IraBubble(QWidget):
         super().__init__(parent)
         self.setWindowTitle("IRA")
         self.setWindowFlags(companion_window_flags())
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(72, 88)
+        self.setFixedSize(76, 92)
         self._drag_offset: QPoint | None = None
         self._press_pos = QPoint()
         self._did_drag = False
         self._pulse = 0.0
         self._pulse_dir = 1
 
+        if use_layered_effects():
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        else:
+            # Opaque frame — avoids UpdateLayeredWindowIndirect failures on Windows
+            self.setStyleSheet(
+                "IraBubble { background-color: #0f172a; border-radius: 16px;"
+                " border: 1px solid #1e293b; }"
+            )
+
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(2)
 
         self.orb = _Orb(self)
@@ -39,15 +47,16 @@ class IraBubble(QWidget):
         self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.caption.setStyleSheet(
             "color: #e8eef8; font-size: 11px; font-weight: 700;"
-            "background: rgba(15, 23, 42, 180); border-radius: 8px; padding: 2px 8px;"
+            "background: #1e293b; border-radius: 8px; padding: 2px 8px;"
         )
         layout.addWidget(self.caption)
 
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(18)
-        shadow.setOffset(0, 4)
-        shadow.setColor(QColor(0, 0, 0, 110))
-        self.orb.setGraphicsEffect(shadow)
+        if use_layered_effects():
+            shadow = QGraphicsDropShadowEffect(self)
+            shadow.setBlurRadius(18)
+            shadow.setOffset(0, 4)
+            shadow.setColor(QColor(0, 0, 0, 110))
+            self.orb.setGraphicsEffect(shadow)
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
@@ -120,6 +129,3 @@ class _Orb(QWidget):
         p.drawEllipse(cx - r, cy - r, r * 2, r * 2)
         p.setBrush(QBrush(QColor(224, 242, 254)))
         p.drawEllipse(cx - 7, cy - 7, 14, 14)
-        p.setPen(QPen(QColor(255, 255, 255, 200)))
-        font = QFont("Segoe UI", 8, QFont.Weight.Bold)
-        p.setFont(font)

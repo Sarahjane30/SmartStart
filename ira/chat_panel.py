@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QFont, QKeyEvent
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
     QComboBox,
@@ -23,6 +22,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor
 
 
+from ira.platform_ui import use_layered_effects
 from ira.winflags import companion_window_flags
 
 
@@ -37,12 +37,17 @@ class ChatPanel(QWidget):
         super().__init__(parent)
         self.setWindowTitle("IRA — Your onboarding companion")
         self.setWindowFlags(companion_window_flags())
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(320, 460)
 
         shell = QFrame(self)
         shell.setObjectName("shell")
-        shell.setGeometry(4, 4, 312, 452)
+        if use_layered_effects():
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+            shell.setGeometry(4, 4, 312, 452)
+        else:
+            # Full opaque panel — stable on Windows HiDPI
+            shell.setGeometry(0, 0, 320, 460)
+
         shell.setStyleSheet(
             """
             QFrame#shell {
@@ -50,14 +55,14 @@ class ChatPanel(QWidget):
               border-radius: 16px;
               border: 1px solid #1e293b;
             }
-            QLabel { color: #e2e8f0; }
+            QLabel { color: #e2e8f0; font-size: 13px; }
             QLineEdit {
               background: #1e293b; color: #f8fafc; border: 1px solid #334155;
               border-radius: 10px; padding: 8px 10px; font-size: 13px;
             }
             QPushButton#send {
               background: #38bdf8; color: #0f172a; border: 0; border-radius: 10px;
-              font-weight: 700; padding: 8px 12px;
+              font-weight: 700; padding: 8px 12px; font-size: 14px;
             }
             QPushButton#icon {
               background: transparent; color: #94a3b8; border: 0; font-size: 14px;
@@ -76,11 +81,12 @@ class ChatPanel(QWidget):
             QWidget#chatInner { background: transparent; }
             """
         )
-        shadow = QGraphicsDropShadowEffect(shell)
-        shadow.setBlurRadius(28)
-        shadow.setOffset(0, 8)
-        shadow.setColor(QColor(0, 0, 0, 140))
-        shell.setGraphicsEffect(shadow)
+        if use_layered_effects():
+            shadow = QGraphicsDropShadowEffect(shell)
+            shadow.setBlurRadius(28)
+            shadow.setOffset(0, 8)
+            shadow.setColor(QColor(0, 0, 0, 140))
+            shell.setGraphicsEffect(shadow)
 
         root = QVBoxLayout(shell)
         root.setContentsMargins(12, 10, 12, 10)
@@ -90,7 +96,7 @@ class ChatPanel(QWidget):
         head = QHBoxLayout()
         titles = QVBoxLayout()
         title = QLabel("✨ IRA")
-        title.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        title.setStyleSheet("color:#f8fafc; font-size:15px; font-weight:700;")
         sub = QLabel("Your onboarding companion")
         sub.setStyleSheet("color:#94a3b8; font-size:11px;")
         titles.addWidget(title)

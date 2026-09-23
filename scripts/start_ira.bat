@@ -1,10 +1,27 @@
 @echo off
-REM Double-click this file to launch IRA (SmartStart must already be running on :8000)
-cd /d "%~dp0.."
+REM Finds the SmartStart repo (folder with pyproject.toml + ira\) under %USERPROFILE%
+REM then launches IRA. Keep SmartStart (uvicorn) running in another window.
+
+setlocal
+echo Searching for SmartStart + IRA...
+for /f "delims=" %%i in ('dir /s /b "%USERPROFILE%\SmartStart\pyproject.toml" 2^>nul') do (
+  if exist "%%~dpiira\__main__.py" (
+    echo Found: %%~dpi
+    cd /d "%%~dpi"
+    goto :found
+  )
+)
+echo ERROR: Could not find a SmartStart folder that contains ira\
+echo Expected something like:
+echo   C:\Users\%USERNAME%\SmartStart\SmartStart\SmartStart\SmartStart
+pause
+exit /b 1
+
+:found
 echo.
-echo IRA is a DESKTOP widget - not a browser page.
-echo Keep SmartStart running in another window on port 8000.
+echo Installing / updating IRA deps...
+python -m pip install -e ".[ira]"
 echo.
-python -m pip install -e ".[ira]" >nul 2>&1
+echo Launching IRA desktop widget (not a browser page)...
 python -m ira
 if errorlevel 1 pause

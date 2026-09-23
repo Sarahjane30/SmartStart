@@ -113,6 +113,32 @@ class _FlowLayout(QLayout):
         return y + line_h - rect.y() if self._items else 0
 
 
+class _FlowHost(QWidget):
+    """Host that respects FlowLayout height-for-width so chips don't overlap."""
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        lay = self.layout()
+        if lay is None:
+            return 0
+        return lay.heightForWidth(width)
+
+    def sizeHint(self) -> QSize:
+        w = max(self.width(), 280)
+        return QSize(w, self.heightForWidth(w))
+
+    def minimumSizeHint(self) -> QSize:
+        return self.sizeHint()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        h = self.heightForWidth(self.width())
+        if h > 0 and abs(self.height() - h) > 1:
+            self.setFixedHeight(h)
+
+
 class ProgressCard(QWidget):
     """Horizontal onboarding progress + Laptop / Mentor / Day 1 milestones."""
 

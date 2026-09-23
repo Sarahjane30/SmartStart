@@ -6,7 +6,7 @@ import math
 import random
 from dataclasses import dataclass
 
-from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Signal, QRectF
+from PySide6.QtCore import QPoint, QPointF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -48,6 +48,7 @@ class IraBubble(QWidget):
         # Transparent corners + hard circular mask = no black square on Windows
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        self.setAutoFillBackground(False)
         self.setStyleSheet("background: transparent; border: 0;")
         self._apply_circle_mask()
 
@@ -111,32 +112,25 @@ class IraBubble(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w = h = SIZE
+        # Clear to fully transparent — no square fill ever
         p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-        p.fillRect(self.rect(), Qt.GlobalColor.transparent)
+        p.fillRect(0, 0, w, h, QColor(0, 0, 0, 0))
         p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
 
-        w = h = SIZE
         cx = cy = w / 2
-        R = w * 0.36  # match portal radius ratio
+        R = w * 0.34  # match portal radius ratio; particles define the silhouette
 
-        # Soft outer glow only — no filled square, no opaque disc rim
-        flash_boost = 50 if self._flash else 0
-        glow = QRadialGradient(cx, cy, w * 0.5)
-        glow.setColorAt(0.0, QColor(31, 59, 255, 55 + flash_boost))
-        glow.setColorAt(0.55, QColor(14, 22, 49, 90))
-        glow.setColorAt(0.82, QColor(8, 13, 29, 40))
-        glow.setColorAt(1.0, QColor(0, 0, 0, 0))
+        # Soft navy atmosphere only (no hard disc / no black rim)
+        flash_boost = 40 if self._flash else 0
+        wash = QRadialGradient(cx, cy, R * 1.7)
+        wash.setColorAt(0.0, QColor(18, 28, 64, 160 + flash_boost))
+        wash.setColorAt(0.55, QColor(8, 13, 29, 110))
+        wash.setColorAt(0.85, QColor(6, 10, 24, 35))
+        wash.setColorAt(1.0, QColor(0, 0, 0, 0))
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QBrush(glow))
-        p.drawEllipse(QRectF(0, 0, w, h))
-
-        # Deep navy core (portal depth, clipped by circle mask)
-        core = QRadialGradient(cx * 0.85, cy * 0.75, R * 1.55)
-        core.setColorAt(0.0, QColor(23, 34, 72, 230))
-        core.setColorAt(0.55, QColor(8, 13, 29, 245))
-        core.setColorAt(1.0, QColor(4, 6, 15, 255))
-        p.setBrush(QBrush(core))
-        p.drawEllipse(QPointF(cx, cy), R * 1.15, R * 1.15)
+        p.setBrush(QBrush(wash))
+        p.drawEllipse(QPointF(cx, cy), R * 1.7, R * 1.7)
 
         # Portal particle globe (same math as frontend/graphics.js)
         spin = self._t * 0.16
@@ -177,9 +171,8 @@ class IraBubble(QWidget):
             pulse = 0.7 + 0.3 * math.sin(self._t * pt.pulse_rate + pt.pulse)
             near = 1 - min(1.0, abs(depth - scan) * 5.5)
             boost = 1 + near * 1.1
-            size = pt.size * (0.45 + depth * 0.95) * pulse * (1 + near * 0.5)
-            # Scale particle size down for 72px bubble (portal uses larger canvas)
-            size *= 0.42
+            # ~0.55 keeps dots readable at 72px while matching portal proportions
+            size = pt.size * (0.45 + depth * 0.95) * pulse * (1 + near * 0.5) * 0.55
             if pt.hue == "blue":
                 col = QColor(88, 118, 255)
                 base_a = 0.2 + depth * 0.85
@@ -194,8 +187,8 @@ class IraBubble(QWidget):
                 a2 = int(min(255, base_a * 0.12 * boost * 255))
                 p.setBrush(QBrush(QColor(col.red(), col.green(), col.blue(), max(12, a2))))
                 p.drawEllipse(QPointF(sx, sy), size * 3.4, size * 3.4)
-            p.setBrush(QBrush(QColor(col.red(), col.green(), col.blue(), max(20, alpha))))
-            p.drawEllipse(QPointF(sx, sy), max(0.35, size), max(0.35, size))
+            p.setBrush(QBrush(QColor(col.red(), col.green(), col.blue(), max(28, alpha))))
+            p.drawEllipse(QPointF(sx, sy), max(0.4, size), max(0.4, size))
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:

@@ -86,7 +86,7 @@ class NetworkSphere(QWidget):
         self._nodes = nodes
 
     def _tick(self) -> None:
-        self._angle = (self._angle + 0.0045) % (2 * math.pi)
+        self._angle = (self._angle + 0.018) % (2 * math.pi)
         self._t += 0.033
         self.update()
 

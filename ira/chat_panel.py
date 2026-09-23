@@ -117,7 +117,7 @@ class ProgressCard(QWidget):
         super().__init__(parent)
         self._pct = 0
         self._milestones = {"laptop": False, "mentor": False, "day1": False}
-        self.setMinimumHeight(78)
+        self.setFixedHeight(92)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def set_progress(self, pct: int, *, laptop: bool, mentor: bool, day1: bool) -> None:
@@ -151,12 +151,11 @@ class ProgressCard(QWidget):
         p.drawRoundedRect(0, 0, w - 1, h - 1, 10, 10)
 
         p.setPen(QColor(MUTED))
-        p.drawText(14, 18, "Onboarding progress")
+        p.drawText(14, 20, "Onboarding progress")
         p.setPen(QColor(ACCENT))
-        pct_txt = f"{self._pct}%"
-        p.drawText(w - 52, 18, pct_txt)
+        p.drawText(w - 52, 20, f"{self._pct}%")
 
-        track_y = 28
+        track_y = 30
         track_h = 6
         track_x = 14
         track_w = w - 28
@@ -176,13 +175,13 @@ class ProgressCard(QWidget):
         gap = track_w // 3
         for i, (kind, label, done) in enumerate(milestones):
             cx = track_x + gap // 2 + i * gap
-            cy = 54
+            icon_cy = 58
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QBrush(QColor(ACCENT if done else LINE)))
-            p.drawEllipse(cx - 11, cy - 16, 22, 22)
-            self._draw_icon(p, kind, cx, cy - 5, done)
+            p.drawEllipse(cx - 11, icon_cy - 11, 22, 22)
+            self._draw_icon(p, kind, cx, icon_cy, done)
             p.setPen(QColor(TEXT if done else MUTED))
-            p.drawText(cx - 22, cy + 12, 44, 14, Qt.AlignmentFlag.AlignHCenter, label)
+            p.drawText(cx - 24, icon_cy + 16, 48, 16, Qt.AlignmentFlag.AlignHCenter, label)
 
 
 class ChatPanel(QWidget):
@@ -383,7 +382,7 @@ class ChatPanel(QWidget):
         self.chat_inner.setObjectName("chatInner")
         self.chat_layout = QVBoxLayout(self.chat_inner)
         self.chat_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.chat_layout.setSpacing(12)
+        self.chat_layout.setSpacing(16)
         self.chat_layout.setContentsMargins(0, 0, 4, 0)
         self.scroll.setWidget(self.chat_inner)
         body_l.addWidget(self.scroll, 1)
@@ -610,7 +609,7 @@ class ChatPanel(QWidget):
                         size = "13.5" if latest else "13"
                     child.setStyleSheet(
                         f"background:{bg}; color:{fg}; border-radius:14px;"
-                        f"padding:14px 16px; font-size:{size}px;"
+                        f"padding:16px 18px; font-size:{size}px;"
                     )
                 elif name == "msgTime":
                     child.setStyleSheet(
@@ -632,17 +631,17 @@ class ChatPanel(QWidget):
         if role == "user":
             bubble.setStyleSheet(
                 f"background:{USER_BUBBLE}; color:{TEXT}; border-radius:14px;"
-                "padding:14px 16px; font-size:13.5px;"
+                "padding:16px 18px; font-size:13.5px;"
             )
         else:
             bubble.setStyleSheet(
                 f"background:{IRA_BUBBLE}; color:{IRA_TEXT}; border-radius:14px;"
-                "padding:14px 16px; font-size:13.5px;"
+                "padding:16px 18px; font-size:13.5px;"
             )
 
         fm = QFontMetrics(bubble.font())
-        text_h = fm.boundingRect(0, 0, bubble_w - 32, 5000, Qt.TextFlag.TextWordWrap, text).height()
-        bubble.setMinimumHeight(text_h + 28)
+        text_h = fm.boundingRect(0, 0, bubble_w - 36, 5000, Qt.TextFlag.TextWordWrap, text).height()
+        bubble.setMinimumHeight(text_h + 32)
 
         meta = QLabel(datetime.now().strftime("%H:%M"))
         meta.setObjectName("msgTime")

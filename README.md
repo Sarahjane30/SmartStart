@@ -129,6 +129,41 @@ Alerts keep the same event id and severity; wording and "action required vs awar
 
 `/api/joiners` (roster) and `/api/metrics/summary` (aggregates) stay public for the synthetic sign-in picker.
 
+## NIA — New-Hire Intelligence Assistant (employer copilot)
+
+IRA helps the joiner; **NIA** helps the people onboarding them. NIA is a floating, non-modal panel in
+the Command Center (bottom-right launcher, shifts left when the joiner drawer is open). It is not a
+separate data source: every answer is built from the **same role context** the dashboard uses
+(`build_role_context(session)` → `backend/nia.py`), so NIA's top priority is always the dashboard's
+first action-queue row, and its bottleneck counts match the dashboard table.
+
+- **Role-aware:** welcome text, suggested prompts, priorities and recommendations follow the signed-in
+  role. IT sees the laptop / access issue it owns, even when the joiner's overall blocker is HR's.
+- **Scoped:** NIA never has more access than the user. A manager asking about someone outside their
+  team gets *"I can't show that information for your current access level."*, and no hidden data is returned.
+- **Grounded:** unknown questions get *"I couldn't find that information in the approved SmartStart data,
+  so I don't want to guess."*. What-if answers only use known workflow rules.
+- **Source-aware:** answers show source pills and **Open iCIMS / Open Service Desk / Open Jira** buttons
+  with the record id. These open the independent mock apps in a new tab and are never embedded.
+  Override the URLs with `NIA_ICIMS_URL`, `NIA_SERVICENOW_URL` and `NIA_JIRA_URL`; the defaults are the
+  same host on ports 8100 / 8200 / 8300.
+- **Confirm-gated:** "Assign …" and "Resolve …" return a confirmation card. Only **Confirm** calls the
+  Command Center's existing Assign / Resolve handlers. NIA refuses to change HR records, salaries,
+  permissions or approvals, or to close external tickets.
+- **Intents:** priorities, briefing, explain ("why is … at risk"), Employee 360, "can … start their project"
+  (a cross-system check), navigate ("where do I fix this"), recommend, what-if, cohort ("where are people
+  stuck", "which team needs attention"), lists (SLA breaches, access, documents, not project-ready, …),
+  assign and resolve. Plus at most two dismissible proactive nudges.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/nia/briefing` | Role-aware welcome, suggested prompts, proactive nudges |
+| POST | `/api/nia/ask` | `{message, focus_joiner_id?}` → `{intent, text, blocks[facts/bullets/joiners/link/confirm], sources, suggestions, focus_joiner_id}` |
+
+Demo: sign in as `hr.jordan`, `it.riley`, `mgr.chen` or `ops.admin`, then click **NIA**. Try
+"Who needs my attention?", "Why is Sarah at risk?", "Where do I fix this?", "Who isn't project-ready?"
+or "Which team needs attention?".
+
 ## Project layout
 
 ```text
@@ -142,6 +177,7 @@ backend/
   database.py             # In-memory store
   analytics.py            # KPI calculations
   role_context.py         # Role scope, actions, alert wording, role analytics
+  nia.py                  # NIA — employer assistant over the role context
   alerts.py               # Synthetic alert generator
   integrations.py         # Mock system connectors
   employee_experience.py  # Profile / learning / notifications / feedback
@@ -151,6 +187,7 @@ frontend/
   ai.html                 # Prototype AI Features UI
   style.css
   app.js                  # Employer Fetch + charts
+  nia.js                  # NIA floating assistant panel
   employee.js             # Employee dashboard Fetch UI
   ai.js                   # AI Features Fetch UI
 tests/

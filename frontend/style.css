@@ -3215,7 +3215,16 @@ body:has(.joiner-drawer:not([hidden])) .nia-launcher { right: calc(min(440px, 10
 .nia-launcher:hover .nia-launcher-text, .nia-launcher:focus-visible .nia-launcher-text {
   max-width: 200px; opacity: 1; margin: 0 0.7rem 0 0.55rem;
 }
-.nia-orb { background: radial-gradient(circle at 30% 30%, #3a4a8a, var(--navy-600) 60%, #0a1026); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08); }
+.nia-orb {
+  position: relative; overflow: hidden;
+  background: radial-gradient(circle at 35% 30%, #24337a, var(--navy-700) 62%, #070b1c);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08), inset 0 0 10px rgba(120, 150, 255, 0.25);
+}
+.nia-launcher .nia-orb { width: 44px; height: 44px; }
+.nia-orb .orb-globe {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  background: none; border: 0; border-radius: 50%;
+}
 .nia-badge { background: var(--navy-700); box-shadow: 0 0 0 2px #fff; }
 .flow-fill.s0, .flow-fill.s1, .flow-fill.s2, .flow-fill.s3, .flow-fill.s4 { background: var(--navy-700); }
 .flow-fill.s0 { opacity: 0.35; }

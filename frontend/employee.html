@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=44" />
+  <link rel="stylesheet" href="/static/style.css?v=50" />
 </head>
 <body class="employee-page">
   <div id="workspace" class="wx">
@@ -22,6 +22,7 @@
 
       <nav class="wx-nav" aria-label="Workspace sections">
         <button type="button" class="wx-nav-btn active" data-tab="home">Home</button>
+        <button type="button" class="wx-nav-btn wx-nav-waters" data-waters>What is Waters?</button>
         <button type="button" class="wx-nav-btn" data-tab="learning">Learning</button>
         <button type="button" class="wx-nav-btn" data-tab="ask">IRA</button>
         <button type="button" class="wx-nav-btn" data-tab="basics">Basics</button>
@@ -78,6 +79,16 @@
           </div>
           <ol class="wx-stages" id="wx-stages" aria-label="Onboarding stages"></ol>
         </div>
+
+        <button type="button" class="wx-waters-teaser" data-waters>
+          <span class="wx-waters-art" aria-hidden="true"><i></i><i></i><i></i><b></b></span>
+          <span class="wx-waters-copy">
+            <span class="wx-waters-kicker">Waters // How it all connects</span>
+            <strong>What is Waters — and where do you fit?</strong>
+            <span>Explore the machine: the science, the technology, the people, and your place in it.</span>
+          </span>
+          <span class="wx-waters-go">Explore →</span>
+        </button>
 
         <div class="wx-split">
           <section class="wx-panel">
@@ -305,10 +316,65 @@
   </aside>
   <div class="wx-toast" id="wx-toast" role="status" hidden></div>
 
+  <div class="wm" id="wm" role="dialog" aria-modal="true" aria-label="Waters — how it all connects" hidden>
+    <canvas class="wm-canvas" aria-hidden="true"></canvas>
+    <div class="wm-grain" aria-hidden="true"></div>
+    <div class="wm-labels"></div>
+    <div class="wm-markers"></div>
+
+    <header class="wm-top">
+      <div class="wm-brand"><strong>Waters</strong><span>//</span>How it all connects</div>
+      <nav class="wm-rail" aria-label="Chapters"></nav>
+      <div class="wm-top-actions">
+        <button type="button" class="wm-src-btn">Sources</button>
+        <button type="button" class="wm-close" aria-label="Close">×</button>
+      </div>
+    </header>
+
+    <section class="wm-intro">
+      <p class="wm-intro-kicker">Waters // How it all connects</p>
+      <h1>What is<br />Waters?</h1>
+      <p class="wm-intro-sub">An interactive machine. Move to look around, hover a part to light it up, click to open it — or scroll to travel through.</p>
+      <div class="wm-intro-actions">
+        <button type="button" class="wm-cta primary wm-begin">Start the journey ↓</button>
+        <button type="button" class="wm-cta wm-free">Explore freely</button>
+      </div>
+    </section>
+
+    <aside class="wm-panel" aria-live="polite"></aside>
+
+    <div class="wm-you-word" aria-hidden="true">And you?</div>
+    <div class="wm-you-float" aria-hidden="true"></div>
+
+    <section class="wm-finale" hidden>
+      <canvas class="wm-ira-orb" aria-hidden="true"></canvas>
+      <p class="wm-ira-name">IRA</p>
+      <h2 class="wm-ira-line"></h2>
+      <p class="wm-ira-sub"></p>
+      <div class="wm-ira-actions"></div>
+      <ol class="wm-journey">
+        <li class="is-done">What is Waters?</li>
+        <li>Where does my team fit?</li>
+        <li>What does my role do?</li>
+        <li>What should I do first?</li>
+      </ol>
+      <button type="button" class="wm-replay">Replay the machine</button>
+    </section>
+
+    <div class="wm-hint"></div>
+
+    <aside class="wm-sources" hidden>
+      <header><strong>Public sources</strong><button type="button" class="wm-sources-close" aria-label="Close sources">×</button></header>
+      <p>Company facts come from public Waters information. Your place in the machine comes from your SmartStart record.</p>
+      <ul class="wm-sources-list"></ul>
+    </aside>
+  </div>
+
   <script src="/static/session.js?v=17"></script>
   <script src="/static/motion.js?v=17"></script>
-  <script src="/static/ira-globe.js?v=19"></script>
+  <script src="/static/ira-globe.js?v=26"></script>
   <script src="/static/ira-personal.js?v=27"></script>
-  <script src="/static/employee.js?v=37"></script>
+  <script src="/static/waters-machine.js?v=5"></script>
+  <script src="/static/employee.js?v=38"></script>
 </body>
 </html>

@@ -861,6 +861,22 @@ def answer_core(
             extra = " Rework is flagged." if docs.get("rework_flag") else ""
             return f"Your onboarding documents are {status}.{extra}\nSource: iCIMS (via SmartStart)"
 
+        if emp.get("role_title") and any(
+            k in q for k in ("my role do", "understand my role", "what is my role", "what will i work on", "what do i do here")
+        ):
+            tasks = (ctx.get("onboarding") or {}).get("assigned_tasks") or []
+            lines = [
+                f"You’re a {emp['role_title']} on the {emp.get('team')} team — part of "
+                f"{emp.get('department')} in {emp.get('business_area')}.",
+                f"You report to {emp.get('manager_name')}, and {emp.get('mentor_name')} is your mentor for day-to-day questions.",
+            ]
+            if emp.get("learning_track"):
+                lines.append(f"Your learning track, {emp['learning_track']}, is where your role-specific skills start.")
+            if tasks:
+                lines.append("First on your plate: " + "; ".join(tasks[:3]) + ".")
+            lines.append(f"Good first-1:1 question for {emp.get('manager_name')}: “What does a great first month look like?”")
+            return "\n".join(lines) + "\nSource: SmartStart"
+
         if any(k in q for k in ("department", "role", "who am i", "my name")):
             return (
                 f"You’re {emp.get('name')} — {emp.get('role_type')} in {emp.get('department')} "

@@ -39,7 +39,7 @@ from backend.employee_experience import (
     remove_skill,
     skills_for,
 )
-from backend import ira_profile, manager_assistant, nia, onboarding_cases, resolutions
+from backend import ira_profile, manager_assistant, nia, onboarding_cases, resolutions, waters_explorer
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -1060,6 +1060,15 @@ def employee_workspace(joiner_id: str) -> TeamWorkspaceResponse:
         return build_team_workspace(joiner_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Workspace not found") from None
+
+
+@app.get("/api/employee/{joiner_id}/waters")
+def employee_waters(joiner_id: str) -> dict:
+    """Waters // How it all connects — public company story plus this joiner's place in it."""
+    try:
+        return waters_explorer.build(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Employee not found") from None
 
 
 class SkillBody(BaseModel):

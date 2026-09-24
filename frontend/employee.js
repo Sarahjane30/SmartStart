@@ -1506,9 +1506,10 @@ function fmt(iso) {
 function wireUI() {
   document.getElementById("sign-out-btn")?.addEventListener("click", exitToPortal);
 
-  document.querySelectorAll(".wx-nav-btn").forEach((btn) => {
+  document.querySelectorAll(".wx-nav-btn[data-tab]").forEach((btn) => {
     btn.addEventListener("click", () => setTab(btn.dataset.tab));
   });
+  document.querySelectorAll("[data-waters]").forEach((btn) => btn.addEventListener("click", openWaters));
   document.querySelectorAll("[data-goto]").forEach((btn) => {
     btn.addEventListener("click", () => setTab(btn.dataset.goto));
   });
@@ -1556,8 +1557,17 @@ function wireUI() {
   document.getElementById("feedback-anon").addEventListener("change", syncAnonCopy);
 }
 
+function openWaters() {
+  window.watersMachine?.open({
+    employeeId: state.employeeId,
+    onGoto: (tab) => setTab(tab),
+    onAsk: (q) => askFromHome(q),
+  });
+}
+
 async function boot() {
   if (!session) return;
+  const exploreWaters = window.location.hash === "#waters";
   try {
     wireUI();
     window.history.replaceState(
@@ -1566,6 +1576,7 @@ async function boot() {
       `/employee?id=${encodeURIComponent(state.employeeId)}`
     );
     await loadWorkspace();
+    if (exploreWaters) openWaters();
   } catch (err) {
     console.error(err);
     showError(`Failed to load employee workspace: ${err.message}`);

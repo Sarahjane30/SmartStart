@@ -44,6 +44,20 @@ _COMPLETED_AT: dict[tuple[str, str], str] = {}
 # joiner_id -> courses an employer added on top of the role track (in assignment order).
 _ASSIGNED: dict[str, list[dict]] = {}
 ASSIGNED_PREFIX = "add-"
+# joiner_id -> skills the employee added on their Team card.
+_SKILLS: dict[str, list[str]] = {}
+MAX_SKILLS = 12
+MAX_SKILL_LEN = 32
+INTERN_SKILL_IDEAS = (
+    "Python",
+    "Excel",
+    "Git",
+    "Communication",
+    "Research",
+    "Writing",
+    "SQL",
+    "Design",
+)
 
 # Extra synthetic courses a manager can add; lessons exist for any id also in learning_content.
 _EXTRA_COURSES = [
@@ -59,6 +73,33 @@ def clear_feedback() -> None:
     _COMPLETED.clear()
     _COMPLETED_AT.clear()
     _ASSIGNED.clear()
+    _SKILLS.clear()
+
+
+def skills_for(joiner_id: str) -> list[str]:
+    return list(_SKILLS.get(joiner_id, []))
+
+
+def add_skill(joiner_id: str, skill: str) -> list[str]:
+    """Add a skill the employee wants on their Team card (interns and FTEs)."""
+    label = " ".join(str(skill or "").split()).strip()
+    if not label:
+        raise ValueError("Skill can't be empty")
+    if len(label) > MAX_SKILL_LEN:
+        raise ValueError(f"Keep skills to {MAX_SKILL_LEN} characters")
+    current = _SKILLS.setdefault(joiner_id, [])
+    if any(s.casefold() == label.casefold() for s in current):
+        return list(current)
+    if len(current) >= MAX_SKILLS:
+        raise ValueError(f"You can add up to {MAX_SKILLS} skills")
+    current.append(label)
+    return list(current)
+
+
+def remove_skill(joiner_id: str, skill: str) -> list[str]:
+    current = _SKILLS.setdefault(joiner_id, [])
+    _SKILLS[joiner_id] = [s for s in current if s.casefold() != str(skill or "").casefold()]
+    return list(_SKILLS[joiner_id])
 
 
 def list_feedback(joiner_id: str | None = None) -> list[FeedbackRecord]:
@@ -605,6 +646,7 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
     it = it_names[_stable_int(joiner_id + ":it", len(it_names))]
     mgr = joiner.manager_name or mgr_names[_stable_int(joiner_id + ":mgr", len(mgr_names))]
 
+    # Employees contact people — they do not open iCIMS / ServiceNow / Jira themselves.
     consult = [
         ConsultContact(
             id=f"{joiner_id}-C-mentor",
@@ -624,24 +666,20 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
             id=f"{joiner_id}-C-hr",
             name=hr,
             role_label="HR onboarding partner",
-            channel="iCIMS / email",
+            channel="Email · Slack",
             availability="Same-day reply on docs questions",
             focus="Document packet, compliance forms, Day-1 checklist",
             email=work_email(hr),
-            portal="icims",
-            portal_label="HR portal (iCIMS)",
             synthetic=True,
         ),
         ConsultContact(
             id=f"{joiner_id}-C-it",
             name=it,
             role_label="IT provisioning",
-            channel="ServiceNow ticket",
+            channel="Email · #it-help",
             availability="SLA target 3 business days",
             focus="Laptop, VPN, Okta, software access",
             email=work_email(it),
-            portal="servicenow",
-            portal_label="IT portal (ServiceNow)",
             synthetic=True,
         ),
         ConsultContact(
@@ -656,8 +694,6 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
                 else "Project assignment and readiness sign-off"
             ),
             email=work_email(mgr),
-            portal="jira",
-            portal_label="Project board (Jira)",
             synthetic=True,
         ),
     ]
@@ -703,6 +739,10 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
         manager_name=mgr,
         mentor_name=joiner.mentor_name,
     )
+    mine = skills_for(joiner_id)
+    for m in members:
+        if m.is_self:
+            m.expertise = list(mine)
 
     return TeamWorkspaceResponse(
         joiner_id=joiner_id,

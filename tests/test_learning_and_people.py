@@ -62,10 +62,33 @@ def test_people_and_team_have_emails():
         jid = _first_joiner(client)
         ws = client.get(f"/api/employee/{jid}/workspace").json()
         assert all("@" in c["email"] for c in ws["consult"])
-        hr = next(c for c in ws["consult"] if c["id"].endswith("-C-hr"))
-        assert hr["portal"] == "icims"
+        # Employees contact people — they do not get iCIMS / ServiceNow / Jira portal links.
+        assert all(not c.get("portal") for c in ws["consult"])
         others = [m for m in ws["members"] if not m["is_self"]]
         assert others and all("@" in m["email"] for m in others)
+
+
+def test_employee_can_add_skills_on_team_card():
+    with TestClient(app) as client:
+        employees = client.get("/api/ira/employees").json()["employees"]
+        intern = next(e for e in employees if e["role_type"] == "INTERN")
+        jid = intern["id"]
+        assert client.get(f"/api/employee/{jid}/skills").json()["skills"] == []
+
+        added = client.post(f"/api/employee/{jid}/skills", json={"skill": "Python"}).json()
+        assert added["skills"] == ["Python"]
+        client.post(f"/api/employee/{jid}/skills", json={"skill": "Excel"})
+        # Duplicates (case-insensitive) are ignored.
+        again = client.post(f"/api/employee/{jid}/skills", json={"skill": "python"}).json()
+        assert again["skills"] == ["Python", "Excel"]
+
+        me = next(m for m in client.get(f"/api/employee/{jid}/workspace").json()["members"] if m["is_self"])
+        assert me["expertise"] == ["Python", "Excel"]
+
+        removed = client.delete(f"/api/employee/{jid}/skills/Excel").json()
+        assert removed["skills"] == ["Python"]
+        assert client.post(f"/api/employee/{jid}/skills", json={"skill": "   "}).status_code == 400
+        assert client.post(f"/api/employee/{jid}/skills", json={"skill": "x" * 40}).status_code in {400, 422}
 
 
 def test_web_chatbot_drafts_email_to_directory_person():

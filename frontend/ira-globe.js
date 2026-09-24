@@ -192,13 +192,12 @@
       })
     );
   });
-  if (!globes.length) return;
-
   const kick = () => globes.forEach((g) => g.start());
   kick();
   document.addEventListener("visibilitychange", () => !document.hidden && kick());
 
   window.iraGlobe = {
+    create: createGlobe,
     start: kick,
     setThinking(on) {
       globes.forEach((g) => g.setThinking(on));

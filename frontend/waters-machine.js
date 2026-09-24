@@ -106,6 +106,7 @@
     cam: [0, 0, 0],
     zoom: 0.9,
     shift: 0,
+    shiftY: 0,
     hover: null,
     active: null,
     level: 1,
@@ -156,7 +157,7 @@
     const z2 = y * sp + z1 * cp;
     const persp = 8 / (8 - clamp(z2, -20, 6.5));
     const s = S.unit * S.zoom * persp;
-    return { x: S.w / 2 + S.shift + x1 * s, y: S.h * 0.5 - y2 * s, s, z: z2 };
+    return { x: S.w / 2 + S.shift + x1 * s, y: S.h * 0.5 + S.shiftY - y2 * s, s, z: z2 };
   }
 
   const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -748,7 +749,7 @@
         const q = project(path(u));
         glow(q.x, q.y, 0.18 * q.s, i === 0 ? C.amber : C.cyan, 0.8);
         dot(q.x, q.y, 3, C.ice, 1);
-        if (i === 0 || i === n - 1) return;
+        if (i === 0 || i === n - 1 || S.narrow) return;
         ctx.globalCompositeOperation = "source-over";
         ctx.fillStyle = rgba(C.ice, 0.85);
         ctx.fillText(c.name.toUpperCase(), q.x + 14, q.y);
@@ -809,13 +810,14 @@
       if (active === "you") {
         cam = [0.35, -1.0, 0.7];
         zoom = S.youT > 3 ? 1.05 : 1.5;
-        if (S.narrow) zoom *= 0.7;
+        if (S.narrow) zoom *= 0.95;
       }
       if (active === "science") cam = [cam[0] + 0.35, cam[1], cam[2]];
       if (!S.narrow) shift = -S.w * 0.19;
     }
     if (S.finale) zoom = (S.narrow ? 0.78 : 1) * (1 - ease(S.closing) * 0.25);
-    return { cam, zoom, shift };
+    const shiftY = S.narrow && !S.finale ? -S.h * (active ? 0.27 : S.intro ? 0.16 : 0) : 0;
+    return { cam, zoom, shift, shiftY };
   }
 
   function frame(time) {
@@ -843,6 +845,7 @@
     S.cam = mix(S.cam, ct.cam, kc);
     S.zoom = lerp(S.zoom, ct.zoom * (1 + Math.sin(S.t * 0.7) * 0.01), kc);
     S.shift = lerp(S.shift, ct.shift, kc);
+    S.shiftY = lerp(S.shiftY, ct.shiftY, kc);
     const idleYaw = S.active ? 0 : Math.sin(S.t * 0.11) * 0.3;
     S.yaw = lerp(S.yaw, idleYaw + S.smx * (S.active ? 0.14 : 0.38), kc);
     S.pitch = lerp(S.pitch, 0.16 + S.smy * (S.active ? 0.06 : 0.16), kc);
@@ -952,10 +955,14 @@
         }
       });
     }
-    markers.forEach((m) => {
+    markers.forEach((m, i) => {
       const b = els.markers.querySelector(`[data-kind="${m.kind}"][data-id="${m.id}"]`);
       if (!b) return;
-      b.style.transform = `translate(${Math.round(m.x)}px, ${Math.round(m.y)}px)`;
+      const crowded = markers
+        .slice(0, i)
+        .some((o) => o.front && m.front && Math.abs(o.y - m.y) < 26 && Math.abs(o.x - m.x) < 130);
+      b.classList.toggle("is-left", crowded);
+      b.style.transform = `translate(${Math.round(m.x)}px, ${Math.round(m.y)}px)${crowded ? " translateX(calc(-100% + 12px))" : ""}`;
       b.classList.toggle("is-back", !m.front);
       b.classList.toggle("is-on", S.site === m.id || S.node === m.id);
     });
@@ -1042,7 +1049,7 @@
     world(c) {
       const site = c.sites.find((s) => s.id === S.site);
       return `${kicker(c)}<h2>${esc(c.title)}</h2>
-        <div class="wm-stat"><strong>≈ ${esc(S.data.company.colleagues.replace("~", ""))}</strong><span>colleagues worldwide</span></div>
+        <div class="wm-stat"><strong>≈&nbsp;${esc(S.data.company.colleagues.replace("~", ""))}</strong><span>colleagues worldwide</span></div>
         <p class="wm-lead">${esc(c.lead)}</p>
         <h3>Explore locations</h3>
         <div class="wm-sites">${c.sites

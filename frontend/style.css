@@ -3604,6 +3604,7 @@ body.wm-lock { overflow: hidden; }
 .wm-marker.is-home { border-color: rgba(255, 198, 120, 0.45); }
 .wm-marker.is-on, .wm-marker:hover { border-color: rgba(96, 214, 255, 0.8); background: rgba(20, 40, 90, 0.8); }
 .wm-marker.is-back { opacity: 0; pointer-events: none; }
+.wm-marker.is-left { flex-direction: row-reverse; padding: 0.22rem 0.3rem 0.22rem 0.65rem; }
 @keyframes wmFade { from { opacity: 0; } }
 
 .wm-panel {
@@ -3828,9 +3829,18 @@ body.wm-lock { overflow: hidden; }
 .wm-sources a { color: #9fc0ff; font-size: 0.8rem; line-height: 1.4; }
 
 @media (max-width: 899px) {
-  .wm-top { padding: 0.8rem 0.9rem; }
+  .wm-top { padding: 0.8rem 0.9rem; gap: 0.5rem; }
   .wm-brand { display: none; }
-  .wm-rail-btn { padding: 0.32rem 0.45rem; }
+  .wm-rail { flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .wm-rail::-webkit-scrollbar { display: none; }
+  .wm-rail-btn { flex: none; padding: 0.32rem 0.45rem; }
+  .wm-top-actions { flex: none; }
+  .wm-src-btn { padding: 0.38rem 0.55rem; }
+  .wm-hint { white-space: normal; width: 90%; text-align: center; line-height: 1.6; }
+  .wm-you-word { top: 22%; }
+  .wm-stat { flex-wrap: wrap; gap: 0.2rem 0.6rem; }
+  .wm-stat strong { font-size: 2.4rem; }
+  .wm-you-float strong { font-size: 1rem; }
   .wm-rail-btn em { display: none; }
   .wm-panel { left: 0.7rem; right: 0.7rem; top: auto; bottom: 0.7rem; width: auto; max-height: 54vh; transform: translateY(26px); }
   .wm-intro { left: 1.3rem; right: 1.3rem; bottom: 14vh; }

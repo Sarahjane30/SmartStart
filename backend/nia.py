@@ -1504,7 +1504,7 @@ def manager_tasks(ctx: RoleContext, f: JoinerFacts) -> Reply:
         else f"SLA breached · {t.lead_time_days}d vs {t.sla_target_days}d" if f.sla_open
         else f"{t.hardware_status.value} · within SLA"
     )
-    r.text = f"**{poss(f.joiner.name)} onboarding — your part.** {att['headline']}"
+    r.text = f"**{poss(f.joiner.name)} onboarding — your part.**"
     r.blocks.append({
         "type": "mgr_tasks",
         "joiner_id": f.id,

@@ -46,6 +46,8 @@ _ASSIGNED: dict[str, list[dict]] = {}
 ASSIGNED_PREFIX = "add-"
 # joiner_id -> skills the employee added on their Team card.
 _SKILLS: dict[str, list[str]] = {}
+# joiner_id -> messages HR confirmed and sent through NIA (welcome, reminders, Day-1 notes).
+_HR_MESSAGES: dict[str, list[dict]] = {}
 MAX_SKILLS = 12
 MAX_SKILL_LEN = 32
 INTERN_SKILL_IDEAS = (
@@ -74,6 +76,17 @@ def clear_feedback() -> None:
     _COMPLETED_AT.clear()
     _ASSIGNED.clear()
     _SKILLS.clear()
+    _HR_MESSAGES.clear()
+
+
+def deliver_employee_message(joiner_id: str, *, msg_id: str, title: str, message: str, by: str) -> None:
+    _HR_MESSAGES.setdefault(joiner_id, []).append({
+        "id": msg_id,
+        "title": title,
+        "message": message,
+        "by": by,
+        "at": datetime.now(timezone.utc),
+    })
 
 
 def skills_for(joiner_id: str) -> list[str]:
@@ -556,6 +569,19 @@ def build_notifications(joiner_id: str, db: DataStore | None = None) -> Notifica
                 message=f"{a['by']} added “{a['title']}” to your learning.{due}"
                 + (f" Note: {a['note']}" if a["note"] else ""),
                 created_at=datetime.fromisoformat(a["at"]),
+                read=False,
+                synthetic=True,
+            )
+        )
+
+    for m in _HR_MESSAGES.get(joiner_id, []):
+        notes.append(
+            EmployeeNotification(
+                id=f"{joiner_id}-N-{m['id']}",
+                kind=NotificationKind.ACTION,
+                title=m["title"],
+                message=f"From {m['by']}: {m['message']}",
+                created_at=m["at"],
                 read=False,
                 synthetic=True,
             )

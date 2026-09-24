@@ -19,6 +19,13 @@ def clear() -> None:
     _REOPENED.clear()
 
 
+def forget(joiner_id: str) -> None:
+    """Drop every entry for a joiner whose onboarding restarted (e.g. a new iCIMS offer)."""
+    for ledger in (_RESOLVED, _REOPENED):
+        for key in [k for k in ledger if k[0] == joiner_id]:
+            ledger.pop(key)
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 

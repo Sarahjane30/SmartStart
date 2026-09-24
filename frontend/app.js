@@ -283,6 +283,19 @@ function actionCard(s, compact = false) {
   const reopened = s.reopened
     ? `<span class="reopen-chip" title="Reopened by ${esc(s.reopened.by)}">Still needs help</span>`
     : "";
+  if (compact) {
+    return `<article class="nn-row">
+      <span class="sev-dot sev-${esc(primary.severity)}" title="${esc(primary.severity)} priority"></span>
+      <div class="nn-main">
+        <div class="nn-line">
+          <button type="button" class="joiner-open" data-open="${esc(s.id)}"><strong>${esc(s.name)}</strong></button>${reopened}
+          <span class="nn-do">${esc(primary.label)}</span>
+        </div>
+        <span class="muted tiny">${esc(s.role_type)} · ${esc(s.department)} · ${s.days_in_pipeline}d · ${esc(primary.detail)}</span>
+      </div>
+      <div class="nn-acts">${actionCell(s)}</div>
+    </article>`;
+  }
   return `<article class="action-card sev-${esc(primary.severity)}">
     <div class="ac-who">
       <button type="button" class="joiner-open" data-open="${esc(s.id)}"><strong>${esc(s.name)}</strong></button>${reopened}
@@ -584,7 +597,7 @@ function renderDashboard() {
       : emptyState("🔔", "No alerts need your action", "Cross-team delays still show under Alerts.");
     document.getElementById("dash-extra").innerHTML =
       flowPanel() + startingSoonPanel() + watchlistPanel();
-    revealAll(document.getElementById("needs-now"), ".action-card", 30);
+    revealAll(document.getElementById("needs-now"), ".nn-row", 30);
     revealAll(document.getElementById("dash-extra"), ".card", 40);
     return;
   }
@@ -667,6 +680,20 @@ function renderAlerts() {
 }
 
 function alertCard(a, compact = false) {
+  if (compact) {
+    const open = a.joiner_id ? ` data-open="${esc(a.joiner_id)}" role="button" tabindex="0"` : "";
+    return `<article class="al-row ${a.joiner_id ? "is-link" : ""}"${open}>
+      <span class="sev-dot sev-${esc(a.severity)}" title="${esc(a.severity)}"></span>
+      <div class="al-main">
+        <div class="al-line">
+          <strong>${esc(a.title)}</strong>
+          <span class="al-sev">${esc(a.severity)}</span>
+        </div>
+        <p class="al-msg">${esc(a.message)}</p>
+      </div>
+      ${a.joiner_id ? `<span class="al-go" aria-hidden="true">→</span>` : ""}
+    </article>`;
+  }
   const tag = isOps()
     ? ""
     : `<span class="alert-tag ${a.action_required ? "act" : "aware"}">${
@@ -1396,6 +1423,12 @@ function wireUI() {
   document.getElementById("drawer-backdrop").addEventListener("click", closeDrawer);
   document.getElementById("assign-close")?.addEventListener("click", closeAssignModal);
   document.getElementById("assign-backdrop")?.addEventListener("click", closeAssignModal);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const row = e.target.closest?.(".al-row[data-open]");
+    if (row && e.target === row) openJoinerDrawer(row.dataset.open);
+  });
 
   document.addEventListener("click", (e) => {
     const pick = e.target.closest("[data-pick-owner]");

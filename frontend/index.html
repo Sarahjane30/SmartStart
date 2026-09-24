@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=30" />
+  <link rel="stylesheet" href="/static/style.css?v=32" />
 </head>
 <body class="employer-page">
   <div class="app-shell" id="employer-shell">
@@ -76,14 +76,14 @@
               <h2 id="needs-now-title">Needs you now</h2>
               <button type="button" class="btn-link" data-goto="actions" id="needs-now-more">See all →</button>
             </div>
-            <div id="needs-now" class="action-list compact"></div>
+            <div id="needs-now" class="nn-list"></div>
           </div>
           <div class="card">
             <div class="card-head">
               <h2>Alerts for you</h2>
               <button type="button" class="btn-link" data-goto="alerts">All alerts →</button>
             </div>
-            <div id="dash-alerts" class="alerts-list compact"></div>
+            <div id="dash-alerts" class="al-list"></div>
           </div>
         </div>
         <div class="dash-extra" id="dash-extra" hidden></div>
@@ -302,7 +302,7 @@
   <div id="toast" class="toast" hidden role="status"></div>
   <script src="/static/session.js?v=24"></script>
   <script src="/static/motion.js?v=24"></script>
-  <script src="/static/app.js?v=25"></script>
+  <script src="/static/app.js?v=26"></script>
   <script src="/static/employer-learning.js?v=24"></script>
   <script src="/static/ira-globe.js?v=24"></script>
   <script src="/static/nia.js?v=24"></script>

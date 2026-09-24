@@ -275,7 +275,11 @@ function niaCaseStatus(b) {
     }
     <div class="nc-acts">
       <button type="button" class="nia-mini" data-nia-q="Show ${esc(b.name)}'s onboarding plan" data-nia-focus="${esc(b.joiner_id)}">View plan</button>
-      <button type="button" class="nia-mini" data-nia-q="Show ${esc(b.name)}'s documents" data-nia-focus="${esc(b.joiner_id)}">Documents</button>
+      ${
+        b.viewer === "manager"
+          ? mgBtn("My tasks", `What do I need to do for ${b.name}?`, b.joiner_id, false)
+          : `<button type="button" class="nia-mini" data-nia-q="Show ${esc(b.name)}'s documents" data-nia-focus="${esc(b.joiner_id)}">Documents</button>`
+      }
       <button type="button" class="nia-mini" data-nia-open="${esc(b.joiner_id)}">Open joiner</button>
     </div>
   </div>`;
@@ -369,6 +373,130 @@ function niaCases(b) {
     .join("")}</div>`;
 }
 
+/* --- Hiring manager: agenda, "your part" checklist, confirm cards ------------------ */
+
+const MG_ICON = { done: "done", booked: "active", todo: "attention", later: "pending", info: "active" };
+
+function mgBtn(label, q, id, primary) {
+  return `<button type="button" class="${primary ? "nia-primary" : "nia-mini"}" data-nia-q="${esc(q)}" data-nia-focus="${esc(id)}">${esc(label)}</button>`;
+}
+
+function niaMgrAgenda(b) {
+  const needs = b.needs.length
+    ? `<ul class="mg-list">${b.needs
+        .map(
+          (n) => `<li class="mg-row">
+            <span class="nc-avatar sm" aria-hidden="true">${ncInitials(n.name)}</span>
+            <span class="mg-main"><strong>${esc(n.name)}</strong><span class="mg-task">${esc(n.task)}</span>
+              <span class="mg-detail">${esc(n.detail)}</span></span>
+            <span class="mg-acts">${n.actions.map((a, i) => mgBtn(a.label, a.q, n.joiner_id, i === 0)).join("")}</span>
+          </li>`
+        )
+        .join("")}</ul>${b.more ? `<p class="nc-meta">+${b.more} more</p>` : ""}`
+    : `<p class="mg-empty">Nothing needs you right now.</p>`;
+  const others = b.others.length
+    ? `<div class="mg-others"><p class="nia-block-title">With HR or IT — NIA follows up, not you</p><ul>${b.others
+        .map(
+          (o) => `<li class="mg-lv-${esc(o.level)}"><button type="button" data-nia-q="How's ${esc(o.name)}'s onboarding?" data-nia-focus="${esc(
+            o.joiner_id
+          )}"><span class="mg-owner">${esc(o.owner)}</span>${esc(o.name)}<em>${esc(o.detail)}</em></button></li>`
+        )
+        .join("")}</ul></div>`
+    : "";
+  const set = [
+    ...b.booked.map((x) => `${x.name} — ${x.detail}`),
+    ...(b.ready.length ? [`Project ready: ${b.ready.join(", ")}`] : []),
+  ];
+  return `<div class="nc-case mg-agenda">
+    <p class="nia-block-title">Your to-do</p>${needs}${others}
+    ${set.length ? `<ul class="mg-set">${set.map((s) => `<li>✓ ${esc(s)}</li>`).join("")}</ul>` : ""}
+  </div>`;
+}
+
+function niaMgrTasks(b) {
+  const a = b.attention;
+  return `<div class="nc-case">
+    <header class="nc-head">
+      <span class="nc-avatar" aria-hidden="true">${ncInitials(b.name)}</span>
+      <div class="nc-who"><strong>${esc(b.name)}</strong>
+        <span>${esc(b.position)} · starts ${esc(b.start_label)} (${esc(b.when)})</span></div>
+      <span class="nc-pill">${esc(b.stage)}</span>
+    </header>
+    <ol class="nc-steps">${b.steps
+      .map((s) => `<li class="nc-${esc(s.status)}" title="${esc(s.detail)}">${ncIcon(s.status)}<span>${esc(s.label)}</span></li>`)
+      .join("")}</ol>
+    <div class="nc-att nc-att-${esc(a.level)}"><strong>${esc(a.headline)}</strong>${a.reason ? `<p>${esc(a.reason)}</p>` : ""}</div>
+    <p class="nia-block-title mg-sub">Your part</p>
+    <ul class="nc-items">${b.tasks
+      .map((t) => {
+        const st = MG_ICON[t.status] || "pending";
+        return `<li class="mg-task-row mg-${esc(t.status)}">${ncIcon(st)}
+          <span class="mg-main"><span class="mg-task">${esc(t.label)}</span><span class="mg-detail">${esc(t.detail)}</span></span>
+          ${t.cta_q ? mgBtn(t.cta_label, t.cta_q, b.joiner_id, t.status === "todo") : "<span></span>"}</li>`;
+      })
+      .join("")}</ul>
+    <p class="nia-block-title mg-sub">Everyone else</p>
+    <dl class="nia-facts mg-facts">${b.others
+      .map((o) => `<div><dt>${esc(o.team)} · ${esc(o.label)}</dt><dd>${esc(o.value)}</dd></div>`)
+      .join("")}</dl>
+    <div class="nc-acts">
+      ${mgBtn("Draft welcome note", `Draft a welcome note for ${b.name}`, b.joiner_id, false)}
+      <button type="button" class="nia-mini" data-nia-open="${esc(b.joiner_id)}">Open joiner</button>
+    </div>
+  </div>`;
+}
+
+function niaMgrAction(b, idx) {
+  let fields = "";
+  if (b.action === "mentor") {
+    fields = `<label class="nc-field"><span>Mentor</span><input data-mg="mentor" value="${esc(b.value)}" maxlength="60" /></label>`;
+  } else if (b.action === "day1") {
+    fields = `<div class="mg-when">
+      <label class="nc-field"><span>Date</span><input type="date" data-mg="day" value="${esc(b.date)}" min="${esc(b.min)}" /></label>
+      <label class="nc-field"><span>Time</span><input type="time" data-mg="time" value="${esc(b.time)}" step="900" /></label>
+    </div>`;
+  } else {
+    fields = `<label class="nc-field"><span>First project</span>
+        <input data-mg="project" value="${esc(b.value)}" maxlength="80" placeholder="e.g. ${esc(b.options[0] || "")}" /></label>
+      <div class="nc-chips">${b.options
+        .map((o) => `<button type="button" class="nc-chip mg-pick" data-mg-pick="${esc(o)}">${esc(o)}</button>`)
+        .join("")}</div>
+      ${b.tasks.length ? `<p class="nc-meta">Week-1 tasks already planned: ${esc(b.tasks.join(" · "))}</p>` : ""}`;
+  }
+  const title = { mentor: "Confirm mentor", day1: "Book Day-1 orientation", project: "Assign first project" }[b.action];
+  const cta = { mentor: "Confirm mentor", day1: "Book Day 1", project: "Assign project" }[b.action];
+  return `<div class="nc-case mg-action" data-nia-mgr="${idx}">
+    <p class="nia-block-title">${esc(title)} · ${esc(b.joiner_name)}</p>
+    ${fields}
+    ${b.warn ? `<p class="mg-warn">${esc(b.warn)}</p>` : ""}
+    <p class="nia-card-meta">${esc(b.note)}</p>
+    <div class="nc-acts">
+      <button type="button" class="nia-primary" data-nc-do="confirm">${esc(cta)}</button>
+      <button type="button" class="nia-mini" data-nc-do="cancel">Cancel</button>
+    </div>
+  </div>`;
+}
+
+async function mgConfirm(card, b) {
+  const val = (k) => card.querySelector(`[data-mg="${k}"]`)?.value || "";
+  const body =
+    b.action === "mentor" ? { mentor: val("mentor") } : b.action === "day1" ? { day: val("day"), time: val("time") } : { project: val("project") };
+  card.querySelectorAll("button, input").forEach((el) => (el.disabled = true));
+  try {
+    await niaPost(`/api/nia/manager/${encodeURIComponent(b.joiner_id)}/${b.action}`, body);
+    const done = {
+      mentor: `<strong>${esc(body.mentor)}</strong> is confirmed as ${esc(b.first)}'s mentor. ${esc(b.first)} has been told, and HR sees it on the case.`,
+      day1: `Day-1 orientation booked for <strong>${esc(body.day)} at ${esc(body.time)}</strong>. ${esc(b.first)} has the booking in SmartStart.`,
+      project: `<strong>${esc(body.project)}</strong> is ${esc(b.first)}'s first project. Create the ticket in Jira to finish — it has left your queue.`,
+    }[b.action];
+    ncDone(card, `<div class="nia-text">Done — ${done}</div>`);
+    niaSuggest([`What do I need to do for ${b.joiner_name}?`, `Draft a Day-1 agenda for ${b.joiner_name}`, "What do I need to do?"]);
+    window.loadAll?.().catch(() => {});
+  } catch (err) {
+    ncFail(card, err);
+  }
+}
+
 function ncDone(card, html) {
   card.querySelectorAll("button, input, select, textarea").forEach((el) => (el.disabled = true));
   card.classList.add("is-done");
@@ -408,12 +536,12 @@ async function ncSend(card, b) {
   const body = card.querySelector(".nc-body").value;
   card.querySelectorAll("button, input, textarea").forEach((el) => (el.disabled = true));
   try {
-    await niaPost("/api/nia/comms/send", { joiner_id: b.joiner_id, kind: b.kind, subject, body });
+    await niaPost(b.endpoint || "/api/nia/comms/send", { joiner_id: b.joiner_id, kind: b.kind, subject, body });
     ncDone(
       card,
       `<div class="nia-text">Sent — <strong>${esc(b.label)}</strong> to ${esc(b.to.name)}. It's logged on ${esc(
         b.joiner_name
-      )}'s case${b.to.audience === "Employee" ? " and shows in their SmartStart notifications" : ""}. (Simulated delivery — no real email.)</div>`
+      )}'s onboarding${b.to.audience === "Employee" ? " and shows in their SmartStart notifications" : ""}. (Simulated delivery — no real email.)</div>`
     );
   } catch (err) {
     ncFail(card, err);
@@ -475,6 +603,14 @@ function ncWire(el, reply) {
   bind("data-nia-draft", { send: ncSend, cancel });
   bind("data-nia-drafts", { send: ncSendBulk, cancel });
   bind("data-nia-close", { close: ncClose });
+  bind("data-nia-mgr", { confirm: mgConfirm, cancel });
+  el.querySelectorAll("[data-mg-pick]").forEach((chip) =>
+    chip.addEventListener("click", () => {
+      const input = chip.closest(".mg-action").querySelector('[data-mg="project"]');
+      input.value = chip.dataset.mgPick;
+      input.focus();
+    })
+  );
 }
 
 function niaAppend(role, html, extraClass = "") {
@@ -502,6 +638,9 @@ function niaRenderReply(reply) {
       if (b.type === "drafts") return niaDrafts(b, i);
       if (b.type === "case_complete") return niaCaseComplete(b, i);
       if (b.type === "cases") return niaCases(b);
+      if (b.type === "mgr_agenda") return niaMgrAgenda(b);
+      if (b.type === "mgr_tasks") return niaMgrTasks(b);
+      if (b.type === "mgr_action") return niaMgrAction(b, i);
       return "";
     })
     .join("");
@@ -609,6 +748,13 @@ function niaNudgeHtml(p) {
       <div class="nia-nudge-acts">${cta}${dismiss}</div>
     </div>`;
   }
+  if (p.kind === "task") {
+    return `<div class="nia-nudge mg-nudge">
+      <span class="nia-nudge-icon" aria-hidden="true">→</span>
+      <div>${p.title ? `<p class="mg-nudge-title">${esc(p.title)}</p>` : ""}<p>${esc(p.text)}</p></div>
+      <div class="nia-nudge-acts">${cta.replace('class="nia-mini"', 'class="nia-primary"')}${dismiss}</div>
+    </div>`;
+  }
   return `<div class="nia-nudge">
     <span class="nia-nudge-icon" aria-hidden="true">${p.kind === "reminder" ? "↻" : "!"}</span>
     <p>${esc(p.text)}</p>
@@ -623,7 +769,7 @@ function niaRenderProactive() {
     .filter((p) => !nia.shown.has(p.id))
     .forEach((p) => {
       nia.shown.add(p.id);
-      const el = niaAppend("bot", niaNudgeHtml(p), "nia-nudge-wrap");
+      const el = niaAppend("bot", niaNudgeHtml(p), p.kind === "task" ? "nia-nudge-wrap is-task" : "nia-nudge-wrap");
       el.dataset.nudge = p.id;
     });
   niaPaintBadge();

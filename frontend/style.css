@@ -1735,13 +1735,13 @@ canvas {
 .progress-fill {
   position: relative;
   height: 100%; width: 0; border-radius: inherit;
-  background: linear-gradient(90deg, var(--blue-600), var(--cyan));
+  background: var(--navy-700);
   transition: width 1s var(--ease-spring);
 }
 .progress-fill::after {
   content: "";
   position: absolute; inset: 0;
-  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.7), transparent 80%);
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.18), transparent 80%);
   animation: shimmer 2.6s ease-in-out infinite;
 }
 .modules-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(262px, 1fr)); gap: 0.8rem; }
@@ -2837,7 +2837,7 @@ body:has(.joiner-drawer:not([hidden])) .nia-launcher { right: calc(min(440px, 10
 .learn-bar { height: 8px; border-radius: 999px; background: var(--line-soft); overflow: hidden; }
 .learn-bar span {
   display: block; height: 100%; border-radius: inherit;
-  background: linear-gradient(90deg, var(--blue-500), var(--cyan));
+  background: var(--navy-700);
   transition: width 0.6s var(--ease-out);
 }
 .learn-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; font-size: 0.76rem; color: var(--muted); }

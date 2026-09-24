@@ -407,6 +407,7 @@ def _permissions(role: str) -> dict:
         "view_learning": role in (ROLE_HR, ROLE_MANAGER, ROLE_OPS),
         "manage_learning": role in (ROLE_MANAGER, ROLE_OPS),
         "manage_cases": role in (ROLE_HR, ROLE_OPS),
+        "manage_prep": role == ROLE_MANAGER,
     }
     base["act_on"] = {
         ROLE_HR: ["documents", "handoff"],

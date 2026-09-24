@@ -39,7 +39,7 @@ from backend.employee_experience import (
     remove_skill,
     skills_for,
 )
-from backend import ira_profile, nia, onboarding_cases, resolutions
+from backend import ira_profile, manager_assistant, nia, onboarding_cases, resolutions
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -604,6 +604,64 @@ def nia_send_bulk(body: BulkSendRequest, session: EmployerSession) -> dict:
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from None
     return {"sent": sent, "count": len(sent), "synthetic": True}
+
+
+def _manager_ctx(session: dict, joiner_id: str):
+    ctx = build_role_context(session)
+    if not ctx.permissions.get("manage_prep"):
+        raise HTTPException(status_code=403, detail="Mentor, Day-1 and first-project steps belong to the hiring manager.")
+    return ctx, ctx.require_joiner(joiner_id)
+
+
+class MentorRequest(BaseModel):
+    mentor: str = Field(default="", max_length=60)
+
+
+class Day1Request(BaseModel):
+    day: date
+    time: str = Field(default="10:00", max_length=5)
+
+
+class ProjectRequest(BaseModel):
+    project: str = Field(min_length=3, max_length=80)
+
+
+def _manager_step(fn, session: dict, joiner_id: str, *args) -> dict:
+    _, f = _manager_ctx(session, joiner_id)
+    try:
+        entry = fn(f, _actor(session), *args)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from None
+    return {"joiner_id": joiner_id, "entry": entry, "tasks": manager_assistant.tasks(f), "synthetic": True}
+
+
+@app.post("/api/nia/manager/{joiner_id}/mentor")
+def nia_manager_mentor(joiner_id: str, body: MentorRequest, session: EmployerSession) -> dict:
+    """Hiring manager confirms (or changes) the mentor; HR sees it on the case and reminders stop."""
+    return _manager_step(manager_assistant.confirm_mentor, session, joiner_id, body.mentor)
+
+
+@app.post("/api/nia/manager/{joiner_id}/day1")
+def nia_manager_day1(joiner_id: str, body: Day1Request, session: EmployerSession) -> dict:
+    """Book Day-1 orientation; the joiner is notified (simulated invite) and HR sees the booking."""
+    return _manager_step(manager_assistant.book_day1, session, joiner_id, body.day, body.time)
+
+
+@app.post("/api/nia/manager/{joiner_id}/project")
+def nia_manager_project(joiner_id: str, body: ProjectRequest, session: EmployerSession) -> dict:
+    """Record the first project. The Jira ticket itself is still created in Jira — NIA doesn't write to it."""
+    return _manager_step(manager_assistant.assign_project, session, joiner_id, body.project)
+
+
+@app.post("/api/nia/manager/comms/send")
+def nia_manager_send(body: SendMessageRequest, session: EmployerSession) -> dict:
+    """Send a message the manager reviewed in NIA (simulated: logged on the case + employee notification)."""
+    _, f = _manager_ctx(session, body.joiner_id)
+    try:
+        entry = manager_assistant.send(f, body.kind, body.subject, body.body, _actor(session))
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from None
+    return {"sent": entry, "synthetic": True}
 
 
 class ResolveRequest(BaseModel):

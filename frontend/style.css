@@ -3409,3 +3409,55 @@ body:has(.joiner-drawer:not([hidden])) .nia-launcher { right: calc(min(440px, 10
 }
 .nc-row.nc-attention { grid-template-columns: 18px 1fr; }
 .nc-row.nc-attention .nc-detail { grid-column: 2; text-align: left; white-space: normal; }
+
+/* NIA · hiring manager: to-do agenda, "your part" checklist, confirm cards, task nudges */
+.mg-list { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; }
+.mg-row {
+  display: grid; grid-template-columns: 28px 1fr auto; gap: 0.55rem; align-items: center;
+  padding: 0.5rem 0; border-top: 1px solid var(--line-soft);
+}
+.mg-row:first-child { border-top: 0; }
+.mg-main { display: grid; min-width: 0; line-height: 1.3; }
+.mg-main strong { font-size: 0.82rem; color: var(--navy-700); }
+.mg-task { font-size: 0.74rem; font-weight: 650; color: var(--ink); }
+.mg-detail { font-size: 0.68rem; color: var(--muted); }
+.mg-acts { display: grid; gap: 0.25rem; justify-items: end; }
+.mg-acts .nia-primary, .mg-acts .nia-mini { white-space: nowrap; font-size: 0.7rem; }
+.mg-empty { margin: 0.3rem 0 0; font-size: 0.78rem; color: var(--muted); }
+.mg-others { margin-top: 0.6rem; padding-top: 0.55rem; border-top: 1px solid var(--line); }
+.mg-others .nia-block-title { margin: 0 0 0.3rem; }
+.mg-others ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.1rem; }
+.mg-others button {
+  width: 100%; display: grid; grid-template-columns: auto auto 1fr; gap: 0.45rem; align-items: center;
+  padding: 0.28rem 0.35rem; border: 0; border-radius: 8px; background: none; cursor: pointer;
+  font: inherit; font-size: 0.74rem; color: var(--ink); text-align: left;
+}
+.mg-others button:hover { background: var(--line-soft); }
+.mg-others em { font-style: normal; color: var(--muted); font-size: 0.68rem; text-align: right; }
+.mg-owner {
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.05em; padding: 0.08rem 0.4rem; border-radius: 999px;
+  background: var(--line-soft); color: var(--navy-700);
+}
+.mg-lv-watch em { color: var(--navy-700); font-weight: 700; }
+.mg-set { list-style: none; margin: 0.55rem 0 0; padding: 0.5rem 0 0; border-top: 1px solid var(--line); display: grid; gap: 0.15rem; }
+.mg-set li { font-size: 0.7rem; color: var(--muted); }
+.mg-sub { margin: 0.75rem 0 0.1rem; color: var(--navy-700); }
+.mg-task-row {
+  display: grid; grid-template-columns: 18px 1fr auto; gap: 0.5rem; align-items: center;
+  padding: 0.35rem 0; border-top: 1px solid var(--line-soft);
+}
+.mg-task-row:first-child { border-top: 0; }
+.mg-task-row.mg-done .mg-task, .mg-task-row.mg-later .mg-task { color: var(--muted); font-weight: 600; }
+.mg-task-row.mg-todo .mg-task { color: var(--navy-700); }
+.mg-task-row .nia-primary, .mg-task-row .nia-mini { font-size: 0.66rem; padding: 0.18rem 0.55rem; white-space: nowrap; }
+.mg-facts { margin-top: 0.2rem; }
+.mg-action .nc-field { margin-top: 0.4rem; }
+.mg-when { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.mg-pick { cursor: pointer; font: inherit; font-size: 0.68rem; padding: 0.18rem 0.6rem; }
+.mg-pick:hover { border-color: var(--navy-700); color: var(--navy-700); }
+.mg-warn { margin: 0.5rem 0 0; padding: 0.35rem 0.55rem; border-radius: 8px; background: var(--line-soft); font-size: 0.72rem; color: var(--navy-700); }
+.nia-msg.nia-nudge-wrap.is-task { border-color: var(--line); border-left: 3px solid var(--navy-700); background: #fff; }
+.nia-stage .nia-msg.nia-nudge-wrap.is-task { background: rgba(255, 255, 255, 0.95); }
+.mg-nudge .nia-nudge-icon { background: var(--navy-700); color: #fff; }
+.mg-nudge-title { font-weight: 800; color: var(--navy-700); margin-bottom: 0.15rem !important; }
+.mg-nudge .nia-primary { background: var(--navy-700); border-color: var(--navy-700); }

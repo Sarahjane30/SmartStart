@@ -16,6 +16,7 @@ import re
 from collections import Counter
 from typing import Callable, Optional
 
+from backend import manager_assistant as mgr
 from backend import onboarding_cases as cases
 from backend.analytics import ANALYTICS_AS_OF
 from backend.database import store
@@ -60,7 +61,7 @@ STAGE_ORDER = list(OnboardingState)
 SUGGESTIONS = {
     ROLE_HR: ["Show my priorities", "Who needs HR action?", "Why is someone at risk?", "Show pending documents"],
     ROLE_IT: ["Show SLA breaches", "What's blocking Day 1?", "Who is waiting for access?", "What should I fix first?"],
-    ROLE_MANAGER: ["Who needs me?", "What should I do today?", "Who isn't project-ready?", "Show my joiners"],
+    ROLE_MANAGER: ["What do I need to do?", "Who starts next?", "Who needs a first project?", "What am I waiting for?"],
     ROLE_OPS: ["Where are people stuck?", "What is causing delays?", "Which team needs attention?", "Show cohort risks"],
 }
 
@@ -392,13 +393,8 @@ def welcome(ctx: RoleContext) -> dict:
             f"🟡 {len(c['access'])} joiner(s) waiting for VPN / app access",
         ])
     elif ctx.role == ROLE_MANAGER:
-        r.text = (
-            f"Hi {name} 👋\nYou have **{len(ctx.visible)} joiner(s)**. "
-            f"{len(c['on_track'])} on track, {n} need your action."
-        )
-        if c["project"]:
-            f = c["project"][0]
-            r.bullets([f"{f.joiner.name} has completed Day 1 but is still waiting for a project assignment."])
+        r = manager_agenda(ctx, hello=name)
+        r.intent = "welcome"
     else:
         split = _queue_split(ctx)
         q, qn = split.most_common(1)[0] if split else ("None", 0)
@@ -407,11 +403,12 @@ def welcome(ctx: RoleContext) -> dict:
             f"{len(c['on_track'])} on track, {len(c['at_risk'])} at risk, {len(c['blocked'])} blocked."
         )
         r.bullets([f"The {q} queue currently holds the largest share of open bottlenecks ({qn} joiner(s))."])
-    if top and ctx.role != ROLE_OPS:
-        r.text += f"\nYour highest-priority item: **{top.joiner.name}** — {role_actions(top, ctx.role)[0]['label']}."
-    elif top:
-        r.text += f"\nHighest-risk joiner: **{top.joiner.name}** ({top.bottleneck})."
-    r.text += "\nWhat would you like to look at?"
+    if ctx.role != ROLE_MANAGER:
+        if top and ctx.role != ROLE_OPS:
+            r.text += f"\nYour highest-priority item: **{top.joiner.name}** — {role_actions(top, ctx.role)[0]['label']}."
+        elif top:
+            r.text += f"\nHighest-risk joiner: **{top.joiner.name}** ({top.bottleneck})."
+        r.text += "\nWhat would you like to look at?"
     r.suggestions = SUGGESTIONS[ctx.role]
     out = r.to_dict()
     out["proactive"] = proactive(ctx)
@@ -425,11 +422,13 @@ def proactive(ctx: RoleContext) -> list[dict]:
     out: list[dict] = []
     if ctx.role in (ROLE_HR, ROLE_OPS):
         out.extend(_case_nudges(ctx))
-    if ctx.role in (ROLE_IT, ROLE_MANAGER):
+    if ctx.role == ROLE_MANAGER:
+        return mgr.nudges(ctx.visible, ctx.manager_id, ctx.actionable)
+    if ctx.role == ROLE_IT:
         for e in cases.inbox(ctx.role, ctx.manager_id, ctx.visible)[:1]:
             out.append({
                 "id": f"case-{e['id']}", "joiner_id": e["joiner_id"], "kind": "reminder",
-                "text": e["text"] if e["kind"] == "routed" else f"NIA reminder (HR onboarding case): {e['text']}",
+                "text": e["text"] if e["kind"] == "routed" else f"Follow-up: {e['text']}",
             })
     if ctx.role == ROLE_HR and len(out) < 2:
         pending = sorted(c["docs_pending"], key=lambda f: f.joiner.joining_date)
@@ -445,10 +444,6 @@ def proactive(ctx: RoleContext) -> list[dict]:
         for f in sorted(c["sla"], key=lambda f: -f.ticket.lead_time_days)[:1]:
             out.append({"id": f"it-sla-{f.id}", "joiner_id": f.id,
                         "text": f"{poss(f.joiner.name)} laptop has breached SLA and may affect their project readiness."})
-    elif ctx.role == ROLE_MANAGER:
-        for f in c["project"][:1]:
-            out.append({"id": f"mgr-proj-{f.id}", "joiner_id": f.id,
-                        "text": f"{f.joiner.name} is Day-1 complete but still has no project assignment."})
     else:
         split = _queue_split(ctx)
         if split:
@@ -519,9 +514,7 @@ def briefing(ctx: RoleContext) -> Reply:
         r.text = f"**Your IT briefing.** {n} IT action(s): {len(c['sla'])} SLA breach(es), {len(c['hardware'])} laptop(s) not delivered."
         upcoming = [f"{poss(f.joiner.name)} ticket is at {f.ticket.lead_time_days}d of a {f.ticket.sla_target_days}d target." for f in c["sla_near"]]
     elif ctx.role == ROLE_MANAGER:
-        r.text = f"**Your team briefing.** {n} of your {len(ctx.visible)} joiner(s) need action."
-        upcoming = [f"{f.joiner.name} {start_phrase(f)} and is at {STAGE_LABELS[f.joiner.current_state]}." for f in ctx.visible
-                    if not f.ready and 0 <= (f.joiner.joining_date - ANALYTICS_AS_OF.date()).days <= 14]
+        return manager_briefing(ctx)
     else:
         active_bn = Counter(f.bottleneck for f in ctx.visible if f.bottleneck)
         r.text = f"**Cohort briefing.** {len(active_bn)} active bottleneck types across {len(ctx.visible)} joiners."
@@ -1148,7 +1141,10 @@ def case_status(ctx: RoleContext, f: JoinerFacts) -> Reply:
     r = Reply(ctx, "case:status")
     r.focus = f.id
     plan = cases.build_plan(f)
-    att = cases.hr_attention(f)
+    manager = ctx.role == ROLE_MANAGER
+    if manager and f.ready:
+        return manager_tasks(ctx, f)
+    att = mgr.attention(f) if manager else cases.hr_attention(f)
     n = first(f)
     if plan["status"] == "complete":
         return case_complete(ctx, f)
@@ -1159,7 +1155,8 @@ def case_status(ctx: RoleContext, f: JoinerFacts) -> Reply:
     r.text = f"**{f.joiner.name}** is **{plan['progress_pct']}%** through onboarding ({k['done']} of {k['total']} requirements)."
     followups = [
         {"text": e["text"], "to": e["to"], "at": e["at"], "kind": e["kind"]}
-        for e in reversed(cases.log_for(f.id)) if e["kind"] in ("reminder", "routed", "message")
+        for e in reversed(cases.log_for(f.id))
+        if e["kind"] in ("reminder", "routed", "message", "prep") and not (manager and e["audience"] == "Manager")
     ][:4]
     r.blocks.append({
         "type": "case_status",
@@ -1175,9 +1172,14 @@ def case_status(ctx: RoleContext, f: JoinerFacts) -> Reply:
         "steps": cases.journey_steps(f),
         "attention": att,
         "followups": followups,
+        "viewer": "manager" if manager else "hr",
     })
     r.source("iCIMS")
     r.source("ServiceNow")
+    if manager:
+        r.suggestions = [t["cta_q"] for t in mgr.todo(f) if t["cta_q"]][:2] + [
+            f"What do I need to do for {f.joiner.name}?", "What do I need to do?"]
+        return r
     sug = []
     if plan["status"] == "review":
         sug.append(f"Review {poss(n)} onboarding plan")
@@ -1366,9 +1368,10 @@ def case_upcoming(ctx: RoleContext, text: str) -> Reply:
         lo, hi, label = today.toordinal(), today.toordinal() + 14, "in the next 2 weeks"
     rows = sorted((f for f in ctx.visible if lo <= f.joiner.joining_date.toordinal() <= hi), key=lambda f: f.joiner.joining_date)
     span = f"{cases.long_date(today.fromordinal(lo))} – {cases.long_date(today.fromordinal(hi))}"
+    att = mgr.attention if ctx.role == ROLE_MANAGER else cases.hr_attention
     if rows:
         r.text = f"**{len(rows)} joiner(s)** start {label} ({span})."
-        r.joiners(rows, "", lambda f: f"Starts {cases.long_date(f.joiner.joining_date)} · {cases.hr_attention(f)['headline']}")
+        r.joiners(rows, "", lambda f: f"Starts {cases.long_date(f.joiner.joining_date)} · {att(f)['headline']}")
         r.focus = rows[0].id
     else:
         later = sorted((f for f in ctx.visible if f.joiner.joining_date.toordinal() > hi), key=lambda f: f.joiner.joining_date)
@@ -1377,7 +1380,11 @@ def case_upcoming(ctx: RoleContext, text: str) -> Reply:
             nxt = later[0]
             r.text += f" The next start is **{nxt.joiner.name}** on {cases.long_date(nxt.joiner.joining_date)}."
             r.focus = nxt.id
-            r.suggestions = [f"How's {poss(first(nxt))} onboarding?", f"Draft Day-1 instructions for {first(nxt)}"]
+            r.suggestions = (
+                [f"What do I need to do for {nxt.joiner.name}?", f"Draft a welcome note for {nxt.joiner.name}"]
+                if ctx.role == ROLE_MANAGER
+                else [f"How's {poss(first(nxt))} onboarding?", f"Draft Day-1 instructions for {first(nxt)}"]
+            )
     return r
 
 
@@ -1434,10 +1441,247 @@ def my_followups(ctx: RoleContext) -> Reply:
     if not rows:
         r.text = f"NIA hasn't sent {who} any onboarding follow-ups that still apply."
         return r
-    r.text = f"**{len(rows)} onboarding follow-up(s)** from HR's cases are waiting on {who}:"
+    r.text = f"**{len(rows)} onboarding request(s)** are waiting on {who}:"
     r.bullets([e["text"] for e in rows[:8]])
     r.focus = rows[0]["joiner_id"]
     return r
+
+
+# --- Hiring-manager assistant ----------------------------------------------------------
+
+
+def manager_agenda(ctx: RoleContext, hello: str = "") -> Reply:
+    r = Reply(ctx, "mgr:agenda")
+    a = mgr.agenda(ctx.visible, ctx.actionable)
+    needs, total = a["needs"], len(ctx.visible)
+    lead = f"Hi {hello} 👋\n" if hello else ""
+    if needs:
+        top = needs[0]
+        r.text = (
+            lead + f"**{len(needs)} of your {total} joiner(s)** need something from you ({a['task_count']} task(s)). "
+            f"Start with **{top['name']}** — {top['task'].split(' · ')[0].lower()}."
+        )
+        r.focus = top["joiner_id"]
+    else:
+        r.text = lead + f"Nothing needs you right now across your {total} joiner(s)."
+    if a["others"]:
+        r.text += f" {len(a['others'])} are with HR or IT — NIA follows up with them, not you."
+    r.blocks.append({
+        "type": "mgr_agenda", "needs": needs[:6], "more": max(len(needs) - 6, 0),
+        "others": a["others"][:6], "booked": a["booked"][:4], "ready": a["ready"],
+    })
+    r.suggestions = SUGGESTIONS[ROLE_MANAGER]
+    return r
+
+
+def manager_briefing(ctx: RoleContext) -> Reply:
+    r = manager_agenda(ctx)
+    r.intent = "briefing"
+    r.text = "**Your team briefing.** " + r.text
+    soon = sorted((f for f in ctx.visible if 0 <= cases.days_to_start(f) <= 14 and not f.ready),
+                  key=lambda f: f.joiner.joining_date)
+    behind = [f for f in ctx.visible if learning_summary(f.id)["overdue"]]
+    ids = {f.id for f in ctx.visible}
+    chased = [e for e in cases._LOG if e["joiner_id"] in ids and e["kind"] == "reminder" and e["audience"] == "IT"]
+    r.facts([
+        ("Starting in the next 2 weeks", ", ".join(
+            f"{f.joiner.name} ({cases.long_date(f.joiner.joining_date)})" for f in soon[:3]) or "No one"),
+        ("Day 1 booked", ", ".join(f"{f.joiner.name} · {mgr.day1_label(f)}" for f in ctx.visible if mgr.prep(f).get("day1")) or "None yet"),
+        ("Overdue learning", ", ".join(f.joiner.name for f in behind[:3]) or "None"),
+        ("NIA chased IT for you", f"{len(chased)} time(s)"),
+    ], "This week")
+    return r
+
+
+def manager_tasks(ctx: RoleContext, f: JoinerFacts) -> Reply:
+    r = Reply(ctx, "mgr:tasks")
+    r.focus = f.id
+    att = mgr.attention(f)
+    d, t = f.docs, f.ticket
+    docs = "Verified" if cases._docs_done(f) else "Correction in progress" if d.rework_flag else f"Pending · {d.waiting_days}d"
+    laptop = (
+        "Delivered" if t.hardware_status == HardwareStatus.DELIVERED
+        else f"SLA breached · {t.lead_time_days}d vs {t.sla_target_days}d" if f.sla_open
+        else f"{t.hardware_status.value} · within SLA"
+    )
+    r.text = f"**{poss(f.joiner.name)} onboarding — your part.**"
+    r.blocks.append({
+        "type": "mgr_tasks",
+        "joiner_id": f.id,
+        "name": f.joiner.name,
+        "position": cases.position(f),
+        "start_label": cases.long_date(f.joiner.joining_date),
+        "when": cases.when_phrase(f),
+        "stage": STAGE_LABELS[f.joiner.current_state],
+        "steps": cases.journey_steps(f),
+        "tasks": mgr.tasks(f),
+        "attention": att,
+        "others": [
+            {"team": "HR", "label": "Documents", "value": docs},
+            {"team": "IT", "label": "Laptop & access", "value": laptop},
+        ],
+    })
+    r.source("SmartStart")
+    nxt = [t_["cta_q"] for t_ in mgr.todo(f) if t_["cta_q"]]
+    r.suggestions = nxt[:2] + [f"Draft a welcome note for {first(f)}", "What do I need to do?"]
+    return r
+
+
+MGR_ACTION_TEXT = {
+    "mentor": "Check the mentor and confirm. {n} gets a note, HR sees it on the case, and NIA stops reminding you.",
+    "day1": "Pick a time. {n} gets the booking in SmartStart (simulated invite) and HR sees it on the case.",
+    "project": "Pick or type a first project. {n} is told, HR sees it on the case, and it leaves your queue.",
+}
+
+
+def manager_action(ctx: RoleContext, f: Optional[JoinerFacts], action: str) -> Reply:
+    r = Reply(ctx, f"mgr:{action}")
+    if f is None:
+        key = {"mentor": "mentor", "day1": "day1", "project": "project"}[action]
+        rows = [a for x in mgr.agenda(ctx.visible, ctx.actionable)["needs"] for a in x["actions"] if a["key"] == key]
+        r.text = {"mentor": "Whose mentor should I confirm?", "day1": "Whose Day-1 orientation should I book?",
+                  "project": "Who should I assign a first project to?"}[action]
+        r.suggestions = [a["q"] for a in rows[:3]] or SUGGESTIONS[ROLE_MANAGER][:3]
+        return r
+    r.focus = f.id
+    n, stage = first(f), mgr.stage_index(f)
+    if action in ("mentor", "day1") and stage >= mgr.DAY1:
+        r.text = f"{poss(f.joiner.name)} Day 1 has already happened — {'the mentor was introduced then' if action == 'mentor' else 'nothing to book'}."
+        r.suggestions = [f"What do I need to do for {f.joiner.name}?"]
+        return r
+    if action == "project" and f.ready:
+        r.text = f"{f.joiner.name} is already Project Ready and working on a first project."
+        return r
+    block = {"type": "mgr_action", "action": action, "joiner_id": f.id, "joiner_name": f.joiner.name, "first": n}
+    if action == "mentor":
+        block["value"] = cases.mentor(f)
+    elif action == "day1":
+        booked = mgr.prep(f).get("day1")
+        start = f.joiner.joining_date if f.joiner.joining_date >= cases.TODAY else cases.TODAY
+        block["date"] = booked["date"] if booked else start.isoformat()
+        block["time"] = booked["time"] if booked else "10:00"
+        block["min"] = cases.TODAY.isoformat()
+        other = mgr.others_step(f)
+        if other and other["owner"] == "IT":
+            block["warn"] = f"Heads-up: {poss(n)} laptop is still with IT ({other['short']})."
+    else:
+        block["value"] = (mgr.prep(f).get("project") or {}).get("name", "")
+        block["options"] = mgr.project_ideas(f)
+        block["tasks"] = f.joiner.assigned_tasks[:3]
+        block["jira"] = mgr.jira_key(f)
+        if stage < mgr.DAY1:
+            block["warn"] = f"{n} hasn't had Day 1 yet — this plans the project early."
+        r.link("Jira", mgr.jira_key(f))
+    block["note"] = MGR_ACTION_TEXT[action].format(n=n)
+    r.blocks.insert(0, block)
+    r.text = {"mentor": f"Confirm **{poss(f.joiner.name)} mentor**.",
+              "day1": f"Book **{poss(f.joiner.name)} Day-1 orientation**.",
+              "project": f"Assign **{poss(f.joiner.name)} first project**."}[action] + " Nothing changes until you confirm."
+    return r
+
+
+MGR_DRAFT = {"welcome": "mgr_welcome", "mentor_intro": "mgr_mentor_intro", "day1": "mgr_day1", "first_week": "mgr_first_week"}
+
+
+def manager_draft(ctx: RoleContext, f: Optional[JoinerFacts], kind: str) -> Reply:
+    r = Reply(ctx, f"mgr:draft:{kind}")
+    label = mgr.COMMS[kind]
+    if f is None:
+        r.text = f"Who should I draft the {label.lower()} for?"
+        r.suggestions = [f"Draft a {label.lower()} for {x.joiner.name}" for x in ctx.visible if not x.ready][:3]
+        return r
+    r.focus = f.id
+    sender = ctx.user.get("display_name") or f.joiner.manager_name
+    d = mgr.draft(f, kind, sender)
+    r.text = f"I've drafted a **{label.lower()}** from you to {first(f)}. Edit anything — nothing is sent until you confirm."
+    r.blocks.append({
+        "type": "draft", "joiner_id": f.id, "joiner_name": f.joiner.name, "label": label, **d,
+        "endpoint": "/api/nia/manager/comms/send",
+        "note": "Simulated delivery: logged on the onboarding case (HR can see it) and shown in the joiner's notifications.",
+    })
+    r.suggestions = [f"What do I need to do for {f.joiner.name}?", "What do I need to do?"]
+    return r
+
+
+def manager_not_yours(ctx: RoleContext, f: Optional[JoinerFacts], kind: str) -> Reply:
+    r = Reply(ctx, f"mgr:not_yours:{kind}")
+    what = {"doc_reminder": ("documents", "HR"), "it_escalation": ("laptop", "IT"), "manager_reminder": ("that", "you")}[kind]
+    if f is None:
+        r.text = (f"{what[1]} owns {what[0]} — NIA already follows up with {what[1]} on your behalf, so you don't need to chase."
+                  if kind != "manager_reminder" else "That reminder is for you — here's your list.")
+        if kind == "manager_reminder":
+            return manager_agenda(ctx)
+        return r
+    r.focus = f.id
+    o = mgr.others_step(f)
+    if o and o["owner"] == what[1]:
+        r.text = o["reason"]
+    elif kind == "doc_reminder":
+        r.text = f"{poss(f.joiner.name)} documents are already verified — nothing to chase."
+    elif kind == "it_escalation":
+        r.text = f"{poss(f.joiner.name)} laptop is {'delivered' if f.ticket.hardware_status == HardwareStatus.DELIVERED else 'on track'} — nothing to escalate."
+    else:
+        return manager_tasks(ctx, f)
+    r.suggestions = [f"What do I need to do for {f.joiner.name}?", "What am I waiting for?"]
+    return r
+
+
+def manager_waiting(ctx: RoleContext) -> Reply:
+    r = Reply(ctx, "mgr:waiting")
+    a = mgr.agenda(ctx.visible, ctx.actionable)
+    hr = [o for o in a["others"] if o["owner"] == "HR"]
+    it = [o for o in a["others"] if o["owner"] == "IT"]
+    r.text = (
+        f"You're waiting on **HR** for {len(hr)} joiner(s) and **IT** for {len(it)}. "
+        "NIA follows up with both — you don't need to chase."
+        + (f" **{a['task_count']} task(s) are waiting on you.**" if a["needs"] else "")
+    )
+    r.bullets([f"{o['name']} — {o['detail']}" for o in hr[:5]], "Waiting on HR")
+    r.bullets([f"{o['name']} — {o['detail']}" for o in it[:5]], "Waiting on IT")
+    r.bullets([f"{x['name']} — {x['task']}" for x in a["needs"][:5]], "Waiting on you")
+    r.suggestions = ["What do I need to do?", "Who starts next?", "Give me my briefing"]
+    return r
+
+
+MGR_MENTOR_RE = re.compile(r"confirm\b.*\bmentor|mentor\b.*\bconfirm|(change|swap|set)\b.*\bmentor")
+MGR_DAY1_RE = re.compile(r"(schedule|book|arrange|set up|reschedule|move|change)\b.*(day[- ]?1|orientation|first day)")
+MGR_PROJECT_RE = re.compile(r"(assign|give|pick|set|plan|choose)\b.*\bproject|first project for")
+MGR_WRITE_RE = re.compile(r"\b(draft|write|email|message|note|send)\b")
+MGR_AGENDA_RE = re.compile(
+    r"what do i (need|have) to do|needs? me|need my|what should i|today|this week|to-?do|my tasks|work on|priorit|what'?s next|my part"
+)
+MGR_TASKS_RE = re.compile(r"\bonboard|plan\b|tasks? for|checklist|my part|what do i (need|have) to do|what should i do|next step")
+
+
+def manager_intent(ctx: RoleContext, text: str, low: str, target: Optional[JoinerFacts]) -> Optional[Reply]:
+    if re.search(r"follow[- ]?ups?|reminders? (from|for me)|what has nia sent|from hr|routed to me", low):
+        return my_followups(ctx)
+    asking_who = re.search(r"\bwho\b", low) and target is None
+    if not MGR_WRITE_RE.search(low) and not asking_who:
+        if MGR_MENTOR_RE.search(low):
+            return manager_action(ctx, target, "mentor")
+        if MGR_DAY1_RE.search(low):
+            return manager_action(ctx, target, "day1")
+        if MGR_PROJECT_RE.search(low):
+            return manager_action(ctx, target, "project")
+    kind = _draft_kind(low)
+    if kind in MGR_DRAFT:
+        return manager_draft(ctx, target, MGR_DRAFT[kind])
+    if kind:
+        return manager_not_yours(ctx, target, kind)
+    if WAITING_RE.search(low):
+        return manager_waiting(ctx)
+    if UPCOMING_RE.search(low) or re.search(r"who starts next|starts? next", low):
+        return case_upcoming(ctx, text)
+    if target is None:
+        return manager_agenda(ctx) if MGR_AGENDA_RE.search(low) else None
+    if DOCS_RE.search(low) and not re.search(r"\bwhy\b", low):
+        return manager_not_yours(ctx, target, "doc_reminder")
+    if MGR_TASKS_RE.search(low):
+        return manager_tasks(ctx, target)
+    if CASE_STATUS_RE.search(low) and not re.search(r"learning|course|module", low):
+        return case_status(ctx, target)
+    return None
 
 
 CASE_PLAN_RE = re.compile(r"\bonboard\b|onboarding plan|\bplan\b")
@@ -1451,7 +1695,9 @@ DOCS_RE = re.compile(r"document|\bdocs\b|paperwork|packet")
 
 def case_intent(ctx: RoleContext, text: str, low: str, target: Optional[JoinerFacts]) -> Optional[Reply]:
     """HR onboarding-assistant intents. None means 'not a case question'."""
-    if ctx.role in (ROLE_IT, ROLE_MANAGER):
+    if ctx.role == ROLE_MANAGER:
+        return manager_intent(ctx, text, low, target)
+    if ctx.role == ROLE_IT:
         if re.search(r"follow[- ]?ups?|reminders?|what has nia sent|from hr|routed to me", low):
             return my_followups(ctx)
         return None
@@ -1500,7 +1746,8 @@ def ask(ctx: RoleContext, message: str, focus_joiner_id: Optional[str] = None) -
     assign_m = re.search(r"\bassign\b(.*?)(?:\bto\b\s+(.+))?$", low)
     owner_q = ""
     name_text = text
-    if assign_m and assign_m.group(2) and not LEARNING_RE.search(low):
+    manager_project = ctx.role == ROLE_MANAGER and "project" in low
+    if assign_m and assign_m.group(2) and not LEARNING_RE.search(low) and not manager_project:
         owner_q = assign_m.group(2).strip(" .?!")
         name_text = text[: low.rfind(" to ")]
 

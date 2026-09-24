@@ -52,7 +52,7 @@ def test_welcome_is_role_aware_with_spec_prompts():
     expected = {
         "HR": ["Show my priorities", "Who needs HR action?", "Why is someone at risk?", "Show pending documents"],
         "IT": ["Show SLA breaches", "What's blocking Day 1?", "Who is waiting for access?", "What should I fix first?"],
-        "MANAGER": ["Who needs me?", "What should I do today?", "Who isn't project-ready?", "Show my joiners"],
+        "MANAGER": ["What do I need to do?", "Who starts next?", "Who needs a first project?", "What am I waiting for?"],
         "OPS": ["Where are people stuck?", "What is causing delays?", "Which team needs attention?", "Show cohort risks"],
     }
     with TestClient(app) as client:
@@ -71,7 +71,7 @@ def test_priorities_agree_with_dashboard_action_queue():
             h = _headers(client, role)
             ws = client.get("/api/employer/workspace", headers=h).json()
             r = _ask(client, h, "What should I work on first?")
-            assert r["intent"] == "priorities"
+            assert r["intent"] == ("mgr:agenda" if role == "MANAGER" else "priorities")
             top = ws["action_queue"][0]
             assert r["focus_joiner_id"] == top["id"], role
             assert top["name"] in r["text"]
@@ -125,15 +125,16 @@ def test_manager_demo_scenario_is_scoped_to_own_team():
         team = {j["name"] for j in ws["joiners"]}
 
         r = _ask(client, h, "Who needs me?")
-        assert r["intent"] == "priorities"
-        assert _card_names(r) <= team
+        assert r["intent"] == "mgr:agenda"
+        agenda = _blocks(r, "mgr_agenda")[0]
+        assert {n["name"] for n in agenda["needs"]} | {o["name"] for o in agenda["others"]} <= team
 
         r = _ask(client, h, "Who isn't project-ready?")
         assert r["intent"] == "list:not_ready"
         assert _card_names(r) <= team
 
         r = _ask(client, h, "What should I do for Sarah?")
-        assert r["intent"] == "recommend"
+        assert r["intent"] == "mgr:tasks"
         assert "Sarah Jane" in r["text"]
 
 

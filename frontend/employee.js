@@ -793,7 +793,7 @@ const SKILL_IDEAS = ["Python", "Excel", "Git", "Communication", "Research", "Wri
 function selfSkillsBlock(m) {
   const skills = m.expertise || [];
   const isIntern = String(state.profile?.role_type || "").toUpperCase() === "INTERN";
-  const ideas = SKILL_IDEAS.filter((s) => !skills.some((x) => x.casefold() === s.casefold())).slice(0, 4);
+  const ideas = SKILL_IDEAS.filter((s) => !skills.some((x) => x.toLowerCase() === s.toLowerCase())).slice(0, 4);
   return `<div class="wx-skills" data-self-skills>
       <div class="wx-skills-head">
         <span>${isIntern ? "Your skills" : "Your expertise"}</span>
@@ -882,11 +882,14 @@ function wireSelfSkills(root) {
     e.preventDefault();
     e.stopPropagation();
     const skill = input.value.trim();
-    if (skill) postSkill(skill);
+    if (!skill) return;
+    form.hidden = true;
+    postSkill(skill);
   });
   box.querySelectorAll("[data-skill]").forEach((btn) =>
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
+      form.hidden = true;
       postSkill(btn.dataset.skill);
     })
   );
@@ -1039,7 +1042,6 @@ function renderConsult() {
           <div><dt>Channel</dt><dd>${esc(c.channel)}</dd></div>
           <div><dt>Availability</dt><dd>${esc(c.availability)}</dd></div>
         </dl>
-        <span class="consult-hint muted tiny">Click for Draft with IRA or Copy email</span>
       </div>
     </article>`
     )
@@ -1091,7 +1093,6 @@ function renderTeam() {
             ${m.ask_about ? `<p class="wx-member-ask"><span>Ask about</span>${esc(m.ask_about)}</p>` : ""}
             <footer>
               <span class="muted tiny">${esc(m.channel)}</span>
-              <span class="consult-hint muted tiny">Click for Draft with IRA or Copy email</span>
             </footer>`
       }
     </article>`

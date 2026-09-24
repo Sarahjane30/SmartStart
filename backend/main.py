@@ -39,7 +39,7 @@ from backend.employee_experience import (
     remove_skill,
     skills_for,
 )
-from backend import ira_profile, nia, resolutions
+from backend import ira_profile, nia, onboarding_cases, resolutions
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -111,6 +111,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     generate_cohort(n_interns=15, n_ftes=15, seed=42)
     clear_feedback()
     resolutions.clear()
+    onboarding_cases.clear()
     yield
 
 
@@ -350,6 +351,7 @@ def regenerate(
     generate_cohort(n_interns=n_interns, n_ftes=n_ftes, seed=seed)
     clear_feedback()
     resolutions.clear()
+    onboarding_cases.clear()
     return {
         "status": "regenerated",
         "total_joiners": len(store.list_joiners()),
@@ -375,6 +377,7 @@ def dashboard(
     state: OnboardingState | None = Query(default=None),
 ) -> DashboardResponse:
     """Employer Command Center table: joiners + states, scoped by role context."""
+    onboarding_cases.sync_icims()
     ctx = build_role_context(session)
     effective_view = ctx.resolve_view(role_view)
     actionable = {f.id for f in ctx.actionable}
@@ -473,16 +476,134 @@ class NiaAskRequest(BaseModel):
     focus_joiner_id: Optional[str] = None
 
 
+def _nia_ctx(session: dict):
+    """Pick up new iCIMS offers and due follow-ups before NIA reads the role context."""
+    onboarding_cases.sync_icims()
+    onboarding_cases.run_followups()
+    return build_role_context(session)
+
+
 @app.get("/api/nia/briefing")
 def nia_briefing(session: EmployerSession) -> dict:
     """NIA welcome: role-aware briefing, suggested prompts and dismissible proactive nudges."""
-    return nia.welcome(build_role_context(session))
+    return nia.welcome(_nia_ctx(session))
+
+
+@app.get("/api/nia/inbox")
+def nia_inbox(session: EmployerSession) -> dict:
+    """Lightweight poll: current proactive nudges (new iCIMS hires, follow-ups) for the launcher badge."""
+    ctx = _nia_ctx(session)
+    return {"proactive": nia.proactive(ctx), "icims_connected": onboarding_cases.sync_state(), "synthetic": True}
 
 
 @app.post("/api/nia/ask")
 def nia_ask(body: NiaAskRequest, session: EmployerSession) -> dict:
     """Ask NIA — grounded answers over the caller's role context (same scope as the dashboard)."""
-    return nia.ask(build_role_context(session), body.message, body.focus_joiner_id)
+    return nia.ask(_nia_ctx(session), body.message, body.focus_joiner_id)
+
+
+def _case_ctx(session: dict, joiner_id: str):
+    ctx = build_role_context(session)
+    if not ctx.permissions.get("manage_cases"):
+        raise HTTPException(status_code=403, detail="Onboarding cases are run by HR and Onboarding Ops.")
+    return ctx, ctx.require_joiner(joiner_id)
+
+
+class ApprovePlanRequest(BaseModel):
+    mentor: str = Field(default="", max_length=60)
+    laptop: str = Field(default="", max_length=20)
+
+
+@app.get("/api/nia/cases")
+def nia_cases(session: EmployerSession) -> dict:
+    """Every onboarding case in the caller's scope, with its plan progress and whether HR is needed."""
+    ctx = _nia_ctx(session)
+    rows = []
+    for f in ctx.visible:
+        plan = onboarding_cases.build_plan(f)
+        rows.append({
+            "joiner_id": f.id,
+            "name": f.joiner.name,
+            "status": plan["status"],
+            "progress_pct": plan["progress_pct"],
+            "attention": onboarding_cases.hr_attention(f),
+        })
+    return {"cases": rows, "synthetic": True}
+
+
+@app.get("/api/nia/cases/{joiner_id}")
+def nia_case(joiner_id: str, session: EmployerSession) -> dict:
+    ctx = _nia_ctx(session)
+    f = ctx.require_joiner(joiner_id)
+    return {
+        "plan": onboarding_cases.build_plan(f),
+        "attention": onboarding_cases.hr_attention(f),
+        "documents": onboarding_cases.documents(f) if ctx.permissions.get("view_documents") == "full" else None,
+        "log": onboarding_cases.log_for(joiner_id),
+        "synthetic": True,
+    }
+
+
+@app.post("/api/nia/cases/{joiner_id}/approve")
+def nia_approve_plan(joiner_id: str, body: ApprovePlanRequest, session: EmployerSession) -> dict:
+    """HR approves NIA's plan: IT provisioning and manager preparation are routed, documents go to the joiner."""
+    _, f = _case_ctx(session, joiner_id)
+    try:
+        routed = onboarding_cases.approve(f, _actor(session), body.mentor, body.laptop)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from None
+    return {"joiner_id": joiner_id, "status": "active", "routed": routed, "synthetic": True}
+
+
+@app.post("/api/nia/cases/{joiner_id}/close")
+def nia_close_case(joiner_id: str, session: EmployerSession) -> dict:
+    _, f = _case_ctx(session, joiner_id)
+    try:
+        entry = onboarding_cases.close(f, _actor(session))
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from None
+    return {"joiner_id": joiner_id, "status": "closed", "entry": entry, "synthetic": True}
+
+
+class SendMessageRequest(BaseModel):
+    joiner_id: str
+    kind: str = Field(max_length=30)
+    subject: str = Field(min_length=1, max_length=140)
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class BulkSendRequest(BaseModel):
+    kind: str = Field(max_length=30)
+    joiner_ids: list[str] = Field(min_length=1, max_length=50)
+
+
+@app.post("/api/nia/comms/send")
+def nia_send_message(body: SendMessageRequest, session: EmployerSession) -> dict:
+    """Send a message HR reviewed in NIA (simulated delivery: logged on the case + employee notification)."""
+    _, f = _case_ctx(session, body.joiner_id)
+    try:
+        entry = onboarding_cases.send(f, body.kind, body.subject, body.body, _actor(session))
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from None
+    return {"sent": entry, "synthetic": True}
+
+
+@app.post("/api/nia/comms/send-bulk")
+def nia_send_bulk(body: BulkSendRequest, session: EmployerSession) -> dict:
+    """Send the same kind of drafted message to several joiners HR ticked (each personalised)."""
+    ctx = build_role_context(session)
+    if not ctx.permissions.get("manage_cases"):
+        raise HTTPException(status_code=403, detail="Onboarding cases are run by HR and Onboarding Ops.")
+    actor = _actor(session)
+    sent = []
+    for jid in dict.fromkeys(body.joiner_ids):
+        f = ctx.require_joiner(jid)
+        try:
+            d = onboarding_cases.draft(f, body.kind, actor)
+            sent.append(onboarding_cases.send(f, body.kind, d["subject"], d["body"], actor))
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err)) from None
+    return {"sent": sent, "count": len(sent), "synthetic": True}
 
 
 class ResolveRequest(BaseModel):
@@ -617,6 +738,7 @@ def employer_remove_course(joiner_id: str, module_id: str, session: EmployerSess
 @app.get("/api/employer/workspace")
 def employer_workspace(session: EmployerSession) -> dict:
     """Role workspace: nav, cards, action queue and per-joiner journeys for the signed-in role."""
+    onboarding_cases.sync_icims()
     return build_workspace(build_role_context(session))
 
 

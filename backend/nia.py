@@ -16,6 +16,7 @@ import re
 from collections import Counter
 from typing import Callable, Optional
 
+from backend import onboarding_cases as cases
 from backend.analytics import ANALYTICS_AS_OF
 from backend.database import store
 from backend.employee_experience import build_learning_track, course_library, learning_summary
@@ -422,7 +423,15 @@ def proactive(ctx: RoleContext) -> list[dict]:
     """At most two meaningful, dismissible nudges — never a stream of interruptions."""
     c = _counts(ctx)
     out: list[dict] = []
-    if ctx.role == ROLE_HR:
+    if ctx.role in (ROLE_HR, ROLE_OPS):
+        out.extend(_case_nudges(ctx))
+    if ctx.role in (ROLE_IT, ROLE_MANAGER):
+        for e in cases.inbox(ctx.role, ctx.manager_id, ctx.visible)[:1]:
+            out.append({
+                "id": f"case-{e['id']}", "joiner_id": e["joiner_id"], "kind": "reminder",
+                "text": e["text"] if e["kind"] == "routed" else f"NIA reminder (HR onboarding case): {e['text']}",
+            })
+    if ctx.role == ROLE_HR and len(out) < 2:
         pending = sorted(c["docs_pending"], key=lambda f: f.joiner.joining_date)
         for f in pending[:1]:
             days = (f.joiner.joining_date - ANALYTICS_AS_OF.date()).days
@@ -446,6 +455,42 @@ def proactive(ctx: RoleContext) -> list[dict]:
             q, qn = split.most_common(1)[0]
             out.append({"id": f"ops-queue-{q}-{qn}", "joiner_id": None,
                         "text": f"The {q} queue is responsible for the largest share of active bottlenecks ({qn} of {sum(split.values())})."})
+    return out[:2]
+
+
+def _case_nudges(ctx: RoleContext) -> list[dict]:
+    """New iCIMS hires first; otherwise one nudge for accepted offers still waiting on a plan."""
+    fresh = cases.detected_for_review(ctx.visible)
+    out = []
+    for f in fresh[:1]:
+        plan = cases.build_plan(f)
+        out.append({
+            "id": f"case-new-{f.id}-{plan['detected']['event']}",
+            "joiner_id": f.id,
+            "kind": "detected",
+            "title": "New joiner detected 🎉",
+            "text": f"I've prepared {poss(first(f))} onboarding plan.",
+            "fields": [
+                {"label": "", "value": f"{f.joiner.name} — {plan['position']}"},
+                {"label": "Start date", "value": f"{plan['start_label']} ({plan['when']})"},
+                {"label": "Manager", "value": f.joiner.manager_name},
+            ],
+            "cta_label": "Review plan",
+            "cta_q": f"Review {poss(f.joiner.name)} onboarding plan",
+        })
+    if not out:
+        waiting = [f for f in ctx.visible if cases.case_status(f) == "review"]
+        if waiting:
+            f = sorted(waiting, key=lambda f: f.joiner.joining_date)[0]
+            out.append({
+                "id": f"case-review-{len(waiting)}-{f.id}",
+                "joiner_id": f.id,
+                "kind": "case",
+                "text": f"{len(waiting)} accepted offer(s) have an onboarding plan ready for your review — "
+                        f"starting with {f.joiner.name}. Nothing is sent to IT or managers until you approve.",
+                "cta_label": "Review plans",
+                "cta_q": "Show onboarding plans waiting for review",
+            })
     return out
 
 
@@ -454,8 +499,22 @@ def briefing(ctx: RoleContext) -> Reply:
     r = Reply(ctx, "briefing")
     n = len(ctx.actionable)
     if ctx.role == ROLE_HR:
-        r.text = f"**Your HR briefing.** {n} HR action(s) open across {len(ctx.visible)} joiners."
+        r.text = f"**Your HR onboarding briefing.** {n} HR action(s) open across {len(ctx.visible)} joiners."
         upcoming = [f"{poss(f.joiner.name)} packet has waited {f.docs.waiting_days}d — it counts as blocked at {DOCS_BLOCKED_DAYS}d." for f in c["docs_near"]]
+        status = Counter(cases.case_status(f) for f in ctx.visible)
+        soon = sorted((f for f in ctx.visible if 0 <= cases.days_to_start(f) <= 14 and not f.ready),
+                      key=lambda f: f.joiner.joining_date)
+        followups = [e for e in cases._LOG if e["kind"] == "reminder"]
+        r.facts([
+            ("Plans to review", f"{status['review']}"),
+            ("Cases in progress", f"{status['active']}"),
+            ("Ready to close", f"{status['complete']}"),
+            ("Starting in the next 2 weeks", (f"{len(soon)} — " + ", ".join(
+                f"{f.joiner.name} ({cases.long_date(f.joiner.joining_date)})" for f in soon[:3])
+                + (f" +{len(soon) - 3}" if len(soon) > 3 else "")) if soon else "No one"),
+            ("NIA follow-ups sent", f"{sum(1 for e in followups if e['audience'] == 'IT')} to IT · "
+                                    f"{sum(1 for e in followups if e['audience'] == 'Manager')} to managers — not you"),
+        ], "Onboarding cases")
     elif ctx.role == ROLE_IT:
         r.text = f"**Your IT briefing.** {n} IT action(s): {len(c['sla'])} SLA breach(es), {len(c['hardware'])} laptop(s) not delivered."
         upcoming = [f"{poss(f.joiner.name)} ticket is at {f.ticket.lead_time_days}d of a {f.ticket.sla_target_days}d target." for f in c["sla_near"]]
@@ -1049,6 +1108,383 @@ def prepare_reopen(ctx: RoleContext, f: Optional[JoinerFacts]) -> Reply:
     return r
 
 
+# --- HR onboarding cases ----------------------------------------------------------
+
+
+def _can_run_cases(ctx: RoleContext) -> bool:
+    return bool(ctx.permissions.get("manage_cases"))
+
+
+def case_plan(ctx: RoleContext, f: JoinerFacts) -> Reply:
+    r = Reply(ctx, "case:plan")
+    r.focus = f.id
+    plan = cases.build_plan(f)
+    n = first(f)
+    k = plan["counts"]
+    if plan["status"] == "review":
+        r.text = (
+            f"I've prepared **{k['total']} onboarding requirements** for {f.joiner.name} based on "
+            f"{poss(n)} role ({plan['position']}) and employment type ({f.joiner.role_type.value}).\n"
+            f"{k['auto']} were determined automatically."
+            + (f" **{k['confirm']} need your confirmation.**" if k["confirm"] else " Nothing needs confirming.")
+        )
+    else:
+        r.text = (
+            f"**{poss(f.joiner.name)} onboarding plan** — {plan['status_label'].lower()}. "
+            f"{k['done']} of {k['total']} requirements are done ({plan['progress_pct']}%)."
+        )
+    r.blocks.append({"type": "case_plan", **plan, "can_approve": plan["status"] == "review" and _can_run_cases(ctx)})
+    r.source("iCIMS")
+    r.source("ServiceNow")
+    r.suggestions = (
+        [f"Show {poss(n)} documents", f"Draft a welcome email for {n}"]
+        if plan["status"] == "review"
+        else [f"How's {poss(n)} onboarding?", f"Show {poss(n)} documents", "What am I waiting for?"]
+    )
+    return r
+
+
+def case_status(ctx: RoleContext, f: JoinerFacts) -> Reply:
+    r = Reply(ctx, "case:status")
+    r.focus = f.id
+    plan = cases.build_plan(f)
+    att = cases.hr_attention(f)
+    n = first(f)
+    if plan["status"] == "complete":
+        return case_complete(ctx, f)
+    if plan["status"] == "closed":
+        r.text = f"**{poss(f.joiner.name)}** onboarding case is closed — Project Ready, no outstanding actions."
+        return r
+    k = plan["counts"]
+    r.text = f"**{f.joiner.name}** is **{plan['progress_pct']}%** through onboarding ({k['done']} of {k['total']} requirements)."
+    followups = [
+        {"text": e["text"], "to": e["to"], "at": e["at"], "kind": e["kind"]}
+        for e in reversed(cases.log_for(f.id)) if e["kind"] in ("reminder", "routed", "message")
+    ][:4]
+    r.blocks.append({
+        "type": "case_status",
+        "joiner_id": f.id,
+        "name": f.joiner.name,
+        "position": plan["position"],
+        "start_label": plan["start_label"],
+        "when": plan["when"],
+        "manager": plan["manager"],
+        "status": plan["status"],
+        "status_label": plan["status_label"],
+        "progress_pct": plan["progress_pct"],
+        "steps": cases.journey_steps(f),
+        "attention": att,
+        "followups": followups,
+    })
+    r.source("iCIMS")
+    r.source("ServiceNow")
+    sug = []
+    if plan["status"] == "review":
+        sug.append(f"Review {poss(n)} onboarding plan")
+    if f.docs.status == DocumentStatus.PENDING or f.docs.rework_flag:
+        sug.append(f"Send {n} a reminder about the documents")
+    elif cases.days_to_start(f) > 0:
+        sug.append(f"Draft Day-1 instructions for {n}")
+    else:
+        sug.append(f"Draft a first-week check-in for {n}")
+    sug += [f"Show {poss(n)} onboarding plan", "What am I waiting for?"]
+    r.suggestions = sug
+    return r
+
+
+def case_complete(ctx: RoleContext, f: JoinerFacts) -> Reply:
+    r = Reply(ctx, "case:complete")
+    r.focus = f.id
+    done = cases.completion(f)
+    r.text = f"🎉 **{f.joiner.name} is Project Ready.**"
+    r.blocks.append({
+        "type": "case_complete",
+        "joiner_id": f.id,
+        "name": f.joiner.name,
+        "items": done["items"],
+        "days": done["days"],
+        "learning_left": done["learning_left"],
+        "can_close": _can_run_cases(ctx),
+    })
+    r.suggestions = ["Which cases are ready to close?", "What am I waiting for?"]
+    return r
+
+
+def case_documents(ctx: RoleContext, f: JoinerFacts) -> Reply:
+    r = Reply(ctx, "case:documents")
+    r.focus = f.id
+    if ctx.permissions.get("view_documents") != "full":
+        d = f.docs
+        r.text = f"{poss(f.joiner.name)} document packet is **{'in rework' if d.rework_flag else d.status.value.lower()}** in iCIMS. Document details are limited to HR."
+        return r
+    docs = cases.documents(f)
+    r.text = {
+        "pending": f"**{f.joiner.name} — documents.** The packet is still open in iCIMS.",
+        "rework": f"**{f.joiner.name} — documents.** iCIMS returned the packet for a correction.",
+        "complete": f"**{f.joiner.name} — documents.** Everything is verified.",
+    }[docs["state"]]
+    r.blocks.append({"type": "documents", "joiner_id": f.id, "name": f.joiner.name, **docs})
+    r.link("iCIMS", record_refs(f)["iCIMS"])
+    r.suggestions = (
+        [f"Send {first(f)} a reminder about the documents", "Who hasn't finished their documents?"]
+        if docs["state"] != "complete" else [f"How's {poss(first(f))} onboarding?"]
+    )
+    return r
+
+
+DRAFT_KINDS: list[tuple[str, str]] = [
+    ("it_escalation", r"escalat\w*|it escalation"),
+    ("manager_reminder", r"(remind|nudge|chase|email|message)\w* .*\bmanager\b|manager reminder"),
+    ("mentor_intro", r"mentor intro|introduc\w* .*mentor|mentor introduction"),
+    ("day1", r"day[- ]?1 (instructions?|email|info|details|note|message)|first[- ]day (instructions?|email|note)"),
+    ("first_week", r"first[- ]week|check[- ]?in"),
+    ("welcome", r"welcome (email|message|note|mail)|send .*welcome|draft .*welcome"),
+    ("doc_reminder", r"(remind|nudge|chase)\w* .*(document|docs|paperwork|packet|forms)|document reminder|reminder about .*(document|docs)"),
+]
+
+
+def _draft_kind(low: str) -> Optional[str]:
+    return next((k for k, pat in DRAFT_KINDS if re.search(pat, low)), None)
+
+
+def case_draft(ctx: RoleContext, f: Optional[JoinerFacts], kind: str) -> Reply:
+    r = Reply(ctx, f"case:draft:{kind}")
+    label = cases.COMMS[kind]
+    if f is None:
+        r.text = f"Who should I draft the {label.lower()} for?"
+        return r
+    r.focus = f.id
+    n = first(f)
+    if kind == "doc_reminder" and f.docs.status == DocumentStatus.COMPLETE and not f.docs.rework_flag:
+        r.text = f"{poss(f.joiner.name)} documents are already verified in iCIMS — there's nothing to remind {n} about."
+        r.suggestions = [f"Draft Day-1 instructions for {n}", f"How's {poss(n)} onboarding?"]
+        return r
+    if kind == "it_escalation" and f.ticket.hardware_status == HardwareStatus.DELIVERED:
+        r.text = f"{poss(f.joiner.name)} laptop is already delivered — there's nothing to escalate to IT."
+        return r
+    d = cases.draft(f, kind, ctx.user.get("display_name") or "People Ops")
+    sent_before = [e for e in cases.sent_messages(f.id) if e["topic"] == kind]
+    about = "" if d["to"]["audience"] == "Employee" else f" about {f.joiner.name}"
+    r.text = (
+        f"I've drafted the **{label}** for {d['to']['name']}{about}. "
+        "Edit anything you like — nothing is sent until you confirm."
+    )
+    if sent_before:
+        r.text += f"\nNote: a {label.lower()} was already sent on {sent_before[-1]['at'][:10]} by {sent_before[-1]['by']}."
+    r.blocks.append({
+        "type": "draft",
+        "joiner_id": f.id,
+        "joiner_name": f.joiner.name,
+        "kind": kind,
+        "label": label,
+        **d,
+        "note": "Simulated delivery: SmartStart logs the message on the case"
+                + (" and shows it in the joiner's notifications." if d["to"]["audience"] == "Employee" else "."),
+    })
+    r.suggestions = [f"How's {poss(n)} onboarding?", f"Show {poss(n)} onboarding plan"]
+    return r
+
+
+def case_bulk_doc_reminders(ctx: RoleContext) -> Reply:
+    r = Reply(ctx, "case:bulk_reminders")
+    c = _counts(ctx)
+    rows = c["docs_pending"] + [f for f in c["rework"] if f not in c["docs_pending"]]
+    rows.sort(key=lambda f: f.joiner.joining_date)
+    if not rows:
+        r.text = "Everyone's documents are complete — there's no one to remind."
+        return r
+    sender = ctx.user.get("display_name") or "People Ops"
+    items = []
+    for f in rows:
+        d = cases.draft(f, "doc_reminder", sender)
+        items.append({
+            "joiner_id": f.id,
+            "name": f.joiner.name,
+            "address": d["to"]["address"],
+            "detail": "Correction required" if f.docs.rework_flag else f"Packet pending {f.docs.waiting_days}d",
+            "subject": d["subject"],
+        })
+    sample = cases.draft(rows[0], "doc_reminder", sender)
+    r.text = (
+        f"I've prepared **{len(rows)} document reminders** — one per joiner whose iCIMS packet is incomplete. "
+        "Each is personalised (pending packets and corrections get different wording). Untick anyone you'd rather skip."
+    )
+    r.blocks.append({
+        "type": "drafts",
+        "kind": "doc_reminder",
+        "label": cases.COMMS["doc_reminder"],
+        "items": items,
+        "preview_name": rows[0].joiner.name,
+        "preview": sample["body"],
+    })
+    r.source("iCIMS")
+    return r
+
+
+def case_waiting(ctx: RoleContext) -> Reply:
+    r = Reply(ctx, "case:waiting")
+    mine, employee, it, mgr = [], [], [], []
+    for f in ctx.visible:
+        st = cases.case_status(f)
+        if st == "closed":
+            continue
+        if st in ("review", "complete"):
+            mine.append(f)
+        elif f.docs.status == DocumentStatus.PENDING or f.docs.rework_flag:
+            employee.append(f)
+        elif f.ticket.hardware_status != HardwareStatus.DELIVERED:
+            it.append(f)
+        elif not f.ready:
+            mgr.append(f)
+    r.text = (
+        f"You're waiting on **{len(employee)} joiner(s)** for documents, **IT** for {len(it)} laptop(s), and "
+        f"**managers** for {len(mgr)} Day-1 or project step(s). "
+        + (f"**{len(mine)} item(s) are waiting on you.**" if mine else "Nothing else is waiting on you.")
+    )
+
+    def names(rows: list[JoinerFacts], note: Callable[[JoinerFacts], str]) -> list[str]:
+        return [f"{f.joiner.name} — {note(f)}" for f in rows[:5]] + ([f"+{len(rows) - 5} more"] if len(rows) > 5 else [])
+
+    r.bullets(names(mine, lambda f: cases.hr_attention(f)["headline"]), "Waiting on you")
+    r.bullets(names(employee, lambda f: "correction required" if f.docs.rework_flag else f"packet pending {f.docs.waiting_days}d"), "Waiting on the joiner (documents)")
+    r.bullets(names(it, lambda f: ("SLA breached" if f.sla_open else f"laptop {f.ticket.hardware_status.value.lower()}") + " · NIA follows up with IT"), "Waiting on IT")
+    r.bullets(names(mgr, lambda f: f"{f.joiner.manager_name} · {'Day-1 orientation' if f.joiner.current_state == OnboardingState.IT_PROVISIONED else 'first project'}"), "Waiting on managers")
+    r.suggestions = ["Remind everyone whose documents are incomplete", "Show onboarding plans waiting for review", "Who joins next week?"]
+    return r
+
+
+def case_upcoming(ctx: RoleContext, text: str) -> Reply:
+    r = Reply(ctx, "case:upcoming")
+    low = text.lower()
+    today = cases.TODAY
+    monday = today.fromordinal(today.toordinal() - today.weekday())
+    if "next week" in low:
+        lo, hi, label = monday.toordinal() + 7, monday.toordinal() + 13, "next week"
+    elif "this week" in low:
+        lo, hi, label = today.toordinal(), monday.toordinal() + 6, "this week"
+    else:
+        lo, hi, label = today.toordinal(), today.toordinal() + 14, "in the next 2 weeks"
+    rows = sorted((f for f in ctx.visible if lo <= f.joiner.joining_date.toordinal() <= hi), key=lambda f: f.joiner.joining_date)
+    span = f"{cases.long_date(today.fromordinal(lo))} – {cases.long_date(today.fromordinal(hi))}"
+    if rows:
+        r.text = f"**{len(rows)} joiner(s)** start {label} ({span})."
+        r.joiners(rows, "", lambda f: f"Starts {cases.long_date(f.joiner.joining_date)} · {cases.hr_attention(f)['headline']}")
+        r.focus = rows[0].id
+    else:
+        later = sorted((f for f in ctx.visible if f.joiner.joining_date.toordinal() > hi), key=lambda f: f.joiner.joining_date)
+        r.text = f"No one starts {label} ({span})."
+        if later:
+            nxt = later[0]
+            r.text += f" The next start is **{nxt.joiner.name}** on {cases.long_date(nxt.joiner.joining_date)}."
+            r.focus = nxt.id
+            r.suggestions = [f"How's {poss(first(nxt))} onboarding?", f"Draft Day-1 instructions for {first(nxt)}"]
+    return r
+
+
+def case_list(ctx: RoleContext, which: str) -> Reply:
+    r = Reply(ctx, f"case:list:{which}")
+    rows = [f for f in ctx.visible if which == "all" or cases.case_status(f) == which]
+    rows.sort(key=lambda f: f.joiner.joining_date)
+    label = {"review": "onboarding plan(s) waiting for your review", "complete": "case(s) ready to close",
+             "active": "case(s) in progress", "all": "onboarding case(s)"}[which]
+    empty = {"review": "No onboarding plans are waiting for your review.", "complete": "No cases are ready to close.",
+             "active": "No cases are in progress.", "all": "There are no onboarding cases in your view."}[which]
+    r.text = f"**{len(rows)}** {label}." if rows else empty
+    if which == "review" and rows:
+        r.text += " Nothing goes to IT or managers until you approve a plan."
+    items = []
+    for f in rows[:8]:
+        plan = cases.build_plan(f)
+        att = cases.hr_attention(f)
+        items.append({
+            "joiner_id": f.id, "name": f.joiner.name, "position": plan["position"],
+            "start_label": plan["start_label"], "when": plan["when"], "status": plan["status"],
+            "status_label": plan["status_label"], "progress_pct": plan["progress_pct"],
+            "level": att["level"], "headline": att["headline"],
+            "q": (f"Review {poss(f.joiner.name)} onboarding plan" if plan["status"] == "review"
+                  else f"How's {poss(f.joiner.name)} onboarding?"),
+        })
+    if items:
+        r.blocks.append({"type": "cases", "title": "", "items": items})
+        r.focus = rows[0].id
+    if len(rows) > 8:
+        r.bullets([f"+{len(rows) - 8} more"])
+    return r
+
+
+def case_close(ctx: RoleContext, f: Optional[JoinerFacts]) -> Reply:
+    if f is None:
+        return case_list(ctx, "complete")
+    if cases.case_status(f) == "complete":
+        return case_complete(ctx, f)
+    r = Reply(ctx, "case:close")
+    r.focus = f.id
+    if cases.case_status(f) == "closed":
+        r.text = f"{poss(f.joiner.name)} case is already closed."
+    else:
+        r.text = f"{poss(f.joiner.name)} case can't be closed yet — {cases.hr_attention(f)['reason'] or 'onboarding is still in progress.'}"
+        r.suggestions = [f"How's {poss(first(f))} onboarding?"]
+    return r
+
+
+def my_followups(ctx: RoleContext) -> Reply:
+    r = Reply(ctx, "case:inbox")
+    rows = cases.inbox(ctx.role, ctx.manager_id, ctx.visible)
+    who = "IT" if ctx.role == ROLE_IT else "you"
+    if not rows:
+        r.text = f"NIA hasn't sent {who} any onboarding follow-ups that still apply."
+        return r
+    r.text = f"**{len(rows)} onboarding follow-up(s)** from HR's cases are waiting on {who}:"
+    r.bullets([e["text"] for e in rows[:8]])
+    r.focus = rows[0]["joiner_id"]
+    return r
+
+
+CASE_PLAN_RE = re.compile(r"\bonboard\b|onboarding plan|\bplan\b")
+CASE_STATUS_RE = re.compile(r"onboarding (going|status|progress)|how('?s| is| are)\b|status of|how far|progress")
+CASE_LIST_RE = re.compile(r"(open|my|all|onboarding|active) cases|case list|plans? (waiting|to review|pending|for review)|ready to close|cases? (to|ready)")
+WAITING_RE = re.compile(r"what am i waiting|what('?m| am) i waiting|waiting (for|on) (what|whom|who)|what('?s| is) outstanding|my dependencies")
+UPCOMING_RE = re.compile(r"who('?s)? (joins|starts|is starting|is joining|starting|joining)|(joining|starting|starts?|joins?) (next|this) week|upcoming (joiners|starts)|new (joiners|starters)")
+BULK_RE = re.compile(r"remind (everyone|everybody|all|them all)|chase (everyone|everybody|all)")
+DOCS_RE = re.compile(r"document|\bdocs\b|paperwork|packet")
+
+
+def case_intent(ctx: RoleContext, text: str, low: str, target: Optional[JoinerFacts]) -> Optional[Reply]:
+    """HR onboarding-assistant intents. None means 'not a case question'."""
+    if ctx.role in (ROLE_IT, ROLE_MANAGER):
+        if re.search(r"follow[- ]?ups?|reminders?|what has nia sent|from hr|routed to me", low):
+            return my_followups(ctx)
+        return None
+    if ctx.role not in (ROLE_HR, ROLE_OPS):
+        return None
+    if BULK_RE.search(low) and DOCS_RE.search(low):
+        return case_bulk_doc_reminders(ctx)
+    kind = _draft_kind(low)
+    if kind:
+        return case_draft(ctx, target, kind)
+    if re.search(r"close .*case|close (the )?onboarding", low):
+        return case_close(ctx, target)
+    if WAITING_RE.search(low):
+        return case_waiting(ctx)
+    if UPCOMING_RE.search(low):
+        return case_upcoming(ctx, text)
+    if CASE_LIST_RE.search(low):
+        if "close" in low:
+            return case_list(ctx, "complete")
+        if re.search(r"review|waiting|pending|plans?", low):
+            return case_list(ctx, "review")
+        return case_list(ctx, "all")
+    if target is None:
+        return None
+    if CASE_PLAN_RE.search(low):
+        return case_plan(ctx, target)
+    if DOCS_RE.search(low) and not re.search(r"\bwhy\b|who ", low):
+        return case_documents(ctx, target)
+    if CASE_STATUS_RE.search(low) and not re.search(r"learning|course|module", low):
+        return case_status(ctx, target)
+    return None
+
+
 REFUSE = re.compile(
     r"approve|change (her|his|their) (salary|pay|data|record|details|permissions?)|update (her|his|their) record|"
     r"delete|grant (me|myself)|change permissions?|edit (her|his|their)|close (the |her |his |their )?ticket|approve leave"
@@ -1083,6 +1519,11 @@ def ask(ctx: RoleContext, message: str, focus_joiner_id: Optional[str] = None) -
         r.joiners(people[:5])
         r.suggestions = [f"Give me a complete picture of {p.joiner.name}" for p in people[:3]]
         return r.to_dict()
+
+    named = target if (people or _PRONOUN.search(low)) else None
+    case_reply = case_intent(ctx, text, low, named)
+    if case_reply is not None:
+        return case_reply.to_dict()
 
     if REFUSE.search(low):
         r = Reply(ctx, "refuse", (

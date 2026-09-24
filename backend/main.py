@@ -35,6 +35,9 @@ from backend.employee_experience import (
     clear_feedback,
     list_feedback,
     submit_feedback,
+    add_skill,
+    remove_skill,
+    skills_for,
 )
 from backend import ira_profile, nia, resolutions
 from backend.integrations import build_integrations
@@ -877,6 +880,35 @@ def employee_workspace(joiner_id: str) -> TeamWorkspaceResponse:
         return build_team_workspace(joiner_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Workspace not found") from None
+
+
+class SkillBody(BaseModel):
+    skill: str = Field(min_length=1, max_length=32)
+
+
+@app.get("/api/employee/{joiner_id}/skills")
+def employee_skills(joiner_id: str) -> dict:
+    if store.get_joiner(joiner_id) is None:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return {"joiner_id": joiner_id, "skills": skills_for(joiner_id), "synthetic": True}
+
+
+@app.post("/api/employee/{joiner_id}/skills")
+def employee_add_skill(joiner_id: str, body: SkillBody) -> dict:
+    if store.get_joiner(joiner_id) is None:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    try:
+        skills = add_skill(joiner_id, body.skill)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    return {"joiner_id": joiner_id, "skills": skills, "synthetic": True}
+
+
+@app.delete("/api/employee/{joiner_id}/skills/{skill}")
+def employee_remove_skill(joiner_id: str, skill: str) -> dict:
+    if store.get_joiner(joiner_id) is None:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return {"joiner_id": joiner_id, "skills": remove_skill(joiner_id, skill), "synthetic": True}
 
 
 # --- Layer 4: Prototype AI Features ------------------------------------

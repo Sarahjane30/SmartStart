@@ -481,14 +481,15 @@ _e(
         kind="term",
         name="Waters",
         summary=(
-            "Waters is the company context for this SmartStart hackathon sandbox. "
-            "IRA helps you navigate Waters apps, teams, processes, and your onboarding."
+            "Waters is a global leader in life sciences and diagnostics — analytical technologies "
+            "such as liquid chromatography and mass spectrometry, informatics and service, "
+            "with about 16,000 colleagues worldwide (public company information)."
         ),
         owner="SmartStart",
         department="Company",
-        source="SmartStart",
-        keywords=("waters", "what is waters", "about the company", "company"),
-        navigate_hint="Ask IRA about apps, teams, or what to do next.",
+        source="waters.com",
+        keywords=("waters", "what is waters", "about the company", "company", "what does waters do"),
+        navigate_hint="Open “What is Waters?” in your workspace to explore how it all connects — and where you fit.",
     )
 )
 _e(

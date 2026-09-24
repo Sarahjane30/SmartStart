@@ -3084,3 +3084,65 @@ body:has(.joiner-drawer:not([hidden])) .nia-launcher { right: calc(min(440px, 10
 .wx-skill-idea::before { content: "+ "; }
 .wx-skill-idea:hover { color: var(--navy-700); border-color: #aab6d0; background: #fff; }
 .wx-skills-hint { margin: 0; }
+
+/* ---------- Employee · People page ---------- */
+.pp-now {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: 1rem 1.15rem; margin-bottom: 1.4rem; border-radius: 16px;
+  background: linear-gradient(120deg, var(--navy-700), #24337a);
+  color: #fff; box-shadow: 0 14px 30px rgba(15, 23, 60, 0.22);
+}
+.pp-now[hidden] { display: none; }
+.pp-now .consult-avatar { background: rgba(255, 255, 255, 0.14); box-shadow: none; flex: none; }
+.pp-now-copy { flex: 1 1 320px; display: grid; gap: 0.15rem; min-width: 0; }
+.pp-now-kicker {
+  font-size: 0.64rem; font-weight: 750; letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(232, 238, 255, 0.7);
+}
+.pp-now-copy strong { font-size: 1rem; }
+.pp-now-copy strong .muted { color: rgba(232, 238, 255, 0.72); font-weight: 600; }
+.pp-now-copy p { margin: 0.1rem 0 0; font-size: 0.86rem; color: rgba(232, 238, 255, 0.86); line-height: 1.45; }
+.pp-now-acts { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+.pp-now-acts .btn-primary { background: #fff; color: var(--navy-700); border-color: #fff; }
+.pp-now-acts .btn-primary:hover { background: #e8ecf8; }
+.pp-now-acts .btn-secondary { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.35); }
+.pp-now-acts .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
+.pp-now-acts button { font-size: 0.84rem; padding: 0.5rem 0.95rem; }
+
+.pp-h {
+  margin: 0 0 0.7rem; font-size: 0.72rem; font-weight: 750; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--wx-muted);
+}
+#tab-people .consult-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 1.4rem; }
+#tab-people .consult-card { align-content: start; }
+
+.pp-split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1rem; }
+.pp-panel { margin: 0; }
+.pp-panel .wx-panel-head { margin-bottom: 0.6rem; }
+.pp-router, .pp-team { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.1rem; }
+.pp-route, .pp-mate {
+  width: 100%; display: flex; align-items: center; gap: 0.7rem; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+  padding: 0.55rem 0.6rem; border: 0; border-radius: 10px; background: transparent;
+  transition: background 0.15s ease;
+}
+.pp-route:hover, .pp-mate:hover { background: var(--wx-surface); }
+.pp-router li + li, .pp-team li + li { border-top: 1px solid var(--wx-line); }
+.pp-route-q { flex: 1; font-size: 0.86rem; font-weight: 600; }
+.pp-route-who { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--wx-muted); font-weight: 650; }
+.wx-person-avatar.sm { width: 24px; height: 24px; font-size: 0.6rem; }
+.pp-route-arrow { transition: transform 0.15s ease; }
+.pp-route:hover .pp-route-arrow { transform: translateX(3px); color: var(--navy-700); }
+.pp-mate-copy { flex: 1; display: grid; gap: 0.05rem; min-width: 0; }
+.pp-mate-copy strong { font-size: 0.86rem; }
+.pp-mate-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; justify-content: flex-end; }
+.pp-mate-tags span {
+  font-size: 0.66rem; font-weight: 650; color: var(--wx-muted);
+  background: var(--wx-surface); border: 1px solid var(--wx-line); border-radius: 999px; padding: 0.12rem 0.5rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  #tab-people .consult-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pp-split { grid-template-columns: 1fr; }
+}

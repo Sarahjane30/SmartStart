@@ -1031,7 +1031,6 @@ function renderConsult() {
         <div class="muted tiny">${esc(c.role_label)}</div>
         <p>${esc(c.focus)}</p>
         <dl class="consult-meta">
-          <div><dt>Email</dt><dd><span class="wx-email">${emailHtml(c.email)}</span></dd></div>
           <div><dt>Channel</dt><dd>${esc(c.channel)}</dd></div>
           <div><dt>Availability</dt><dd>${esc(c.availability)}</dd></div>
         </dl>
@@ -1041,6 +1040,117 @@ function renderConsult() {
     .join("");
   wirePersonCards(list, rows.map(personFromConsult));
   revealAll(list, ".consult-card", 50);
+  renderPeopleNow();
+  renderPeopleRouter();
+  renderPeopleTeam();
+}
+
+function consultByKey(key) {
+  return (state.workspace?.consult || []).find((c) => c.id.endsWith(`-C-${key}`)) || null;
+}
+
+function peopleNowPick() {
+  const p = state.profile || {};
+  const isIntern = String(p.role_type).toUpperCase() === "INTERN";
+  if (String(p.docs_status) !== "Complete")
+    return { key: "hr", topic: "my document packet", why: `Your document packet is ${String(p.docs_status || "still open").toLowerCase()} — your HR partner can tell you exactly what's missing.` };
+  if (String(p.hardware_status) !== "Delivered")
+    return { key: "it", topic: "my laptop", why: `Your laptop is ${String(p.hardware_status || "not delivered yet").toLowerCase()} — IT can confirm when it arrives and get your access ready.` };
+  if (p.current_state === "IT_PROVISIONED")
+    return { key: "mgr", topic: "Day-1 orientation", why: "You're set up — your manager runs Day-1 orientation and introduces you to the team." };
+  if (p.current_state === "DAY1_ORIENTED")
+    return { key: "mentor", topic: "a weekly check-in", why: `Day 1 is done — book a first check-in with your ${isIntern ? "mentor" : "buddy"} to plan your first weeks.` };
+  return { key: "mgr", topic: "my week-1 checklist", why: "You're project-ready — review your week-1 checklist and first project with your manager." };
+}
+
+function renderPeopleNow() {
+  const box = document.getElementById("people-now");
+  if (!box) return;
+  const pick = peopleNowPick();
+  const c = consultByKey(pick.key);
+  if (!c) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = `
+    <span class="consult-avatar" aria-hidden="true">${initials(c.name)}</span>
+    <div class="pp-now-copy">
+      <span class="pp-now-kicker">Talk to next</span>
+      <strong>${esc(c.name)} <span class="muted">· ${esc(c.role_label)}</span></strong>
+      <p>${esc(pick.why)}</p>
+    </div>
+    <div class="pp-now-acts">
+      <button type="button" class="btn-primary" id="pp-now-draft">Draft with IRA</button>
+      <button type="button" class="btn-secondary" id="pp-now-open">View contact</button>
+    </div>`;
+  const person = personFromConsult(c);
+  box.querySelector("#pp-now-draft").addEventListener("click", () => draftWithIra(person, pick.topic));
+  box.querySelector("#pp-now-open").addEventListener("click", () => openPerson(person, pick.topic));
+}
+
+const PEOPLE_ROUTES = [
+  { q: "My laptop or VPN isn't working", key: "it", topic: "VPN access" },
+  { q: "A form in my document packet", key: "hr", topic: "my document packet" },
+  { q: "Taking leave or a day off", key: "mgr", topic: "leave next week" },
+  { q: "Benefits or payroll", key: "hr", topic: "benefits enrolment" },
+  { q: "Getting access to an app", key: "it", topic: "software access" },
+  { q: "What I should work on this week", key: "mgr", topic: "my 30-day goals" },
+  { q: "Feedback on my work", key: "mentor", topic: "reviewing my work" },
+  { q: "How things are done here", key: "mentor", topic: "an intro chat" },
+];
+
+function renderPeopleRouter() {
+  const list = document.getElementById("people-router");
+  if (!list) return;
+  const rows = PEOPLE_ROUTES.map((r) => ({ ...r, c: consultByKey(r.key) })).filter((r) => r.c);
+  list.innerHTML = rows
+    .map(
+      (r, i) => `<li><button type="button" class="pp-route" data-route="${i}">
+        <span class="pp-route-q">${esc(r.q)}</span>
+        <span class="pp-route-who">
+          <span class="wx-person-avatar sm" aria-hidden="true">${initials(r.c.name)}</span>
+          <span>${esc(r.c.name.split(" ")[0])}</span>
+          <span class="pp-route-arrow" aria-hidden="true">→</span>
+        </span>
+      </button></li>`
+    )
+    .join("");
+  list.querySelectorAll("[data-route]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const r = rows[Number(btn.dataset.route)];
+      openPerson(personFromConsult(r.c), r.topic);
+    })
+  );
+}
+
+function renderPeopleTeam() {
+  const list = document.getElementById("people-team");
+  if (!list) return;
+  const keyNames = new Set((state.workspace?.consult || []).map((c) => c.name));
+  const others = (state.workspace?.members || []).filter((m) => !m.is_self && !keyNames.has(m.name)).slice(0, 5);
+  if (!others.length) {
+    list.innerHTML = `<li class="muted tiny">Your team roster will show here.</li>`;
+    return;
+  }
+  list.innerHTML = others
+    .map(
+      (m, i) => `<li><button type="button" class="pp-mate" data-mate="${i}">
+        <span class="wx-person-avatar" aria-hidden="true">${initials(m.name)}</span>
+        <span class="pp-mate-copy">
+          <strong>${esc(m.name)}</strong>
+          <span class="muted tiny">${esc(m.title)}</span>
+        </span>
+        <span class="pp-mate-tags">${m.expertise
+          .slice(0, 2)
+          .map((e) => `<span>${esc(e)}</span>`)
+          .join("")}</span>
+      </button></li>`
+    )
+    .join("");
+  list.querySelectorAll("[data-mate]").forEach((btn) =>
+    btn.addEventListener("click", () => openPerson(personFromMember(others[Number(btn.dataset.mate)])))
+  );
 }
 
 function renderTeam() {

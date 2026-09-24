@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=33" />
+  <link rel="stylesheet" href="/static/style.css?v=34" />
 </head>
 <body class="employee-page">
   <div id="workspace" class="wx">
@@ -179,7 +179,25 @@
             <p class="muted">Who to contact for docs, IT, and mentoring — click anyone for their email, or let IRA draft one</p>
           </div>
         </header>
+        <div id="people-now" class="pp-now" hidden></div>
+        <h2 class="pp-h">Your key contacts</h2>
         <div id="consult-list" class="consult-grid"></div>
+        <div class="pp-split">
+          <section class="wx-panel pp-panel">
+            <header class="wx-panel-head">
+              <h2>Who do I ask about…</h2>
+              <span class="muted tiny">Pick a question — we'll open the right person</span>
+            </header>
+            <ul id="people-router" class="pp-router"></ul>
+          </section>
+          <section class="wx-panel pp-panel">
+            <header class="wx-panel-head">
+              <h2>From your team</h2>
+              <button type="button" class="btn-link wx-more" data-goto="team">See whole team →</button>
+            </header>
+            <ul id="people-team" class="pp-team"></ul>
+          </section>
+        </div>
       </section>
 
       <section class="emp-tab" id="tab-team">
@@ -291,6 +309,6 @@
   <script src="/static/motion.js?v=17"></script>
   <script src="/static/ira-globe.js?v=18"></script>
   <script src="/static/ira-personal.js?v=27"></script>
-  <script src="/static/employee.js?v=35"></script>
+  <script src="/static/employee.js?v=37"></script>
 </body>
 </html>

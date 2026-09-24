@@ -785,41 +785,32 @@ const SKILL_IDEAS = ["Python", "Excel", "Git", "Communication", "Research", "Wri
 function selfSkillsBlock(m) {
   const skills = m.expertise || [];
   const isIntern = String(state.profile?.role_type || "").toUpperCase() === "INTERN";
-  const ideas = SKILL_IDEAS.filter((s) => !skills.some((x) => x.toLowerCase() === s.toLowerCase())).slice(0, 4);
+  const ideas = SKILL_IDEAS.filter((s) => !skills.some((x) => x.toLowerCase() === s.toLowerCase())).slice(0, 3);
   return `<div class="wx-skills" data-self-skills>
-      <div class="wx-skills-head">
-        <span>${isIntern ? "Your skills" : "Your expertise"}</span>
-        <span class="muted tiny">Shows on your team card</span>
+      <span class="wx-skills-label">${isIntern ? "Your skills" : "Your expertise"}</span>
+      <div class="wx-skills-row">
+        ${skills
+          .map(
+            (s) => `<span class="wx-skill">${esc(s)}<button type="button" class="wx-skill-x" data-remove-skill="${esc(
+              s
+            )}" aria-label="Remove ${esc(s)}">×</button></span>`
+          )
+          .join("")}
+        <button type="button" class="wx-skill-add" data-add-skill>+ Add skill</button>
       </div>
-      <ul class="wx-member-tags wx-skills-list">
-        ${
-          skills.length
-            ? skills
-                .map(
-                  (s) => `<li class="wx-skill">
-              ${esc(s)}
-              <button type="button" class="wx-skill-x" data-remove-skill="${esc(s)}" aria-label="Remove ${esc(s)}">×</button>
-            </li>`
-                )
-                .join("")
-            : `<li class="wx-skill-empty muted tiny">Add what you know — teammates will see it</li>`
-        }
-        <li>
-          <button type="button" class="wx-skill-add" data-add-skill aria-label="Add a skill">+</button>
-        </li>
-      </ul>
+      <form class="wx-skill-form" hidden>
+        <input type="text" maxlength="32" placeholder="Type a skill and press Enter" autocomplete="off" />
+        <button type="submit" class="wx-mini primary">Add</button>
+        <button type="button" class="wx-skill-cancel" data-cancel-skill aria-label="Cancel">×</button>
+      </form>
       ${
         isIntern && ideas.length && skills.length < 3
-          ? `<div class="wx-skill-ideas">${ideas
-              .map((s) => `<button type="button" class="chip" data-skill="${esc(s)}">+ ${esc(s)}</button>`)
+          ? `<div class="wx-skill-ideas"><span class="muted tiny">Try:</span>${ideas
+              .map((s) => `<button type="button" class="wx-skill-idea" data-skill="${esc(s)}">${esc(s)}</button>`)
               .join("")}</div>`
           : ""
       }
-      <form class="wx-skill-form" hidden>
-        <input type="text" maxlength="32" placeholder="e.g. Python, Excel…" autocomplete="off" />
-        <button type="submit" class="wx-mini primary">Add</button>
-        <button type="button" class="wx-mini" data-cancel-skill>Cancel</button>
-      </form>
+      ${skills.length ? "" : `<p class="muted tiny wx-skills-hint">Teammates see these on your card.</p>`}
     </div>`;
 }
 
@@ -860,15 +851,24 @@ function wireSelfSkills(root) {
   if (!box) return;
   const form = box.querySelector(".wx-skill-form");
   const input = form?.querySelector("input");
-  box.querySelector("[data-add-skill]")?.addEventListener("click", (e) => {
+  const addBtn = box.querySelector("[data-add-skill]");
+  addBtn?.addEventListener("click", (e) => {
     e.stopPropagation();
     form.hidden = false;
+    addBtn.hidden = true;
     input.value = "";
     input.focus();
+  });
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      form.hidden = true;
+      if (addBtn) addBtn.hidden = false;
+    }
   });
   box.querySelector("[data-cancel-skill]")?.addEventListener("click", (e) => {
     e.stopPropagation();
     form.hidden = true;
+    if (addBtn) addBtn.hidden = false;
   });
   form?.addEventListener("submit", (e) => {
     e.preventDefault();

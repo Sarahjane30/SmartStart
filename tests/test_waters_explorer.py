@@ -63,3 +63,12 @@ def test_ira_knows_what_waters_is() -> None:
         reply = [t for t in turns if t["role"] == "assistant"][-1]["text"]
         assert "life sciences and diagnostics" in reply
         assert "hackathon" not in reply
+
+
+def test_understand_my_role_uses_the_same_chain() -> None:
+    with TestClient(app) as client:
+        sid = find_ira_demo_id()
+        turns = client.get(f"/api/chatbot/{sid}", params={"q": "What does my role do?"}).json()["turns"]
+        reply = [t for t in turns if t["role"] == "assistant"][-1]["text"]
+        assert "Data Engineering Intern on the Data Platform team" in reply
+        assert "Ava Chen" in reply and "Priya Nair" in reply

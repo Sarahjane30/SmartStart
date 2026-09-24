@@ -178,8 +178,14 @@ def build_ira_context(joiner_id: str, db: DataStore | None = None) -> dict:
         for a in role_recommended_apps(joiner.role_type.value)
     ]
 
+    from backend.waters_explorer import your_place
+
+    place = your_place(joiner)
     return {
         "employee": {
+            "role_title": place["role_title"],
+            "team": place["team"],
+            "business_area": place["chain"][1]["name"],
             "id": profile.id,
             "name": profile.name,
             "email": str(profile.email),

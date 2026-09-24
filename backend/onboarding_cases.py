@@ -240,22 +240,41 @@ def _it_items(f: JoinerFacts) -> list[dict]:
     return [laptop, *access]
 
 
+def manager_prep(f: JoinerFacts) -> dict:
+    """What the hiring manager already did in NIA (mentor confirmed, Day 1 booked, project picked)."""
+    return _CASES.get(f.id, {}).get("mgr", {})
+
+
 def _manager_items(f: JoinerFacts) -> list[dict]:
     i = _stage_i(f)
     day1 = STAGES.index(OnboardingState.DAY1_ORIENTED)
     prov = STAGES.index(OnboardingState.IT_PROVISIONED)
     m = mentor(f)
-    return [
-        _item("mentor", f"Confirm mentor · {m}",
-              "done" if i >= day1 else "active" if i == prov else "pending",
-              "Introduced on Day 1" if i >= day1 else "Due before Day 1"),
-        _item("day1", "Schedule Day-1 orientation",
-              "done" if i >= day1 else "active" if i == prov else "pending",
-              "Done" if i >= day1 else "Due — laptop is ready" if i == prov else "After IT setup"),
-        _item("project", "Assign first project",
-              "done" if f.ready else "active" if i == day1 else "pending",
-              "Assigned in Jira" if f.ready else "Due — Day 1 is done" if i == day1 else "After Day 1"),
-    ]
+    p = manager_prep(f)
+    booked = p.get("day1")
+    project = p.get("project")
+    if i >= day1:
+        mentor_item = _item("mentor", f"Confirm mentor · {m}", "done", "Introduced on Day 1")
+    elif p.get("mentor"):
+        mentor_item = _item("mentor", f"Confirm mentor · {m}", "done", f"Confirmed by {p['mentor']['by']}")
+    else:
+        mentor_item = _item("mentor", f"Confirm mentor · {m}", "active" if i == prov else "pending", "Due before Day 1")
+    if i >= day1:
+        day1_item = _item("day1", "Schedule Day-1 orientation", "done", "Done")
+    elif booked:
+        day1_item = _item("day1", "Schedule Day-1 orientation", "active",
+                          f"Booked {long_date(date.fromisoformat(booked['date']))} at {booked['time']}")
+    else:
+        day1_item = _item("day1", "Schedule Day-1 orientation", "active" if i == prov else "pending",
+                          "Due — laptop is ready" if i == prov else "After IT setup")
+    if f.ready:
+        project_item = _item("project", "Assign first project", "done", "Assigned in Jira")
+    elif project:
+        project_item = _item("project", "Assign first project", "active", f"Picked: {project['name']} · Jira pending")
+    else:
+        project_item = _item("project", "Assign first project", "active" if i == day1 else "pending",
+                             "Due — Day 1 is done" if i == day1 else "After Day 1")
+    return [mentor_item, day1_item, project_item]
 
 
 def _learning_items(f: JoinerFacts) -> list[dict]:
@@ -379,8 +398,10 @@ def hr_attention(f: JoinerFacts) -> dict:
                 "reason": f"{poss(n)} laptop is being handled by IT and is still within SLA "
                           f"({t.lead_time_days} of {t.sla_target_days} days)."}
     if f.joiner.current_state == OnboardingState.IT_PROVISIONED:
+        booked = manager_prep(f).get("day1")
         return {"level": "none", "headline": "No HR action is required right now.",
-                "reason": f"IT is done. Day-1 orientation and the mentor intro are with {mgr}."}
+                "reason": f"IT is done. {mgr} booked Day 1 for {long_date(date.fromisoformat(booked['date']))} at {booked['time']}."
+                if booked else f"IT is done. Day-1 orientation and the mentor intro are with {mgr}."}
     if f.joiner.current_state == OnboardingState.DAY1_ORIENTED:
         return {"level": "none", "headline": "No HR action is required right now.",
                 "reason": f"Day 1 is done. {mgr} is assigning the first project in Jira."}
@@ -492,14 +513,17 @@ def due_reminders(f: JoinerFacts) -> list[dict]:
             out.append({"topic": "it_laptop", "audience": "IT", "to": IT_DESK,
                         "text": f"{n} {when_phrase(f)}. Laptop provisioning is still "
                                 f"{t.hardware_status.value.lower()} ({t.ticket_id})."})
+    p = manager_prep(f)
     if j.current_state == OnboardingState.IT_PROVISIONED and days_to_start(f) <= 5:
-        out.append({"topic": "mgr_day1", "audience": "Manager", "to": j.manager_name, "manager_id": j.manager_id,
-                    "text": f"{n} {when_phrase(f)}. The laptop is ready — Day-1 orientation and the mentor intro "
-                            f"({mentor(f)}) are still pending."})
+        if not p.get("day1"):
+            out.append({"topic": "mgr_day1", "audience": "Manager", "to": j.manager_name, "manager_id": j.manager_id,
+                        "text": f"{n} {when_phrase(f)}. The laptop is ready — Day-1 orientation and the mentor intro "
+                                f"({mentor(f)}) are still pending."})
     elif j.current_state == OnboardingState.DAY1_ORIENTED:
-        out.append({"topic": "mgr_project", "audience": "Manager", "to": j.manager_name, "manager_id": j.manager_id,
-                    "text": f"{n} has finished Day 1 and still needs a first project in Jira."})
-    elif i < STAGES.index(OnboardingState.IT_PROVISIONED) and 0 <= days_to_start(f) <= 5:
+        if not p.get("project"):
+            out.append({"topic": "mgr_project", "audience": "Manager", "to": j.manager_name, "manager_id": j.manager_id,
+                        "text": f"{n} has finished Day 1 and still needs a first project in Jira."})
+    elif i < STAGES.index(OnboardingState.IT_PROVISIONED) and 0 <= days_to_start(f) <= 5 and not p.get("mentor"):
         out.append({"topic": "mgr_mentor", "audience": "Manager", "to": j.manager_name, "manager_id": j.manager_id,
                     "text": f"{n} {when_phrase(f)}. Mentor confirmation ({mentor(f)}) is still pending."})
     return out

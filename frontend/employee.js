@@ -152,7 +152,7 @@ function renderHomeExtras() {
       )
       .join("");
     people.querySelectorAll("[data-person]").forEach((btn) =>
-      btn.addEventListener("click", () => openPersonMenu(personFromConsult(rows[Number(btn.dataset.person)]), btn))
+      btn.addEventListener("click", () => openPerson(personFromConsult(rows[Number(btn.dataset.person)])))
     );
   }
 
@@ -599,7 +599,7 @@ function openResource(r, module) {
     const person = who ? contactFor(who) : null;
     if (person) {
       toast("That system is for HR / IT / managers — contact them instead.");
-      return openPersonMenu(person);
+      return openPerson(person);
     }
     return toast("Ask your mentor — that system isn't available from your workspace.");
   }
@@ -610,7 +610,7 @@ function openResource(r, module) {
   if (r.kind === "person") {
     const person = contactFor(r.target);
     if (!person) return toast("No contact on your record yet.");
-    return openPersonMenu(person);
+    return openPerson(person, module?.title);
   }
 }
 
@@ -703,72 +703,64 @@ function personFromMember(m) {
 }
 
 function draftWithIra(person, topic) {
-  closePersonMenu();
   closeDrawer();
   const about = String(topic || "").trim();
   askFromHome(`Draft an email to ${person.name}${about ? ` about ${about}` : ""}`);
 }
 
-function closePersonMenu() {
-  document.getElementById("person-menu")?.remove();
-  document.getElementById("person-menu-backdrop")?.remove();
-  document.removeEventListener("keydown", personMenuEsc);
-}
-
-function personMenuEsc(e) {
-  if (e.key === "Escape") closePersonMenu();
-}
-
-function openPersonMenu(person, anchor) {
-  closePersonMenu();
-  const backdrop = document.createElement("button");
-  backdrop.type = "button";
-  backdrop.id = "person-menu-backdrop";
-  backdrop.className = "person-menu-backdrop";
-  backdrop.setAttribute("aria-label", "Close");
-  backdrop.addEventListener("click", closePersonMenu);
-
-  const menu = document.createElement("div");
-  menu.id = "person-menu";
-  menu.className = "person-menu";
-  menu.setAttribute("role", "dialog");
-  menu.setAttribute("aria-label", `Contact ${person.name}`);
-  menu.innerHTML = `
-    <header>
-      <span class="wx-person-avatar" aria-hidden="true">${initials(person.name)}</span>
+function renderPersonDrawer(body, person, suggestedTopic) {
+  const topics = [...new Set([suggestedTopic, ...(person.topics || [])].filter(Boolean))];
+  const first = String(person.name || "").split(/\s+/)[0] || "them";
+  body.innerHTML = `
+    <header class="wx-dr-person">
+      <span class="wx-person-avatar lg" aria-hidden="true">${initials(person.name)}</span>
       <div>
-        <strong>${esc(person.name)}</strong>
-        <span class="muted tiny">${esc(person.title || "")}</span>
+        <h2 id="wx-drawer-title">${esc(person.name)}</h2>
+        <span class="muted">${esc(person.title)}${person.relationship ? ` · ${esc(person.relationship)}` : ""}</span>
       </div>
     </header>
-    <div class="person-menu-actions">
-      <button type="button" class="btn-primary" data-act="draft">Draft with IRA</button>
-      <button type="button" class="btn-secondary" data-act="copy">Copy email</button>
-    </div>`;
-  document.body.append(backdrop, menu);
 
-  const place = () => {
-    const rect = anchor?.getBoundingClientRect?.();
-    const mw = menu.offsetWidth;
-    const mh = menu.offsetHeight;
-    let left = window.innerWidth / 2 - mw / 2;
-    let top = window.innerHeight / 2 - mh / 2;
-    if (rect) {
-      left = Math.min(Math.max(12, rect.left + rect.width / 2 - mw / 2), window.innerWidth - mw - 12);
-      top = rect.bottom + 10;
-      if (top + mh > window.innerHeight - 12) top = Math.max(12, rect.top - mh - 10);
-    }
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
-  };
-  place();
-  menu.querySelector('[data-act="draft"]').addEventListener("click", () => draftWithIra(person));
-  menu.querySelector('[data-act="copy"]').addEventListener("click", () => {
-    copyText(person.email, "Email copied");
-    closePersonMenu();
+    <section class="wx-dr-sec">
+      <div class="wx-email-row">
+        <span class="wx-email-ic" aria-hidden="true">✉</span>
+        <a href="mailto:${esc(person.email)}" class="wx-email">${emailHtml(person.email)}</a>
+        <button type="button" class="wx-mini" id="p-copy">Copy</button>
+      </div>
+      <dl class="wx-dr-meta">
+        ${person.about ? `<div><dt>Ask about</dt><dd>${esc(person.about)}</dd></div>` : ""}
+        ${person.channel ? `<div><dt>Channel</dt><dd>${esc(person.channel)}</dd></div>` : ""}
+        ${person.availability ? `<div><dt>Availability</dt><dd>${esc(person.availability)}</dd></div>` : ""}
+      </dl>
+      ${
+        person.expertise?.length
+          ? `<ul class="wx-member-tags">${person.expertise.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>`
+          : ""
+      }
+    </section>
+
+    <section class="wx-dr-sec wx-draft-box">
+      <h3>Need help writing to ${esc(first)}?</h3>
+      <p class="muted tiny">IRA drafts it — you review, edit and send from your own mail app.</p>
+      <div class="wx-dr-chips">
+        ${topics.map((t) => `<button type="button" class="chip" data-topic="${esc(t)}">About ${esc(t)}</button>`).join("")}
+      </div>
+      <form class="wx-draft-form" id="p-draft-form">
+        <input id="p-topic" type="text" maxlength="120" placeholder="What's it about? e.g. my VPN access" autocomplete="off" />
+        <button type="submit" class="btn-primary">Draft with IRA</button>
+      </form>
+    </section>
+
+    <footer class="wx-dr-foot">
+      <a class="btn-secondary" href="mailto:${esc(person.email)}">Open in email app</a>
+    </footer>`;
+  body.querySelector("#p-copy").addEventListener("click", () => copyText(person.email, "Email copied"));
+  body.querySelectorAll("[data-topic]").forEach((btn) =>
+    btn.addEventListener("click", () => draftWithIra(person, btn.dataset.topic))
+  );
+  body.querySelector("#p-draft-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    draftWithIra(person, body.querySelector("#p-topic").value);
   });
-  document.addEventListener("keydown", personMenuEsc);
-  menu.querySelector('[data-act="draft"]').focus();
 }
 
 function wirePersonCards(root, people) {
@@ -776,16 +768,16 @@ function wirePersonCards(root, people) {
     const person = people[Number(card.dataset.person)];
     card.addEventListener("click", (e) => {
       if (e.target.closest("[data-stop], [data-skill], [data-add-skill], [data-remove-skill]")) return;
-      openPersonMenu(person, card);
+      openPerson(person);
     });
     card.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && e.target === card) openPersonMenu(person, card);
+      if (e.key === "Enter" && e.target === card) openPerson(person);
     });
   });
 }
 
-function openPerson(person) {
-  openPersonMenu(person);
+function openPerson(person, suggestedTopic) {
+  openDrawer((body) => renderPersonDrawer(body, person, suggestedTopic));
 }
 
 const SKILL_IDEAS = ["Python", "Excel", "Git", "Communication", "Research", "Writing", "SQL", "Design"];
@@ -1039,6 +1031,7 @@ function renderConsult() {
         <div class="muted tiny">${esc(c.role_label)}</div>
         <p>${esc(c.focus)}</p>
         <dl class="consult-meta">
+          <div><dt>Email</dt><dd><span class="wx-email">${emailHtml(c.email)}</span></dd></div>
           <div><dt>Channel</dt><dd>${esc(c.channel)}</dd></div>
           <div><dt>Availability</dt><dd>${esc(c.availability)}</dd></div>
         </dl>

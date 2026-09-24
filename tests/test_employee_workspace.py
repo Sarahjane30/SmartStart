@@ -74,8 +74,10 @@ def test_employee_frontend_has_login_and_sections():
         assert "requireEmployeeSession" in js.text
         assert "loadWorkspace" in js.text
         assert "wx-nav-btn" in js.text
-        assert "openPersonMenu" in js.text
+        assert "openPerson" in js.text
+        assert "renderPersonDrawer" in js.text
         assert "/api/employee/" in js.text and "/skills" in js.text
         assert "HR portal" not in js.text
         assert "portalUrl" not in js.text
+        assert "Open HR portal" not in js.text
         assert "/api/joiners" not in js.text  # no cohort browsing from employee UI

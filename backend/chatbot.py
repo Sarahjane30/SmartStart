@@ -1,4 +1,4 @@
-"""Layer 4 — rule-based synthetic onboarding FAQ chatbot."""
+"""Layer 4 — IRA rule-based FAQ over approved synthetic knowledge sources."""
 
 from __future__ import annotations
 
@@ -8,6 +8,24 @@ from backend.database import DataStore, store
 from backend.models import ChatbotResponse, ChatFAQ, ChatTurn, RoleType
 
 _BASE_FAQS: list[tuple[str, str, str, str, tuple[str, ...]]] = [
+    (
+        "ira",
+        "What can IRA help with?",
+        "I’m IRA — I know Waters. Ask about apps, teams, processes, docs, owners, "
+        "and how things connect. Answers come from your approved sandbox sources only — "
+        "I don’t replace enterprise systems or take production actions.",
+        "IRA",
+        ("what can ira", "what do you", "who are you", "know everything", "help with", "know waters"),
+    ),
+    (
+        "apps",
+        "Which apps should I use?",
+        "This hackathon sandbox connects SmartStart (orchestration), iCIMS (documents), "
+        "ServiceNow (IT), and Jira (project access). Open the owning system for changes; "
+        "IRA helps you navigate relationships between them.",
+        "Apps",
+        ("which app", "applications", "systems", "tools should", "navigate"),
+    ),
     (
         "docs",
         "How do I submit documents?",
@@ -72,6 +90,15 @@ _BASE_FAQS: list[tuple[str, str, str, str, tuple[str, ...]]] = [
         "IT",
         ("sla", "breach", "delay", "late"),
     ),
+    (
+        "govern",
+        "How does IRA stay governed?",
+        "IRA only answers from approved / synthetic sources tied to your signed-in "
+        "profile. It will not invent facts, expose unrelated records, or modify "
+        "production systems. Approvals and changes stay with existing owners.",
+        "Governance",
+        ("govern", "permission", "authorized", "sensitive", "autonomous"),
+    ),
 ]
 
 _INTERN_FAQS: list[tuple[str, str, str, str, tuple[str, ...]]] = [
@@ -106,7 +133,8 @@ _FTE_FAQS: list[tuple[str, str, str, str, tuple[str, ...]]] = [
         "dept",
         "Where do I find department processes?",
         "Your learning track includes a department playbook or architecture overview. "
-        "Finish those modules before requesting project assignment.",
+        "Finish those modules before requesting project assignment. IRA points you to "
+        "approved playbooks — it does not replace them.",
         "FTE",
         ("department", "process", "architecture", "playbook"),
     ),
@@ -166,9 +194,8 @@ def build_chatbot(
 
     first = joiner.name.split()[0]
     greeting = (
-        f"Hi {first} — I'm the SmartStart synthetic FAQ guide for "
-        f"{joiner.role_type.value} onboarding. Ask about documents, IT, VPN, "
-        f"learning modules, or pick a suggested question."
+        f"Hi {first} — I’m IRA. I know Waters for your {joiner.role_type.value} profile. "
+        f"Ask me anything about apps, teams, processes, docs, or your own record."
     )
 
     turns: list[ChatTurn] = [ChatTurn(role="assistant", text=greeting, synthetic=True)]
@@ -191,9 +218,9 @@ def build_chatbot(
                 ChatTurn(
                     role="assistant",
                     text=(
-                        "I don't have a synthetic answer for that yet. Try asking about "
-                        "documents, laptop, VPN, Day 1, mentor, learning track, feedback, "
-                        "or SLA — or tap a suggested FAQ."
+                        "I don’t have that in the approved synthetic sources yet. Try apps, "
+                        "teams, processes, documents, mentor, hardware, learning, or "
+                        "governance — or open the owning system for a change. I won’t invent an answer."
                     ),
                     synthetic=True,
                 )

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jira — Sign in (Mock)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=1" />
+</head>
+<body class="login-page">
+  <form class="login-card" id="login-form">
+    <div class="login-brand">
+      <span class="login-mark">J</span>
+      <div>
+        <h1>Jira</h1>
+        <p>Work management · Onboarding boards</p>
+      </div>
+    </div>
+    <span class="demo-badge">Synthetic Demo Environment</span>
+    <p class="muted tiny" style="margin:0 0 0.75rem">Standalone mock boards — not SmartStart.</p>
+    <div id="login-error" class="load-error" hidden></div>
+    <label class="login-field">
+      Username
+      <input id="username" type="text" value="mgr.demo" autocomplete="username" required />
+    </label>
+    <label class="login-field">
+      Password
+      <input id="password" type="password" value="mgr-demo-2026" autocomplete="current-password" required />
+    </label>
+    <button type="submit" class="btn-primary">Sign in to Jira</button>
+    <div class="login-hint">
+      Demo login: <code>mgr.demo</code> / <code>mgr-demo-2026</code><br />
+      Runs independently on port <code>8300</code>.
+    </div>
+  </form>
+  <script src="/static/session.js?v=1"></script>
+  <script>
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const err = document.getElementById("login-error");
+      err.hidden = true;
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("username").value.trim(),
+            password: document.getElementById("password").value,
+          }),
+        });
+        if (!res.ok) {
+          err.textContent = "Invalid credentials";
+          err.hidden = false;
+          return;
+        }
+        JiraSession.write(await res.json());
+        window.location.href = "/for-you";
+      } catch (ex) {
+        err.textContent = String(ex.message || ex);
+        err.hidden = false;
+      }
+    });
+  </script>
+</body>
+</html>

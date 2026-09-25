@@ -207,6 +207,10 @@ def generate_cohort(
         )
         db.upsert_bundle(joiner, documents, it_ticket)
 
+    # Pin Sarah Jane for the IRA desktop companion demo (keeps cohort size stable).
+    from backend.ira_demo import pin_ira_demo_employee
+
+    pin_ira_demo_employee(db)
     return db
 
 

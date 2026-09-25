@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "smartstart"
-version = "0.5.0"
-description = "SmartStart — synthetic onboarding orchestration (Layers 1–4)"
+version = "0.6.0"
+description = "SmartStart — synthetic onboarding orchestration (Layers 1–4) + IRA desktop companion"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -14,19 +14,26 @@ dependencies = [
   "uvicorn[standard]>=0.30",
   "pydantic[email]>=2.6",
   "faker>=26.0",
+  "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
-  "httpx>=0.27",
+]
+ira = [
+  "PySide6>=6.10",
 ]
 
+# Do NOT add [project.scripts] ira=… — the generated ira.exe on Windows
+# Store/pythoncore installs often fatals with "Could not load python3.dll".
+# Always launch with:  python -m ira
+
 [tool.hatch.build.targets.wheel]
-packages = ["backend"]
+packages = ["backend", "icims", "servicenow", "jira", "ira"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "icims/tests", "servicenow/tests", "jira/tests"]
 pythonpath = ["."]
 
 [tool.ruff]

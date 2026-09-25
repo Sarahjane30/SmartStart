@@ -2,7 +2,23 @@
 
 Sandboxed **employee onboarding orchestration** for Interns and FTEs.
 
-All data is **100% synthetic** — no real PII, production logs, or live iCIMS / ServiceNow / Jira calls.
+All data is **100% synthetic** — no real PII, production logs, or live HR/IT systems.
+
+## Companion systems (separate websites)
+
+| App | Port | Start |
+|-----|------|-------|
+| **SmartStart** (this app) | `8000` | `uvicorn backend.main:app --reload --port 8000` |
+| **Mock iCIMS** (standalone HR/ATS) | `8100` | `uvicorn icims.backend.main:app --reload --port 8100` |
+| **Mock ServiceNow** (standalone ITSM) | `8200` | `uvicorn servicenow.backend.main:app --reload --port 8200` |
+| **Mock Jira** (standalone boards) | `8300` | `uvicorn jira.backend.main:app --reload --port 8300` |
+| **IRA** (desktop companion — not a website) | — | See [`ira/README.md`](ira/README.md) — Windows: `git checkout cursor/ira-desktop-companion-76dd` then `python -m pip install -e ".[ira]"` and `python -m ira` |
+
+See [`icims/README.md`](icims/README.md), [`servicenow/README.md`](servicenow/README.md), [`jira/README.md`](jira/README.md), [`ira/README.md`](ira/README.md).
+
+**IRA** is an independent PySide6 floating widget that **knows Waters** (apps, teams, processes, docs) from sandbox sources — it does **not** replace enterprise systems or take production actions. It sits on the desktop and calls SmartStart `/api/ira/*` APIs.
+
+Demo logins: iCIMS `hr.demo` / `hr-demo-2026` · ServiceNow `it.demo` / `it-demo-2026` · Jira `mgr.demo` / `mgr-demo-2026`.
 
 ## Layers
 
@@ -11,7 +27,7 @@ All data is **100% synthetic** — no real PII, production logs, or live iCIMS /
 | **1** | Done | Synthetic data + 5-stage state engine |
 | **2** | Done | Employer Command Center (HR / IT / Manager) |
 | **3** | Done | Employee Experience (Intern / FTE dashboard) |
-| **4** | Done | Prototype AI (chatbot / predict / recommend) |
+| **4** | Done | Prototype AI (IRA · knows Waters / predict / recommend) |
 
 ### State machine
 
@@ -37,7 +53,7 @@ Employees cannot open the Command Center. Each joiner has their own mentor; **Ma
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/chatbot/{id}` | Synthetic onboarding FAQ (`?q=` optional) |
+| GET | `/api/chatbot/{id}` | IRA — synthetic onboarding FAQ (`?q=` optional) |
 | GET | `/api/predict/{id}` | Seed-stable SLA / onboarding risk scores |
 | GET | `/api/recommendations/{id}` | Adaptive learning suggestions by role + progress |
 
@@ -71,7 +87,7 @@ Layer 1 endpoints (`/api/joiners`, `/api/metrics/summary`, etc.) remain availabl
 ```text
 backend/
   main.py                 # FastAPI app (L1–L4)
-  chatbot.py              # Rule-based synthetic FAQ bot
+  chatbot.py              # IRA — rule-based synthetic FAQ companion
   predictor.py            # Seed-stable SLA risk scores
   recommender.py          # Adaptive learning suggestions
   models.py               # Pydantic schemas

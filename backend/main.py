@@ -29,6 +29,14 @@ from backend.employee_experience import (
     submit_feedback,
 )
 from backend.integrations import build_integrations
+from backend.ira_api import (
+    IraSessionRequest,
+    build_ira_context,
+    clear_ira_session,
+    get_ira_session,
+    list_ira_employees,
+    set_ira_session,
+)
 from backend.owners import build_assignable_owners
 from backend.models import (
     AssignOwnersResponse,
@@ -362,6 +370,84 @@ def integrations(session: EmployerSession):
     """Mock iCIMS / ServiceNow / Jira connector snapshots (synthetic)."""
     _ = session
     return build_integrations()
+
+
+# --- IRA desktop companion (API only — IRA is not a SmartStart page) -------
+
+
+@app.get("/api/ira/session")
+def ira_session_get() -> dict:
+    """Active employee identity shared with the IRA desktop companion."""
+    return get_ira_session()
+
+
+@app.post("/api/ira/session")
+def ira_session_set(body: IraSessionRequest) -> dict:
+    """Called by the SmartStart portal when an employee signs in."""
+    try:
+        return set_ira_session(body)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Employee not found") from None
+
+
+@app.delete("/api/ira/session")
+def ira_session_clear() -> dict:
+    """Clear IRA identity when the employee exits to the portal."""
+    return clear_ira_session()
+
+
+@app.get("/api/ira/employees")
+def ira_employees() -> dict:
+    """Employee picker list for the IRA desktop companion."""
+    return list_ira_employees()
+
+
+@app.get("/api/ira/{joiner_id}/context")
+def ira_context(joiner_id: str) -> dict:
+    """Aggregated onboarding context for IRA (employee / IT / learning / readiness)."""
+    try:
+        return build_ira_context(joiner_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Employee not found") from None
+
+
+@app.get("/api/ira/{joiner_id}/onboarding")
+def ira_onboarding(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {"employee_id": joiner_id, "onboarding": ctx["onboarding"], "synthetic": True}
+
+
+@app.get("/api/ira/{joiner_id}/tasks")
+def ira_tasks(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {
+        "employee_id": joiner_id,
+        "open_tasks": ctx["onboarding"]["open_tasks"],
+        "assigned_tasks": ctx["onboarding"]["assigned_tasks"],
+        "synthetic": True,
+    }
+
+
+@app.get("/api/ira/{joiner_id}/it-status")
+def ira_it_status(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {"employee_id": joiner_id, "it": ctx["it"], "synthetic": True}
+
+
+@app.get("/api/ira/{joiner_id}/learning")
+def ira_learning(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {"employee_id": joiner_id, "learning": ctx["learning"], "synthetic": True}
+
+
+@app.get("/api/ira/{joiner_id}/notifications")
+def ira_notifications(joiner_id: str) -> dict:
+    ctx = ira_context(joiner_id)
+    return {
+        "employee_id": joiner_id,
+        "notifications": ctx["notifications"],
+        "synthetic": True,
+    }
 
 
 # --- Layer 3: Employee Experience ------------------------------------------

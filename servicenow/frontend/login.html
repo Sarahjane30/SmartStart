@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ServiceNow — Sign in (Mock)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=1" />
+</head>
+<body class="login-page">
+  <form class="login-card" id="login-form">
+    <div class="login-brand">
+      <span class="login-mark">SN</span>
+      <div>
+        <h1>ServiceNow</h1>
+        <p>IT Service Management</p>
+      </div>
+    </div>
+    <span class="demo-badge">Synthetic Demo Environment</span>
+    <p class="muted tiny" style="margin-top:0">Standalone mock ITSM — not SmartStart.</p>
+    <div id="login-error" class="load-error" hidden></div>
+    <label class="login-field">
+      Username
+      <input id="username" type="text" autocomplete="username" value="it.demo" required />
+    </label>
+    <label class="login-field">
+      Password
+      <input id="password" type="password" autocomplete="current-password" value="it-demo-2026" required />
+    </label>
+    <button type="submit" class="btn-primary">Sign in to ServiceNow</button>
+    <div class="login-hint">
+      Demo login: <code>it.demo</code> / <code>it-demo-2026</code><br />
+      Runs independently on port <code>8200</code>.
+    </div>
+  </form>
+  <script src="/static/session.js?v=1"></script>
+  <script>
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const err = document.getElementById("login-error");
+      err.hidden = true;
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("username").value.trim(),
+            password: document.getElementById("password").value,
+          }),
+        });
+        if (!res.ok) {
+          err.textContent = "Invalid credentials";
+          err.hidden = false;
+          return;
+        }
+        SnowSession.write(await res.json());
+        window.location.href = "/dashboard";
+      } catch (ex) {
+        err.textContent = String(ex.message || ex);
+        err.hidden = false;
+      }
+    });
+  </script>
+</body>
+</html>

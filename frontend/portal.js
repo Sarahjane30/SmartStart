@@ -203,7 +203,7 @@ function wire() {
     });
   });
 
-  document.getElementById("employee-enter").addEventListener("click", () => {
+  document.getElementById("employee-enter").addEventListener("click", async () => {
     const select = document.getElementById("employee-select");
     const id = select.value;
     if (!id) {
@@ -223,12 +223,28 @@ function wire() {
       department: joiner.department,
       at: new Date().toISOString(),
     });
+    // Await bridge so IRA can unlock immediately after redirect
+    try {
+      await fetch("/api/ira/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee_id: joiner.id,
+          employee_name: joiner.name,
+          department: joiner.department,
+          role_type: String(joiner.role_type).toUpperCase(),
+        }),
+      });
+    } catch {
+      /* IRA can still poll after login */
+    }
     window.location.href = `/employee?id=${encodeURIComponent(joiner.id)}`;
   });
 
   const params = new URLSearchParams(window.location.search);
   if (params.get("reset") === "1") {
     clearSession();
+    fetch("/api/ira/session", { method: "DELETE" }).catch(() => {});
   }
   const need = params.get("need");
   if (need === "employer") {
@@ -237,7 +253,20 @@ function wire() {
       .then(showEmployerStep)
       .catch((err) => showError(err.message));
   } else if (need === "employee") {
-    showError("Sign in as Intern or FTE to open your personal workspace.");
+    const iraHint = params.get("ira") === "1"
+      ? " IRA is waiting — pick your Intern/FTE profile to unlock the desktop companion."
+      : "";
+    showError("Sign in as Intern or FTE to open your personal workspace." + iraHint);
+    // Must load joiners before showing the picker (IRA deep-link was skipping this)
+    fetchJSON("/api/joiners")
+      .then((rows) => {
+        portalState.joiners = rows || [];
+        showEmployeeStep();
+      })
+      .catch((err) => {
+        showError(`Could not load synthetic joiners: ${err.message}`);
+        showEmployeeStep();
+      });
   }
 }
 

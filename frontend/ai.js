@@ -65,14 +65,14 @@ function render() {
 function renderChat() {
   const data = state.chatbot;
   if (!data) return;
-  document.getElementById("chat-role").textContent = `${data.role_type} · synthetic FAQ`;
+  document.getElementById("chat-role").textContent = `${data.role_type} · IRA · knows Waters`;
   document.getElementById("chat-log").innerHTML = (data.turns || [])
-    .map(
-      (t) =>
-        `<div class="bubble ${t.role}"><div class="bubble-meta">${t.role}</div><p>${esc(
-          t.text
-        )}</p></div>`
-    )
+    .map((t) => {
+      const label = t.role === "user" ? "You" : "IRA";
+      return `<div class="bubble ${t.role}"><div class="bubble-meta">${label}</div><p>${esc(
+        t.text
+      )}</p></div>`;
+    })
     .join("");
   document.getElementById("faq-chips").innerHTML = (data.faqs || [])
     .slice(0, 8)

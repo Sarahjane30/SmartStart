@@ -438,19 +438,19 @@ def build_team_workspace(joiner_id: str, db: DataStore | None = None) -> TeamWor
 
     if is_intern:
         suggested = [
-            "How do I submit documents?",
+            "What can IRA help with?",
+            "Which apps should I use?",
             "Who is my mentor?",
             "How do I finish Git Basics?",
-            "How often should I meet my mentor?",
             "What happens on Day 1?",
         ]
     else:
         suggested = [
-            "What is project readiness?",
+            "What can IRA help with?",
             "Where do I find department processes?",
+            "Which apps should I use?",
             "When will my laptop arrive?",
-            "How do I get VPN access?",
-            "How do I give onboarding feedback?",
+            "How does IRA stay governed?",
         ]
 
     return TeamWorkspaceResponse(

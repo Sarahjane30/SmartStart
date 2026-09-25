@@ -26,7 +26,7 @@ def test_employee_workspace_consult_and_team():
         assert any("IT" in r for r in roles)
         assert len(body["team"]) >= 1
         assert any(m["is_self"] for m in body["team"])
-        assert any("Git" in q or "mentor" in q.lower() for q in body["suggested_questions"])
+        assert any("Git" in q or "mentor" in q.lower() or "IRA" in q for q in body["suggested_questions"])
 
         # Seed-stable
         assert client.get(f"/api/employee/{intern['id']}/workspace").json() == body
@@ -34,7 +34,10 @@ def test_employee_workspace_consult_and_team():
         fte_ws = client.get(f"/api/employee/{fte['id']}/workspace").json()
         assert fte_ws["role_type"] == "FTE"
         assert any("buddy" in c["role_label"].lower() for c in fte_ws["consult"])
-        assert any("readiness" in q.lower() or "department" in q.lower() for q in fte_ws["suggested_questions"])
+        assert any(
+            "department" in q.lower() or "process" in q.lower() or "IRA" in q
+            for q in fte_ws["suggested_questions"]
+        )
 
         assert client.get("/api/employee/SYN-J-MISSING/workspace").status_code == 404
 
@@ -52,6 +55,8 @@ def test_employee_frontend_has_login_and_sections():
         assert "Employee workspace" in page.text or "Employee Experience" in page.text
         assert "Learning" in page.text
         assert 'data-tab="ask"' in page.text
+        assert ">IRA<" in page.text
+        assert "Ask IRA" in page.text
         assert 'data-tab="people"' in page.text
         assert 'data-tab="team"' in page.text
         assert "wx-nav" in page.text

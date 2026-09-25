@@ -87,7 +87,7 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 8px; }
 .ih-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
 .ih-home { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 16px; }
 .ih-inline-search { display: flex; max-width: 520px; }
-.ih-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.ih-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px; }
 .ih-tile {
   display: grid; justify-items: center; gap: 10px; text-align: center; padding: 18px 12px;
   border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); font-weight: 500;

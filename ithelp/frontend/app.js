@@ -120,7 +120,7 @@ function fieldHtml(f, me) {
     input = `<input name="${f.key}" id="f-${f.key}" maxlength="${f.max || 500}" placeholder="${esc(f.placeholder || "")}" />`;
   }
   const wide = ["textarea"].includes(f.type) || f.key === "short_description" ? " wide" : "";
-  return `<label class="ih-field${wide}" for="f-${f.key}">${req}${esc(f.label)}${f.type === "textarea" ? help : ""}${input}${
+  return `<label class="ih-field${wide}" for="f-${f.key}"><span>${req}${esc(f.label)}</span>${f.type === "textarea" ? help : ""}${input}${
     f.type !== "textarea" ? help : ""
   }</label>`;
 }

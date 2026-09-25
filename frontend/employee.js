@@ -912,6 +912,10 @@ function renderChat() {
       return `<div class="bubble ${t.role} has-draft"><div class="bubble-meta">${label}</div><p>${esc(intro)}</p>
         ${draftCard(t.draft, i)}</div>`;
     }
+    if (t.ticket) {
+      return `<div class="bubble ${t.role} has-ticket"><div class="bubble-meta">${label}</div><p>${esc(t.text)}</p>
+        ${ticketCard(t.ticket, i)}</div>`;
+    }
     return `<div class="bubble ${t.role}"><div class="bubble-meta">${label}</div><p>${esc(
       t.text
     )}</p></div>`;
@@ -944,6 +948,7 @@ function renderChat() {
     btn.addEventListener("click", () => askChat(btn.dataset.q));
   });
   wireDraftCards();
+  wireTicketCards();
   wireCoachCards();
   renderCoachBanner();
   const log = document.getElementById("chat-log");
@@ -974,7 +979,12 @@ async function askChat(query) {
       enterCoach(data.coach);
       return;
     }
-    if (reply) state.chatTurns.push(data.draft ? { ...reply, draft: { ...data.draft } } : reply);
+    if (reply) {
+      const extra = {};
+      if (data.draft) extra.draft = { ...data.draft };
+      if (data.ticket) extra.ticket = { ...data.ticket, fields: data.ticket.fields.map((f) => ({ ...f })) };
+      state.chatTurns.push({ ...reply, ...extra });
+    }
     if (data.suggestions?.length) state.chatSuggestions = data.suggestions;  } finally {
     state.chatThinking = false;
     window.iraGlobe?.setThinking(false);
@@ -1010,6 +1020,60 @@ function wireDraftCards() {
     card.querySelector('[data-act="copy"]').addEventListener("click", () => {
       const d = turn.draft;
       copyText(`To: ${d.to_email}\nSubject: ${d.subject}\n\n${d.body}`, "Draft copied");
+    });
+  });
+}
+
+function ticketCard(t, i) {
+  const rows = t.fields
+    .map(
+      (f, j) => `<div class="wx-ticket-field">
+        <header><span>${esc(f.label)}</span><button type="button" class="wx-mini" data-copy-field="${j}">Copy</button></header>
+        <textarea data-ticket-field="${j}" rows="${Math.min(9, Math.max(1, f.value.split("\n").length + Math.floor(f.value.length / 90)))}" aria-label="${esc(f.label)}">${esc(f.value)}</textarea>
+      </div>`
+    )
+    .join("");
+  return `<div class="wx-ticket" data-ticket-turn="${i}">
+    <div class="wx-ticket-head">
+      <div><strong>IT ticket draft · ${esc(t.item_label)}</strong><span class="muted tiny">${esc(t.portal_name)} → ${esc(t.menu)}</span></div>
+      <a class="wx-mini primary" href="${esc(t.form_url)}" target="_blank" rel="noopener">Open IT Service Portal ↗</a>
+    </div>
+    <ol class="wx-ticket-steps">${t.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+    ${rows}
+    <div class="wx-draft-actions">
+      <button type="button" class="wx-mini" data-act="copy-all">Copy all fields</button>
+      <span class="wx-ticket-note">${
+        t.has_placeholders ? "Fill in the [brackets] here or in the portal. " : ""
+      }IRA doesn't submit tickets — you review and press Submit in the portal.</span>
+    </div>
+  </div>`;
+}
+
+function wireTicketCards() {
+  document.querySelectorAll("#chat-log [data-ticket-turn]").forEach((card) => {
+    const turn = state.chatTurns[Number(card.dataset.ticketTurn)];
+    if (!turn?.ticket) return;
+    card.querySelectorAll("[data-ticket-field]").forEach((el) =>
+      el.addEventListener("input", () => (turn.ticket.fields[Number(el.dataset.ticketField)].value = el.value))
+    );
+    card.querySelectorAll("[data-copy-field]").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const f = turn.ticket.fields[Number(btn.dataset.copyField)];
+        copyText(f.value, `${f.label} copied`);
+        btn.textContent = "Copied ✓";
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.textContent = "Copy";
+          btn.classList.remove("copied");
+        }, 1800);
+      })
+    );
+    card.querySelector('[data-act="copy-all"]').addEventListener("click", () => {
+      const t = turn.ticket;
+      copyText(
+        `${t.item_label}\n\n${t.fields.map((f) => `${f.label}:\n${f.value}`).join("\n\n")}`,
+        "Ticket fields copied"
+      );
     });
   });
 }

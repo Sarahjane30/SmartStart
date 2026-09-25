@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from backend.database import DataStore, store
-from backend.models import ChatbotResponse, ChatFAQ, ChatTurn, EmailDraft, RoleType
+from backend.models import ChatbotResponse, ChatFAQ, ChatTurn, EmailDraft, RoleType, TicketDraft
 
 _BASE_FAQS: list[tuple[str, str, str, str, tuple[str, ...]]] = [
     (
@@ -179,6 +179,7 @@ def build_chatbot(
     db = db or store
     suggestions: list[str] = []
     draft: EmailDraft | None = None
+    ticket: TicketDraft | None = None
     mode, coach, basics = "ask", None, None
     joiner = db.get_joiner(joiner_id)
     if joiner is None:
@@ -213,6 +214,7 @@ def build_chatbot(
             from ira.brain import followups_for, respond
 
             from ira.email_draft import draft_email, is_draft_request
+            from ira.ticket_draft import draft_ticket, guidance_text, is_ticket_request
 
             ctx = build_ira_context(joiner_id, db=db)
             history = [("user", a) for a in (asked or [])]
@@ -225,6 +227,19 @@ def build_chatbot(
             if is_draft_request(query):
                 found = draft_email(query, ctx)
                 draft = EmailDraft(**found) if found else None
+            elif not coach and is_ticket_request(query):
+                ticket = TicketDraft(**draft_ticket(query, ctx))
+                turns[-1] = ChatTurn(role="assistant", text=guidance_text(ticket.model_dump()), synthetic=True)
+                mode, coach, basics = "ask", None, None
+                suggestions = [
+                    s
+                    for s in (
+                        "My VPN keeps disconnecting",
+                        "How do I request access to Power BI?",
+                        "I need a new monitor — how do I raise a request?",
+                    )
+                    if s.lower() != query.strip().lower()
+                ][:3]
         except Exception:
             matched = _match_faq(query, catalog)
             if matched:
@@ -259,6 +274,7 @@ def build_chatbot(
         query=query,
         suggestions=suggestions,
         draft=draft,
+        ticket=ticket,
         mode=mode,
         coach=coach,
         basics=basics,

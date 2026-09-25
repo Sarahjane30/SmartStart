@@ -452,6 +452,25 @@ class EmailDraft(BaseModel):
     synthetic: bool = True
 
 
+class TicketDraftField(BaseModel):
+    key: str
+    label: str
+    value: str
+
+
+class TicketDraft(BaseModel):
+    item_id: str
+    item_label: str
+    kind: str
+    menu: str
+    portal_name: str
+    form_url: str
+    fields: list[TicketDraftField]
+    steps: list[str] = Field(default_factory=list)
+    has_placeholders: bool = False
+    synthetic: bool = True
+
+
 class ChatbotResponse(BaseModel):
     joiner_id: str
     role_type: RoleType
@@ -461,6 +480,7 @@ class ChatbotResponse(BaseModel):
     query: Optional[str] = None
     suggestions: list[str] = Field(default_factory=list)
     draft: Optional["EmailDraft"] = None
+    ticket: Optional[TicketDraft] = None
     mode: str = "ask"
     coach: Optional[dict] = None
     basics: Optional[str] = None

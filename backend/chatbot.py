@@ -223,7 +223,10 @@ def build_chatbot(
             mode, coach, basics = result["mode"], result["coach"], result["basics"]
             record_observation(joiner_id, query, flavour=result["flavour"])
             turns.append(ChatTurn(role="assistant", text=text, synthetic=True))
-            suggestions = followups_for(query, text, ctx, asked=set(asked or []))
+            done = {a.strip().lower() for a in (asked or [])} | {query.strip().lower()}
+            suggestions = [s for s in result.get("suggest") or [] if s.strip().lower() not in done][:3] or followups_for(
+                query, text, ctx, asked=set(asked or [])
+            )
             if is_draft_request(query):
                 found = draft_email(query, ctx)
                 draft = EmailDraft(**found) if found else None

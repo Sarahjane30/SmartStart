@@ -5,10 +5,11 @@ Qt-free so it can be tested; ``ira.app`` only renders what this returns.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-from ira import coach, persona
+from ira import coach, conversation, persona
 from ira.brain import followups_for, respond
 
 YES_START = "Sure, let's go"
@@ -17,6 +18,14 @@ SKIP = "Skip"
 DONE = "Done"
 END_PRACTICE = "End practice"
 TRY_AGAIN = "Try again"
+CONTINUE = "Continue getting to know me"
+
+_YES = re.compile(r"^(?:y+e+s+|yeah|yep|yup|sure|ok(?:ay)?|let'?s\s+(?:go|do\s+it)|go(?:\s+ahead)?|start|why\s+not|fine)\b", re.I)
+_QUESTION = re.compile(
+    r"\?|^(?:what|what's|whats|where|where's|who|who's|when|why|how|which|can|could|should|is|are|do|does|will|"
+    r"my|i\s+need|i\s+want|tell\s+me|show\s+me|help)\b",
+    re.I,
+)
 
 
 @dataclass
@@ -38,6 +47,7 @@ class DesktopConversation:
         self.onboarding: Optional[dict] = None  # {"i": field index, "answers": {}}
         self.offered = False
         self.coach: Optional[dict] = None
+        self.paused: Optional[dict] = None
 
     # --- session start ------------------------------------------------------
 
@@ -60,7 +70,10 @@ class DesktopConversation:
 
     def handle(self, text: str, ctx: Optional[dict], *, online: bool, history: list[tuple[str, str]]) -> Turn:
         if self.onboarding is not None:
-            return self._onboard(text, ctx)
+            return self._onboard(text, ctx, online=online, history=history)
+        if text.strip() == CONTINUE and self.paused is not None:
+            self.onboarding, self.paused = self.paused, None
+            return self._ask(self.onboarding["i"], "Picking up where we left off. ")
         if self.coach is not None:
             return self._coach(text, ctx)
         out = respond(text, ctx, online=online, history=history)
@@ -68,7 +81,9 @@ class DesktopConversation:
             self.coach = out["coach"]
             return Turn(out["text"], [END_PRACTICE])
         asked = {t for r, t in history if r == "user"}
-        chips = followups_for(text, out["text"], ctx, asked=asked)
+        chips = [c for c in out.get("suggest") or [] if c not in asked][:3] or followups_for(
+            text, out["text"], ctx, asked=asked
+        )
         return Turn(out["text"], chips, chip_limit=4 if out["mode"] == "coach" else 3, flavour=out["flavour"])
 
     # --- Get to know me ---------------------------------------------------------
@@ -81,16 +96,40 @@ class DesktopConversation:
         hint = " (pick as many as you like, then tap Done)" if f["multi"] else ""
         return Turn(f"{prefix}{f['label']}{hint}", chips, chip_limit=len(chips), observe=False)
 
-    def _onboard(self, text: str, ctx: Optional[dict]) -> Turn:
+    def _answer_instead(self, text: str, ctx: Optional[dict], *, online: bool,
+                        history: list[tuple[str, str]], resume_chip: bool) -> Turn:
+        """Step out of Get to know me to answer what the user actually asked."""
+        ob, self.onboarding = self.onboarding, None
+        if resume_chip and ob is not None:
+            self.paused = ob
+        turn = self.handle(text, ctx, online=online, history=history)
+        if resume_chip:
+            turn.chips = [c for c in turn.chips if c != CONTINUE][:2] + [CONTINUE]
+        return turn
+
+    def _onboard(self, text: str, ctx: Optional[dict], *, online: bool = True,
+                 history: Optional[list[tuple[str, str]]] = None) -> Turn:
         ob = self.onboarding
         assert ob is not None
         t = text.strip()
+        history = history or []
         if ob["i"] < 0:
-            if t.lower() in {LATER.lower(), "later", "no", "not now", "skip"}:
+            if t.lower() in {LATER.lower(), "later", "no", "nope", "nah", "not now", "skip", "no thanks"}:
                 self.onboarding = None
                 return Turn("No problem — just say “get to know me” whenever you like.", observe=False)
-            ob["i"] = 0
-            return self._ask(0)
+            if t == YES_START or _YES.match(t):
+                ob["i"] = 0
+                return self._ask(0)
+            kind = conversation.intent(t)
+            if kind in {"greet", "how_are_you"}:
+                hello = (conversation.smalltalk(t, ctx, online=online, history=history) or "").split("\n")[0]
+                return Turn(
+                    f"{hello} Before we dive in — can I ask a few quick questions so I explain things your way? "
+                    "It takes about a minute, or we can skip it.",
+                    [YES_START, LATER],
+                    observe=False,
+                )
+            return self._answer_instead(text, ctx, online=online, history=history, resume_chip=False)
 
         fields = _fields()
         f = fields[ob["i"]]
@@ -99,6 +138,8 @@ class DesktopConversation:
         if picked is None and t not in (SKIP, DONE):
             vals = persona.parse_free_text(f["id"], t)
             picked = vals if f["multi"] else (vals[0] if vals else None)
+            if not picked and (_QUESTION.search(t) or conversation.intent(t) in {"help", "frustrated"}):
+                return self._answer_instead(text, ctx, online=online, history=history, resume_chip=True)
             if not picked:
                 again = self._ask(ob["i"])
                 again.reply = "I didn't quite catch that — tap an option, or Skip. " + again.reply

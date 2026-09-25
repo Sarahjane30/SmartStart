@@ -12,6 +12,7 @@ import re
 from typing import Optional
 
 from ira import coach, workplace_basics
+from ira.conversation import clarify, expand_slang, fix_typos, smalltalk, strip_greeting
 from ira.email_draft import directory_reply, draft_reply, is_draft_request
 from ira.faq import match_faq
 from ira.persona import first_name, flavour_line, traits
@@ -180,6 +181,19 @@ _NO_SOURCE = (
 )
 
 
+_OFFLINE = (
+    "SmartStart isn’t reachable, so I only have general approved knowledge. "
+    "Start SmartStart on port 8000 and sign in for personal onboarding answers."
+)
+
+_SIGN_IN = (
+    "Sign in so I can answer from your role-aware record. "
+    "Until then I cover general approved FAQs about apps, processes, and docs."
+)
+
+_FALLBACKS = {_NO_SOURCE, _OFFLINE, _SIGN_IN}
+
+
 def _resolve_followup(query: str, history: list[tuple[str, str]] | None) -> str:
     """Expand short follow-ups using prior turn topic."""
     q = _norm(query)
@@ -325,9 +339,13 @@ def respond(
     """Personal Profile + Enterprise Context → one answer, with the mode used (ask / guide / coach)."""
     profile = (ctx or {}).get("profile")
     t = traits(profile)
-    raw = query.strip()
+    out: dict = {"text": "", "mode": "ask", "coach": None, "basics": None, "flavour": False, "suggest": None}
+    chat = smalltalk(query, ctx, online=online, history=history)
+    if chat:
+        out.update(text=chat, suggest=suggestions_for(ctx))
+        return out
+    raw = expand_slang(strip_greeting(query.strip()))
     q = _norm(raw)
-    out: dict = {"text": "", "mode": "ask", "coach": None, "basics": None, "flavour": False}
 
     chip = coach.scenario_from_chip(raw)
     start = chip or (None if is_draft_request(raw) else coach.detect_start(raw))
@@ -366,6 +384,19 @@ def respond(
             return out
 
     text = answer_core(raw, ctx, online=online, history=history)
+    if text in _FALLBACKS:
+        fixed = fix_typos(raw)
+        retry = answer_core(fixed, ctx, online=online, history=history) if fixed != raw else text
+        if retry not in _FALLBACKS:
+            text = retry
+        else:
+            text, out["suggest"] = clarify(raw, ctx)
+            if not ctx:
+                text += (
+                    "\n(I can't see your onboarding record right now — sign in to SmartStart for personal answers.)"
+                )
+            out["text"] = text
+            return out
     if is_draft_request(raw) and t["first_job"] and "Subject:" in text:
         tip = "Tip: read it once out loud before sending — if it sounds like you talking, it's right."
         text = text.replace("\nSource:", f"\n{tip}\nSource:", 1) if "\nSource:" in text else f"{text}\n{tip}"
@@ -471,6 +502,17 @@ def answer_core(
             if mgr:
                 return f"Your hiring manager on record is {mgr}.\nSource: SmartStart"
             return "I don’t see a manager on your approved record yet."
+        if re.search(r"\b(?:my team|which team|what team|team am i|who(?:'s| is) (?:in |on )?my team|my teammates)\b", q):
+            team = emp0.get("team")
+            if team:
+                lines = [f"You're on the {team} team" + (f" in {emp0['department']}" if emp0.get("department") else "")
+                         + (f" ({emp0['business_area']})." if emp0.get("business_area") else ".")]
+                if emp0.get("manager_name"):
+                    lines.append(f"Your manager is {emp0['manager_name']}"
+                                 + (f" and your mentor is {emp0['mentor_name']}." if emp0.get("mentor_name") else "."))
+                lines.append("The People tab in SmartStart shows everyone on the team and what they can help with.")
+                return "\n".join(lines) + "\nSource: SmartStart"
+            return "I don’t see a team on your approved record yet — your manager can confirm it."
         if any(k in q for k in ("my document", "my docs", "my packet", "my forms")):
             status = docs0.get("status")
             if not status:
@@ -914,12 +956,4 @@ def answer_core(
     if faq:
         prefix = "" if online else "(Offline FAQ) "
         return prefix + faq
-    if not online:
-        return (
-            "SmartStart isn’t reachable, so I only have general approved knowledge. "
-            "Start SmartStart on port 8000 and sign in for personal onboarding answers."
-        )
-    return (
-        "Sign in so I can answer from your role-aware record. "
-        "Until then I cover general approved FAQs about apps, processes, and docs."
-    )
+    return _OFFLINE if not online else _SIGN_IN

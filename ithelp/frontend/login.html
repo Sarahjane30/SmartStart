@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in — IT Help Portal (Mock)</title>
+  <link rel="stylesheet" href="/static/style.css?v=1" />
+</head>
+<body class="ih-login-page">
+  <main class="ih-login">
+    <div class="ih-wordmark">Waters<sup>™</sup></div>
+    <h1>IT Service Portal</h1>
+    <p class="ih-muted">Mock employee self-service portal · synthetic data only</p>
+
+    <button type="button" class="ih-btn primary ih-sso" id="sso">Continue with single sign-on as <strong id="sso-name">Sarah Jane</strong></button>
+    <div class="ih-or"><span>or sign in with a demo account</span></div>
+
+    <form id="login-form" class="ih-login-form">
+      <label>Username<input id="username" autocomplete="username" value="sarah.jane" /></label>
+      <label>Password<input id="password" type="password" autocomplete="current-password" placeholder="ithelp-demo-2026" /></label>
+      <button type="submit" class="ih-btn">Sign in</button>
+      <p class="ih-error" id="login-error" role="alert"></p>
+    </form>
+    <p class="ih-foot">Demo only — not connected to any real ServiceNow instance or company system.</p>
+  </main>
+  <script>
+    const next = new URLSearchParams(location.search).get("next") || "/";
+    const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    async function signIn(body) {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Sign-in failed");
+      localStorage.setItem("ithelp.token", data.token);
+      location.href = safeNext;
+    }
+    const err = document.getElementById("login-error");
+    document.getElementById("sso").addEventListener("click", () =>
+      signIn({ username: "sarah.jane", sso: true }).catch((e) => (err.textContent = e.message))
+    );
+    document.getElementById("login-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      signIn({
+        username: document.getElementById("username").value,
+        password: document.getElementById("password").value,
+      }).catch((e2) => (err.textContent = e2.message));
+    });
+  </script>
+</body>
+</html>

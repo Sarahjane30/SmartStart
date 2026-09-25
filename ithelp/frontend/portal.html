@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IT Service Portal (Mock)</title>
+  <link rel="stylesheet" href="/static/style.css?v=1" />
+</head>
+<body>
+  <header class="ih-header">
+    <a class="ih-wordmark" href="#/">Waters<sup>™</sup></a>
+    <span class="ih-mock-badge">Mock portal · synthetic data</span>
+    <form class="ih-search" id="top-search" role="search">
+      <input type="search" id="top-search-input" placeholder="Search" aria-label="Search the portal" />
+      <button type="submit" aria-label="Search">⌕</button>
+    </form>
+    <button type="button" class="ih-user" id="user-chip"><span class="ih-avatar" id="user-initials">··</span><span id="user-name">…</span></button>
+  </header>
+
+  <nav class="ih-nav">
+    <a href="#/report">Report Something Broken / Not Working Properly</a>
+    <div class="ih-nav-menu">
+      <button type="button" id="request-menu-btn" aria-expanded="false">Request New or Modified Access / Service ▾</button>
+      <div class="ih-dropdown" id="request-menu" hidden></div>
+    </div>
+  </nav>
+
+  <div class="ih-shell">
+    <aside class="ih-side">
+      <div class="ih-profile">
+        <span class="ih-avatar lg" id="side-initials">··</span>
+        <strong id="side-name">…</strong>
+        <span class="ih-muted" id="side-title"></span>
+        <button type="button" class="ih-link" id="sign-out">Sign out ⇥</button>
+      </div>
+      <a class="ih-side-link" href="#/" data-route="home"><span>⌂</span>Homepage</a>
+      <a class="ih-side-link" href="#/favorites" data-route="favorites"><span>♡</span>My Favorites</a>
+      <a class="ih-side-link" href="#/tickets" data-route="tickets"><span>☰</span>My tickets</a>
+      <a class="ih-side-link" href="#/approvals" data-route="approvals"><span>👍︎</span>My approvals</a>
+      <a class="ih-side-link small" href="#/phones" data-route="phones">IT Service Desk Phone Numbers</a>
+    </aside>
+    <main class="ih-main" id="view" aria-live="polite"></main>
+  </div>
+
+  <div class="ih-toast" id="toast" role="status" hidden></div>
+  <script src="/static/app.js?v=1"></script>
+</body>
+</html>

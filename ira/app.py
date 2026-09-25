@@ -11,7 +11,7 @@ from PySide6.QtCore import QTimer, Qt, QRect
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication, QWidget
 
-from ira.brain import answer, greeting, suggestions_for
+from ira.brain import greeting, respond, suggestions_for
 from ira.bubble import IraBubble
 from ira.chat_panel import ChatPanel, PanelMode
 from ira.client import SmartStartClient
@@ -28,6 +28,7 @@ class IraApp:
         self.cfg = load_config()
         self.client = SmartStartClient(self.cfg.get("smartstart_base_url"))
         self.ctx: Optional[dict] = None
+        self._history: list[tuple[str, str]] = []
         self.online = False
         self._panel_open = False
         self._session_id: str | None = None
@@ -142,6 +143,7 @@ class IraApp:
                 self.ctx = None
                 self.panel.set_locked(True)
                 self.panel.clear_chat()
+                self._history = []
             return
 
         emp_id = str(sess.get("employee_id") or "")
@@ -163,6 +165,7 @@ class IraApp:
         self.panel.set_locked(False, name=name, role=role, dept=dept)
         if changed or force_greet:
             self.panel.clear_chat()
+            self._history = []
             self.panel.add_message(greeting(self.ctx), role="ira")
             self.panel.set_suggestions(suggestions_for(self.ctx))
 
@@ -216,6 +219,7 @@ class IraApp:
             self.panel.set_locked(True)
             return
         self.panel.add_message(text, role="user")
+        self._history.append(("user", text))
         tip = self.panel.show_typing()
 
         def _reply() -> None:
@@ -225,8 +229,11 @@ class IraApp:
                     self.ctx = self.client.context(self._session_id)
                 except Exception:
                     pass
-            reply = answer(text, self.ctx, online=self.online and bool(self.ctx))
-            self.panel.add_message(reply, role="ira")
+            out = respond(text, self.ctx, online=self.online and bool(self.ctx), history=self._history[-8:])
+            self.panel.add_message(out["text"], role="ira")
+            self._history.append(("ira", out["text"]))
+            if out["suggest"]:
+                self.panel.set_suggestions(out["suggest"])
 
         QTimer.singleShot(300, _reply)
 

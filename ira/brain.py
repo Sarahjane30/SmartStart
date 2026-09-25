@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
+from ira.conversation import did_you_mean, expand_slang, fix_typos, smalltalk, strip_greeting
 from ira.faq import match_faq
 
 # Prompts — IRA knows apps · teams · processes · docs · your record
@@ -87,7 +88,7 @@ def _governance() -> str:
     )
 
 
-def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
+def _answer_core(query: str, ctx: Optional[dict], *, online: bool) -> str:
     q = _norm(query)
     if not q:
         return (
@@ -274,6 +275,13 @@ def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
             extra = " Rework is flagged." if docs.get("rework_flag") else ""
             return f"Your onboarding documents are {status}.{extra}"
 
+        if emp.get("team") and re.search(r"\b(?:my team|which team|what team|team am i|my teammates)\b", q):
+            line = f"You’re on the {emp['team']} team" + (f" in {emp['department']}" if emp.get("department") else "") + "."
+            if emp.get("manager_name"):
+                line += f" Your manager is {emp['manager_name']}"
+                line += f" and your mentor is {emp['mentor_name']}." if emp.get("mentor_name") else "."
+            return line
+
         if any(k in q for k in ("department", "role", "who am i", "my name")):
             return (
                 f"You’re {emp.get('name')} — {emp.get('role_type')} in {emp.get('department')} "
@@ -283,25 +291,85 @@ def answer(query: str, ctx: Optional[dict], *, online: bool) -> str:
         faq = match_faq(query)
         if faq:
             return faq
-        return (
-            "I don’t have that in your approved sources yet. Try apps, teams, processes, "
-            "documents, mentor, hardware, or readiness — or open the owning system "
-            "(iCIMS / ServiceNow / Jira) for a change request. I won’t invent an answer."
-        )
+        return _NO_SOURCE
 
     faq = match_faq(query)
     if faq:
         prefix = "" if online else "(Offline FAQ) "
         return prefix + faq
-    if not online:
-        return (
-            "SmartStart isn’t reachable, so I only have general approved FAQ answers. "
-            "Start SmartStart on port 8000 and sign in so I can use your permissioned record."
+    return _OFFLINE if not online else _SIGN_IN
+
+
+_NO_SOURCE = (
+    "I don’t have that in your approved sources yet. Try apps, teams, processes, "
+    "documents, mentor, hardware, or readiness — or open the owning system "
+    "(iCIMS / ServiceNow / Jira) for a change request. I won’t invent an answer."
+)
+_OFFLINE = (
+    "SmartStart isn’t reachable, so I only have general approved FAQ answers. "
+    "Start SmartStart on port 8000 and sign in so I can use your permissioned record."
+)
+_SIGN_IN = (
+    "Sign in so I can answer from your role-aware record. "
+    "Until then I only cover general approved FAQs about apps, processes, and docs."
+)
+_FALLBACKS = {_NO_SOURCE, _OFFLINE, _SIGN_IN}
+
+
+def _clarify(raw: str, ctx: Optional[dict], *, online: bool) -> tuple[str, list[str]]:
+    """Honest "not sure" with only the nearby questions this engine can actually answer."""
+    name = (((ctx or {}).get("employee") or {}).get("name") or "").split(" ")[0]
+    who = f", {name}" if name else ""
+    picks = [p for p in did_you_mean(raw, limit=10) if _answer_core(p, ctx, online=online) not in _FALLBACKS][:3]
+    if picks:
+        text = "\n".join(
+            [f"I’m not sure I understood that{who}, and I don’t want to guess. Did you mean:"]
+            + [f"• {p}" for p in picks]
+            + ["Or ask it another way — I understand everyday wording."]
         )
-    return (
-        "Sign in so I can answer from your role-aware record. "
-        "Until then I only cover general approved FAQs about apps, processes, and docs."
-    )
+    else:
+        picks = suggestions_for(ctx)
+        text = (
+            f"I don’t have an approved answer for that yet{who}, so I won’t guess. "
+            "I can help with apps, teams, processes, documents, your mentor and manager, your laptop "
+            "and readiness — or ask your manager or mentor for anything outside that."
+        )
+    if not ctx:
+        text += "\n" + (_OFFLINE if not online else _SIGN_IN)
+    return text, picks
+
+
+def respond(
+    query: str,
+    ctx: Optional[dict],
+    *,
+    online: bool,
+    history: Optional[list[tuple[str, str]]] = None,
+) -> dict:
+    """Reply text plus optional follow-up chips (``suggest``)."""
+    chat = smalltalk(query, ctx, online=online, history=history)
+    if chat:
+        return {"text": chat, "suggest": suggestions_for(ctx)}
+    raw = expand_slang(strip_greeting(query.strip()))
+    text = _answer_core(raw, ctx, online=online)
+    if text in _FALLBACKS:
+        fixed = fix_typos(raw)
+        retry = _answer_core(fixed, ctx, online=online) if fixed != raw else text
+        if retry in _FALLBACKS:
+            text, picks = _clarify(raw, ctx, online=online)
+            return {"text": text, "suggest": picks}
+        text = retry
+    return {"text": text, "suggest": None}
+
+
+def answer(
+    query: str,
+    ctx: Optional[dict],
+    *,
+    online: bool,
+    history: Optional[list[tuple[str, str]]] = None,
+) -> str:
+    return respond(query, ctx, online=online, history=history)["text"]
 
 
 def greeting(ctx: Optional[dict]) -> str:

@@ -14,9 +14,11 @@ from PySide6.QtCore import (
     Qt,
     QTimer,
     Signal,
+    QUrl,
 )
 from PySide6.QtGui import (
     QCursor,
+    QDesktopServices,
     QKeyEvent,
     QMouseEvent,
     QPainter,
@@ -628,6 +630,101 @@ class ChatPanel(QWidget):
         _fit()
         QTimer.singleShot(0, _fit)
         QTimer.singleShot(20, self._scroll_bottom)
+
+    def add_ticket_card(self, ticket: dict) -> None:
+        avail = max(180, self.width() - 48)
+        card_w = min(avail, max(190, int(avail * 0.9)))
+        text_w = card_w - 24
+
+        card = QFrame()
+        card.setObjectName("ticketCard")
+        card.setFixedWidth(card_w)
+        card.setStyleSheet(
+            f"QFrame#ticketCard {{ background:{CARD}; border:1px solid {LINE}; border-left:3px solid {NAVY};"
+            f" border-radius:12px; }}"
+            f" QLabel {{ background:transparent; border:0; color:{INK}; font-size:10px; }}"
+            f" QLabel#tkHead {{ color:{NAVY}; font-size:10.5px; font-weight:800; }}"
+            f" QLabel#tkMeta, QLabel#tkNote {{ color:{MUTED}; font-size:9px; }}"
+            f" QLabel#tkKey {{ color:{MUTED}; font-size:8.5px; font-weight:800; letter-spacing:0.04em; }}"
+            f" QLabel#tkVal {{ background:{BG}; border:1px solid {LINE_SOFT}; border-radius:6px; padding:4px 6px; }}"
+            f" QPushButton {{ background:{CARD}; color:{NAVY}; border:1px solid {LINE}; border-radius:8px;"
+            f" padding:3px 9px; font-size:9px; font-weight:700; }}"
+            f" QPushButton:hover {{ background:{LINE_SOFT}; }}"
+            f" QPushButton#tkOpen {{ background:{NAVY}; color:#ffffff; border:1px solid {NAVY_DEEP}; }}"
+            f" QPushButton#tkOpen:hover {{ background:{NAVY_DEEP}; }}"
+        )
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(12, 10, 12, 10)
+        lay.setSpacing(5)
+
+        def label(text: str, name: str) -> QLabel:
+            lbl = QLabel(text)
+            lbl.setObjectName(name)
+            lbl.setWordWrap(True)
+            lbl.setFixedWidth(text_w)
+            return lbl
+
+        def copy_button(caption: str, value: str) -> QPushButton:
+            btn = QPushButton(caption)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            def _copy() -> None:
+                QApplication.clipboard().setText(value)
+                btn.setText("Copied ✓")
+                QTimer.singleShot(1400, lambda: btn.setText(caption))
+
+            btn.clicked.connect(_copy)
+            return btn
+
+        lay.addWidget(label(f"IT TICKET DRAFT · {ticket.get('item_label', '')}", "tkHead"))
+        lay.addWidget(label(f"{ticket.get('portal_name', 'IT Service Portal')} → {ticket.get('menu', '')}", "tkMeta"))
+
+        fields = ticket.get("fields") or []
+        for f in fields:
+            row = QHBoxLayout()
+            row.setSpacing(6)
+            key = QLabel(str(f.get("label", "")).upper())
+            key.setObjectName("tkKey")
+            row.addWidget(key, 1)
+            row.addWidget(copy_button("Copy", str(f.get("value", ""))))
+            lay.addLayout(row)
+            val = label(str(f.get("value", "")), "tkVal")
+            val.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            lay.addWidget(val)
+
+        steps = ticket.get("steps") or []
+        if steps:
+            lay.addWidget(label("\n".join(f"{i}. {s}" for i, s in enumerate(steps, 1)), "tkMeta"))
+        if ticket.get("note"):
+            lay.addWidget(label(ticket["note"], "tkNote"))
+
+        actions = QHBoxLayout()
+        actions.setSpacing(6)
+        all_text = "\n".join(f"{f.get('label', '')}: {f.get('value', '')}" for f in fields)
+        actions.addWidget(copy_button("Copy all fields", all_text))
+        open_btn = QPushButton("Open IT Service Portal ↗")
+        open_btn.setObjectName("tkOpen")
+        open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        url = ticket.get("form_url", "")
+        open_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
+        actions.addWidget(open_btn)
+        actions.addStretch(1)
+        lay.addLayout(actions)
+
+        box = QWidget()
+        box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        wrap = QVBoxLayout(box)
+        wrap.setContentsMargins(0, 0, 0, 0)
+        wrap.addWidget(card, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.chat_layout.addWidget(box)
+
+        def _fit() -> None:
+            card.setFixedHeight(lay.sizeHint().height())
+            self.chat_inner.adjustSize()
+
+        _fit()
+        QTimer.singleShot(0, _fit)
+        QTimer.singleShot(40, self._scroll_bottom)
 
     def show_typing(self) -> QLabel:
         tip = QLabel("IRA is thinking…")

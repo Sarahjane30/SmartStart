@@ -11,6 +11,7 @@ from typing import Optional
 
 from ira import coach, conversation, persona
 from ira.brain import followups_for, respond
+from ira.ticket_draft import guidance_text, maybe_ticket, ticket_suggestions
 
 YES_START = "Sure, let's go"
 LATER = "Maybe later"
@@ -36,6 +37,7 @@ class Turn:
     save_answers: Optional[dict] = None
     observe: bool = True
     flavour: bool = False
+    ticket: Optional[dict] = None
 
 
 def _fields() -> list[dict]:
@@ -80,6 +82,8 @@ class DesktopConversation:
         if out["coach"]:
             self.coach = out["coach"]
             return Turn(out["text"], [END_PRACTICE])
+        if ticket := maybe_ticket(text, ctx):
+            return Turn(guidance_text(ticket), ticket_suggestions(text), ticket=ticket)
         asked = {t for r, t in history if r == "user"}
         chips = [c for c in out.get("suggest") or [] if c not in asked][:3] or followups_for(
             text, out["text"], ctx, asked=asked

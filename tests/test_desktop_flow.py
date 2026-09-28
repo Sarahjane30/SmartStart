@@ -46,3 +46,14 @@ def test_maybe_later_and_practice_mode():
     assert df.TRY_AGAIN in fb.chips
     end = flow.handle(df.END_PRACTICE, ctx, online=True, history=[])
     assert flow.coach is None and "Nice work" in end.reply
+
+
+def test_ticket_questions_get_the_same_draft_card_as_the_website():
+    ctx = {**_ctx(), "profile": {"onboarded": True}}
+    flow = df.DesktopConversation()
+    turn = flow.handle("My laptop keyboard is not working, how do I raise a ticket?", ctx, online=True, history=[])
+    assert turn.ticket and turn.ticket["item_id"] == "hardware-software"
+    assert "IT Service Portal" in turn.reply and "?from=ira" in turn.ticket["form_url"]
+    jira = flow.handle("how to raise ticket for jira", ctx, online=True, history=[])
+    assert jira.ticket["item_id"] == "access" and "Jira work item" in jira.reply
+    assert flow.handle("Who is my manager?", ctx, online=True, history=[]).ticket is None

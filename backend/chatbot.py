@@ -214,7 +214,7 @@ def build_chatbot(
             from ira.brain import followups_for, respond
 
             from ira.email_draft import draft_email, is_draft_request
-            from ira.ticket_draft import draft_ticket, guidance_text, is_ticket_request
+            from ira.ticket_draft import guidance_text, maybe_ticket, ticket_suggestions
 
             ctx = build_ira_context(joiner_id, db=db)
             history = [("user", a) for a in (asked or [])]
@@ -230,19 +230,11 @@ def build_chatbot(
             if is_draft_request(query):
                 found = draft_email(query, ctx)
                 draft = EmailDraft(**found) if found else None
-            elif not coach and is_ticket_request(query):
-                ticket = TicketDraft(**draft_ticket(query, ctx))
-                turns[-1] = ChatTurn(role="assistant", text=guidance_text(ticket.model_dump()), synthetic=True)
+            elif not coach and (found_ticket := maybe_ticket(query, ctx)):
+                ticket = TicketDraft(**found_ticket)
+                turns[-1] = ChatTurn(role="assistant", text=guidance_text(found_ticket), synthetic=True)
                 mode, coach, basics = "ask", None, None
-                suggestions = [
-                    s
-                    for s in (
-                        "My VPN keeps disconnecting",
-                        "How do I request access to Power BI?",
-                        "I need a new monitor — how do I raise a request?",
-                    )
-                    if s.lower() != query.strip().lower()
-                ][:3]
+                suggestions = ticket_suggestions(query)
         except Exception:
             matched = _match_faq(query, catalog)
             if matched:

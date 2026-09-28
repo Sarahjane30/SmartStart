@@ -76,3 +76,10 @@ def test_chatbot_returns_ticket_card_and_portal_guidance():
         assert "IT Service Portal" in reply and "Submit yourself" in reply
         plain = client.get(f"/api/chatbot/{jid}", params={"q": "Who is my mentor?"}).json()
         assert plain["ticket"] is None
+
+
+def test_jira_ticket_question_goes_to_access_form_with_work_item_note():
+    d = draft_ticket("how to raise ticket for jira", CTX)
+    assert d["item_id"] == "access" and _fields(d)["application"] == "Jira"
+    assert "Jira work item" in d["note"]
+    assert draft_ticket("Jira is not loading", CTX)["item_id"] != "access"

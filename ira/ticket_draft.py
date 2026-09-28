@@ -82,9 +82,14 @@ def scrub(text: str) -> str:
     return text
 
 
+_ACCESS_APPS = {"Jira", "GitHub", "Confluence", "Slack", "Workday", "Salesforce", "Power BI", "Okta"}
+
+
 def _category(q: str) -> str:
     problem = bool(_PROBLEM_RE.search(q))
     if _ACCESS.search(q) and not problem and _WANT.search(q):
+        return "access"
+    if not problem and _app(q) in _ACCESS_APPS:
         return "access"
     if _INSTALL.search(q) and not problem:
         return "software-install"
@@ -286,6 +291,13 @@ def draft_ticket(query: str, ctx: dict) -> dict:
             {"key": "description", "label": "Please describe your issue", "value": "\n".join(lines)},
         ]
 
+    note = None
+    if category == "access" and _app(q) == "Jira":
+        note = (
+            "If you meant a Jira work item (a story or task for your team), you create that on your board in Jira "
+            "itself — this form is for getting Jira access."
+        )
+
     kind = "incident" if category not in {"access", "new-hardware", "software-install"} else "request"
     menu = REPORT_MENU if kind == "incident" else REQUEST_MENU
     return {
@@ -303,6 +315,7 @@ def draft_ticket(query: str, ctx: dict) -> dict:
             "Replace anything in [brackets], check it reads right, then press Submit and keep the ticket number.",
         ],
         "has_placeholders": any("[" in f["value"] for f in fields),
+        "note": note,
     }
 
 
@@ -312,4 +325,28 @@ def guidance_text(ticket: dict) -> str:
         f"The right form is \u201c{ticket['item_label']}\u201d under {ticket['menu']}. "
         "I've drafted the fields below: open the portal, paste them in, fill in anything in [brackets] "
         "and press Submit yourself — I won't submit it for you. Don't add passwords or personal details."
+        + (f"\n{ticket['note']}" if ticket.get("note") else "")
     )
+
+
+TICKET_SUGGESTIONS = (
+    "My VPN keeps disconnecting",
+    "How do I request access to Power BI?",
+    "I need a new monitor — how do I raise a request?",
+)
+
+
+def maybe_ticket(query: str, ctx: Optional[dict]) -> Optional[dict]:
+    """The ticket draft for this message, or None when it isn't an IT ticket request.
+
+    Shared by the SmartStart web chat and the desktop companion so both answer the same way.
+    """
+    from ira.email_draft import is_draft_request
+
+    if is_draft_request(query) or not is_ticket_request(query):
+        return None
+    return draft_ticket(query, ctx or {})
+
+
+def ticket_suggestions(query: str) -> list[str]:
+    return [s for s in TICKET_SUGGESTIONS if s.lower() != query.strip().lower()][:3]

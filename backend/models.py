@@ -468,6 +468,7 @@ class TicketDraft(BaseModel):
     fields: list[TicketDraftField]
     steps: list[str] = Field(default_factory=list)
     has_placeholders: bool = False
+    note: Optional[str] = None
     synthetic: bool = True
 
 

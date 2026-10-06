@@ -18,19 +18,8 @@
   const AMBER = [255, 196, 120];
   const MOLS = W.MOLS;
 
-  const NAMES = [
-    "HOW IT WORKS",
-    "THE SOLVENTS",
-    "THE PUMP",
-    "THE INJECTOR",
-    "THE COLUMN",
-    "THE UV DETECTOR",
-    "READING THE PEAKS",
-    "THE ION SOURCE",
-    "THE QUADRUPOLE",
-    "COUNTING IONS",
-    "YOUR TURN",
-  ];
+  const LC_NAMES = ["HOW LC WORKS", "THE SOLVENTS", "THE PUMP", "THE INJECTOR", "THE COLUMN", "THE UV DETECTOR", "READING THE PEAKS", "YOUR TURN"];
+  const MS_NAMES = ["HOW MS WORKS", "THE ION SOURCE", "THE QUADRUPOLE", "COUNTING IONS", "YOUR TURN"];
 
   const cx = () => kit.ctx;
   const frac = (x) => x - Math.floor(x);
@@ -40,12 +29,16 @@
 
   function layout() {
     const wide = S.w >= 860;
+    const fs = clamp(Math.min(S.w * 0.0115, S.h * 0.021), 13, 16.5);
+    const size = clamp(Math.min(S.w * 0.03, S.h * 0.052), 22, 40);
+    const textTop = Math.max(S.h * 0.5, Math.min(S.h * 0.66, S.h - 30 - (44 + 3 * fs * 1.45))) - size * 0.62 - 30;
+    const above = Math.min(S.h * 0.6, textTop);
     if (wide) {
       return {
         wide,
-        hero: { x0: S.w * 0.03, y0: S.h * 0.08, x1: S.w * 0.47, y1: S.h * 0.6 },
+        hero: { x0: S.w * 0.03, y0: S.h * 0.08, x1: S.w * 0.47, y1: above },
         sch: { x0: S.w * 0.5, y0: S.h * 0.1, x1: S.w * 0.95, y1: S.h * 0.9 },
-        full: { x0: S.w * 0.05, y0: S.h * 0.08, x1: S.w * 0.95, y1: S.h * 0.6 },
+        full: { x0: S.w * 0.05, y0: S.h * 0.1, x1: S.w * 0.95, y1: above },
         text: { x: S.w * 0.06, y: S.h * 0.66, w: Math.min(S.w * 0.38, 470) },
       };
     }
@@ -106,32 +99,73 @@
     return lines;
   }
 
+  /* Title, a 01·02·03 progress row, and only the current step's text — anchored to the
+     bottom so it never runs off a short screen. */
+  function lessonBox(L, o) {
+    const size = clamp(Math.min(S.w * 0.03, S.h * 0.052), 22, 40);
+    const fs = clamp(Math.min(S.w * 0.0115, S.h * 0.021), 13, 16.5);
+    const lh = fs * 1.45;
+    const wrapped = o.steps.map(([, text]) => wrap(text, L.text.w - 4, fs));
+    const tallest = Math.max(...wrapped.map((l) => l.length));
+    const below = 18 + 26 + tallest * lh;
+    const y = Math.max(Math.min(o.y || L.text.y, S.h - 30 - below), S.h * 0.5);
+    return { size, fs, lh, wrapped, below, y, top: y - size * 0.62 - 26 };
+  }
+
   function lesson(t, L, o) {
     const c = cx();
     const { x, w } = L.text;
-    let y = o.y || L.text.y;
+    const { size, fs, lh, wrapped, below } = lessonBox(L, o);
+    let { y } = lessonBox(L, o);
     const a0 = sm(win(t, 0, 0.06));
-    const shade = c.createRadialGradient(x + w * 0.4, y + 70, 0, x + w * 0.4, y + 70, w * 0.95);
-    shade.addColorStop(0, "rgba(2,4,14,0.62)");
+    const ry = (below + size + 60) * 0.9;
+    const rx = w * 0.95;
+    c.save();
+    c.translate(x + w * 0.42, y + below * 0.35);
+    c.scale(1, ry / rx);
+    const shade = c.createRadialGradient(0, 0, 0, 0, 0, rx);
+    shade.addColorStop(0, "rgba(2,4,14,0.7)");
+    shade.addColorStop(0.6, "rgba(2,4,14,0.4)");
     shade.addColorStop(1, "rgba(2,4,14,0)");
     c.fillStyle = shade;
-    c.fillRect(x - w * 0.6, y - 120, w * 2.1, 420);
-    whisper(o.kicker, x, y - 30, a0 * 0.75, { weight: 600, color: o.color || [140, 210, 255] });
-    const size = clamp(S.w * 0.03, 24, 40);
+    c.beginPath();
+    c.arc(0, 0, rx, 0, TAU);
+    c.fill();
+    c.restore();
+    const accent = o.color || [140, 210, 255];
+    whisper(o.kicker, x, y - size * 0.62 - 14, a0 * 0.75, { weight: 600, color: accent });
     type(o.title, x, y, { size, weight: 800, align: "left", alpha: a0, track: -0.01 });
-    y += size * 0.62 + 14;
+    y += size * 0.5 + 18;
     const sw = stepWeights(t, o.steps);
-    const fs = clamp(S.w * 0.0115, 14, 16.5);
-    o.steps.forEach(([, text], i) => {
-      const a = sw[i].on;
-      if (a <= 0.01) return;
-      const al = a * (0.42 + sw[i].cur * 0.58);
-      whisper(`0${i + 1}`, x, y + 1, al * 0.9, { size: 10, weight: 600, color: o.color || [140, 210, 255] });
-      wrap(text, w - 34, fs).forEach((ln) => {
-        type(ln, x + 34, y, { size: fs, weight: 400, align: "left", alpha: al, track: 0 });
-        y += fs * 1.45;
-      });
-      y += 8;
+    let k = 0;
+    o.steps.forEach(([at], i) => {
+      if (t >= at) k = i;
+    });
+    let px = x;
+    o.steps.forEach((_, i) => {
+      const done = i < k;
+      const on = i === k;
+      const al = a0 * (on ? 1 : done ? 0.55 : 0.22);
+      const tw = whisper(`0${i + 1}`, px, y, al, { size: 10, weight: 600, color: on ? WHITE : accent });
+      if (on) {
+        c.fillStyle = rgba(accent, a0 * 0.9);
+        c.fillRect(px, y + 9, tw, 1.5);
+      }
+      px += tw + 12;
+      if (i < o.steps.length - 1) {
+        c.fillStyle = rgba(accent, a0 * (done ? 0.5 : 0.18));
+        c.fillRect(px, y, 22, 1);
+        px += 34;
+      }
+    });
+    y += 26;
+    o.steps.forEach(([at], i) => {
+      const next = o.steps[i + 1] ? o.steps[i + 1][0] : 2;
+      const aIn = at <= 0 ? a0 : sm(win(t, at, at + 0.04));
+      const aOut = 1 - sm(win(t, next - 0.035, next));
+      const al = aIn * aOut;
+      if (al <= 0.01) return;
+      wrapped[i].forEach((ln, j) => type(ln, x, y + j * lh + (1 - aIn) * 8, { size: fs, weight: 400, align: "left", alpha: al * 0.95, track: 0 }));
     });
     return sw;
   }
@@ -364,7 +398,7 @@
       whisper(`0${i + 1}  ${W.COMP[id].label}`, q.x, ly, al, { align: "center", weight: 600, color: WHITE });
     });
     const p = R.project(W.COMP.detector.c);
-    const ms = sm(win(t, 0.36, 0.48));
+    const ms = 0;
     if (p.vis && ms > 0.01) {
       const x0 = p.x + 60;
       const x1 = Math.min(w * 0.97, x0 + w * 0.16);
@@ -384,12 +418,12 @@
     }
     c.restore();
     lesson(t, L, {
-      kicker: "LC-MS  ·  HOW IT WORKS",
-      title: "Two machines, one question.",
+      kicker: "LC  ·  HOW IT WORKS",
+      title: "Liquid chromatography",
       steps: [
-        [0.0, "Liquid chromatography (LC) pulls a mixture apart into its separate compounds."],
-        [0.3, "Mass spectrometry (MS) then weighs each one, molecule by molecule, so you know exactly what it is."],
-        [0.6, "Scroll to follow the liquid through every part, in order. Drag to turn the machine."],
+        [0.0, "LC separates a mixture into its individual compounds. It pushes the sample, dissolved in liquid, through a column that holds some compounds back longer than others."],
+        [0.3, "Five parts do the work: the solvents, a pump, an injector, the column and a detector."],
+        [0.6, "Scroll to follow the liquid through each one, in order. Drag to turn the machine."],
       ],
     });
   }
@@ -524,7 +558,7 @@
     label(`${Math.round(pB * 100)}% B`, cxp + 10, cyp - 14, e2, { color: WHITE, size: 11 });
     label("THE GRADIENT", gx0 + 10, gy0 + 6, e2 * 0.8);
     leave();
-    lesson(t, L, { kicker: "LC  ·  01 / 05", title: "The solvents", steps: st });
+    lesson(t, L, { kicker: "LC  ·  01 / 06", title: "The solvents", steps: st });
   }
 
   /* ---------- 02 · pump ---------- */
@@ -634,7 +668,7 @@
     c.stroke();
     label("1 + 2 = steady", fx0, fy + 18, e2 * 0.8, { weight: 500 });
     leave();
-    lesson(t, L, { kicker: "LC  ·  02 / 05", title: "The pump", steps: st });
+    lesson(t, L, { kicker: "LC  ·  02 / 06", title: "The pump", steps: st });
   }
 
   /* ---------- 03 · injector ---------- */
@@ -749,7 +783,7 @@
     type(injecting ? "INJECT" : "LOAD", O[0], O[1] - 4, { size: 20, weight: 800, alpha: a, c, track: 0.08 });
     label(rk > 0.02 && rk < 0.98 ? "turning 60°…" : "ROTOR POSITION", O[0], O[1] + 18, a * 0.6, { align: "center", weight: 500, size: 9 });
     leave();
-    lesson(t, L, { kicker: "LC  ·  03 / 05", title: "The injector", steps: st });
+    lesson(t, L, { kicker: "LC  ·  03 / 06", title: "The injector", steps: st });
   }
 
   /* ---------- 04 · column ---------- */
@@ -877,7 +911,7 @@
       const x = x0 + u * span;
       const y = cy + hh + 18 + (i % 2) * 16;
       whisper(`${b.mol.short}`, x, cy - hh - 10, a * sm(win(s, 0.12, 0.3)), { align: "center", weight: 800, size: 12, color: b.mol.color });
-      label(b.tag, x, y, Math.min(1, sepA), { align: "center", color: b.mol.color, weight: 500 });
+      label(b.tag, clamp(x, x0 + 90, x1 - 90), y, Math.min(1, sepA), { align: "center", color: b.mol.color, weight: 500 });
     });
     const e1 = emph(sw, 1) * a;
     const mr = Math.min(h * 0.12, w * 0.09);
@@ -925,7 +959,7 @@
     c.stroke();
     whisper("ZOOM ×100,000", mx, my - mr - 14, e1 * 0.8, { align: "center", size: 9.5, weight: 600, color: [140, 210, 255] });
     whisper(stuck ? "B: holding on…" : "B: let go…", mx, my + mr + 16, e1, { align: "center", size: 10, weight: 600, color: [210, 190, 255] });
-    lesson(t, L, { kicker: "LC  ·  04 / 05", title: "The column", steps: st, y: L.wide ? h * 0.66 : h * 0.62 });
+    lesson(t, L, { kicker: "LC  ·  04 / 06", title: "The column", steps: st, y: L.wide ? h * 0.66 : h * 0.62 });
   }
 
   /* ---------- 05 · UV detector ---------- */
@@ -1043,7 +1077,7 @@
     label("SIGNAL", gx0 + 6, gb - gh - 16, Math.max(e2, a * 0.5));
     label("TIME →", gx1, gb + 14, a * 0.5, { align: "right", weight: 500 });
     leave();
-    lesson(t, L, { kicker: "LC  ·  05 / 05", title: "The UV detector", steps: st });
+    lesson(t, L, { kicker: "LC  ·  05 / 06", title: "The UV detector", steps: st });
   }
 
   /* ---------- 06 · reading the chromatogram ---------- */
@@ -1056,11 +1090,13 @@
     const st = [
       [0.0, "Retention time, when a peak appears, is a clue to what the compound is. Under the same conditions, the same compound always comes out at the same time."],
       [0.33, "The area under a peak tells you how much of it was in the sample. Bigger area means more compound."],
-      [0.62, "But two different compounds can leave the column at the same moment and hide inside one peak. To be sure, we weigh them, so it's on to the mass spectrometer."],
+      [0.62, "But two different compounds can leave the column at the same moment and hide inside one peak. Telling them apart is the job of a mass spectrometer, which has its own film."],
     ];
     const sw = stepWeights(t, st);
     const a = sm(win(t, 0.03, 0.12));
-    const box = { x0: w * 0.08, x1: w * 0.92, base: h * 0.52, height: h * 0.36 };
+    const top = lessonBox(L, { steps: st, y: h * 0.7 }).top;
+    const base = Math.min(h * 0.52, top - 74);
+    const box = { x0: w * 0.08, x1: w * 0.92, base, height: Math.min(h * 0.36, base - h * 0.17) };
     const span = box.x1 - box.x0;
     const c = cx();
     c.strokeStyle = rgba(ICE, a * 0.35);
@@ -1120,7 +1156,8 @@
       c.fillStyle = fg;
       c.fill();
       c.restore();
-      callout(box.x0 + pc.x * span, box.base - pc.h * box.height * 0.4, box.x0 + pc.x * span + 70, box.base - pc.h * box.height - 26, "AREA = HOW MUCH", e1, { sub: `compound ${pc.mol.short}` });
+      whisper("AREA = HOW MUCH", box.x0 + pc.x * span, box.base + 34, e1, { align: "center", weight: 600, color: [170, 255, 220] });
+      whisper(`of compound ${pc.mol.short}`, box.x0 + pc.x * span, box.base + 50, e1 * 0.6, { align: "center", size: 9.5 });
     }
     const e2 = emph(sw, 2) * a;
     const pb = P[2];
@@ -1144,7 +1181,7 @@
       });
       callout(box.x0 + pb.x * span, box.base - pb.h * box.height - 4, box.x0 + pb.x * span - 40, box.base - box.height - 6, "TWO COMPOUNDS, ONE PEAK?", e2, { align: "right", color: [255, 190, 235], sub: "the mass spectrometer can tell" });
     }
-    lesson(t, L, { kicker: "LC  →  MS", title: "Reading the peaks", steps: st, y: h * 0.7 });
+    lesson(t, L, { kicker: "LC  ·  06 / 06", title: "Reading the peaks", steps: st, y: h * 0.7 });
   }
 
   /* ---------- 07 · electrospray ion source ---------- */
@@ -1493,64 +1530,170 @@
 
   /* ---------- 10 · your turn ---------- */
 
-  function finale(t) {
-    const w = S.w;
-    const h = S.h;
-    backdrop(t);
-    const yaw = lerp(-0.2, 0.2, t) + S.time * 0.02;
-    const tg = v(5.6, 0.75, 0.2);
-    const d = 14;
+  function msDiagram(t, a, sw) {
     const c = cx();
+    const Y = 190;
+    const mods = [
+      { x0: 110, x1: 330, name: "ION SOURCE", verb: "01  IONIZE", col: AMBER },
+      { x0: 400, x1: 700, name: "QUADRUPOLE", verb: "02  FILTER", col: [150, 215, 255] },
+      { x0: 770, x1: 930, name: "DETECTOR", verb: "03  COUNT", col: [255, 150, 210] },
+    ];
+    pipe([[0, Y], [110, Y]], CYAN, a, { lw: 8, flow: 1, fa: 0.6 });
+    label("FROM THE LC", 8, Y - 22, a * 0.7);
     c.save();
-    c.translate(0, h * 0.3);
-    kit.instrument({ pos: v(tg.x + Math.sin(yaw) * d, 4.2, tg.z + Math.cos(yaw) * d), target: tg, fov: 40 * DEG }, { detGlow: 0.4, loop: 0.5 }, 0.22 * sm(win(t, 0, 0.15)));
+    c.globalCompositeOperation = "lighter";
+    c.strokeStyle = rgba([255, 200, 240], a * 0.35);
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(330, Y);
+    c.lineTo(400, Y);
+    c.moveTo(700, Y);
+    c.lineTo(770, Y);
+    c.stroke();
     c.restore();
-    const a = sm(win(t, 0.04, 0.22));
-    const size = Math.min(w * 0.05, 58);
-    type("NOW YOU KNOW HOW IT WORKS.", w / 2, h * 0.24, { size, weight: 800, alpha: a, blur: (1 - a) * 8, track: 0.005 });
-    const chain = "SOLVENTS  ·  PUMP  ·  INJECT  ·  SEPARATE  ·  DETECT  ·  IONIZE  ·  FILTER  ·  COUNT";
-    whisper(chain, w / 2, h * 0.24 + size * 0.9, a * 0.6, { align: "center", track: 0.3, size: layout().wide ? 10.5 : 8.5 });
-    const b = sm(win(t, 0.2, 0.42));
-    if (b > 0.01) {
-      const y = h * 0.56;
-      const label0 = "BECOME THE SAMPLE  →";
-      const fs = clamp(w * 0.026, 20, 32);
-      const tw = kit.measure(label0, fs, 800, 0.04);
-      const over = hot(w / 2 - tw / 2 - 20, y - fs, tw + 40, fs * 2, () => kit.switchTrack("ride", 0));
+    mods.forEach((m, i) => {
+      const e = sw ? (sw[1].on > 0.01 ? 0.45 + 0.55 * bell(frac(S.time * 0.25), i / 3, i / 3 + 0.34, 0.06) : 0.75) * a : a * 0.75;
+      outline(m.x0, Y - 80, m.x1 - m.x0, 160, 14, e, m.col);
+      glow((m.x0 + m.x1) / 2, Y, (m.x1 - m.x0) * 0.5, m.col, e * 0.12);
+      label(m.verb, m.x0 + 14, Y - 100, e, { color: m.col });
+      label(m.name, (m.x0 + m.x1) / 2, Y + 104, e, { align: "center", color: WHITE });
+      if (i === 0) {
+        c.fillStyle = rgba([200, 210, 230], e);
+        c.beginPath();
+        c.moveTo(m.x0 + 20, Y - 8);
+        c.lineTo(m.x0 + 90, Y - 2);
+        c.lineTo(m.x0 + 90, Y + 2);
+        c.lineTo(m.x0 + 20, Y + 8);
+        c.closePath();
+        c.fill();
+        for (let j = 0; j < 18; j += 1) {
+          const sp = frac(S.time * 0.4 + hash(j));
+          dot(m.x0 + 95 + sp * 120, Y + (hash(j + 7) * 2 - 1) * Math.sin(Math.PI * sp) * 50, 4 * (1 - sp) + 1.2, sp > 0.7 ? WHITE : [170, 220, 255], e * 0.8);
+        }
+      } else if (i === 1) {
+        [-34, -18, 18, 34].forEach((dy, j) => {
+          c.fillStyle = rgba([210, 220, 240], e * (j === 1 || j === 2 ? 0.55 : 1));
+          rrect(m.x0 + 20, Y + dy - 6, m.x1 - m.x0 - 40, 12, 6);
+          c.fill();
+        });
+      } else {
+        for (let j = 0; j < 5; j += 1) {
+          c.save();
+          c.translate(m.x0 + 30 + j * 25, Y + (j % 2 ? 22 : -22));
+          c.rotate(j % 2 ? -0.5 : 0.5);
+          c.fillStyle = rgba([210, 220, 240], e);
+          c.fillRect(-12, -3, 24, 6);
+          c.restore();
+        }
+      }
+    });
+    for (let j = 0; j < 10; j += 1) {
+      const sp = frac(S.time * 0.18 + j / 10);
+      const x = 330 + sp * 470;
+      if (x > 400 && x < 700 && j % 3) continue;
+      glow(x, Y, 9, MOLS[j % 3].color, a * 0.8);
+      dot(x, Y, 2.2, WHITE, a);
+    }
+    const vb = c.createLinearGradient(110, 0, 930, 0);
+    vb.addColorStop(0, rgba(ICE, a * 0.15));
+    vb.addColorStop(1, rgba([255, 120, 210], a * 0.7));
+    c.fillStyle = vb;
+    c.fillRect(110, 370, 820, 3);
+    label("AIR PRESSURE", 110, 390, a * 0.55, { weight: 500 });
+    label("HIGH VACUUM", 930, 390, a * 0.7, { align: "right", color: [255, 190, 235] });
+  }
+
+  function msOverview(t) {
+    const L = layout();
+    backdrop(t, 0.5);
+    const st = [
+      [0.0, "A mass spectrometer weighs molecules. Strictly, it measures their mass-to-charge ratio, written m/z."],
+      [0.3, "It works in three stages. Turn molecules into charged ions, filter the ions by m/z, then count them."],
+      [0.6, "It usually sits right after an LC, so the separated compounds arrive one at a time. Scroll to go through each stage."],
+    ];
+    const sw = stepWeights(t, st);
+    const a = sm(win(t, 0, 0.1));
+    enter(L.full, 1000, 400);
+    msDiagram(t, a, sw);
+    leave();
+    lesson(t, L, { kicker: "MS  ·  HOW IT WORKS", title: "Mass spectrometry", steps: st, color: [255, 170, 225] });
+  }
+
+  function finale(kind) {
+    const lc = kind === "lc";
+    return (t) => {
+      const w = S.w;
+      const h = S.h;
+      backdrop(t, lc ? 0 : 0.5);
+      const c = cx();
+      const fade = sm(win(t, 0, 0.15));
+      if (lc) {
+        const yaw = lerp(-0.2, 0.2, t) + S.time * 0.02;
+        const tg = v(5.6, 0.75, 0.2);
+        c.save();
+        c.translate(0, h * 0.3);
+        kit.instrument({ pos: v(tg.x + Math.sin(yaw) * 14, 4.2, tg.z + Math.cos(yaw) * 14), target: tg, fov: 40 * DEG }, { detGlow: 0.4, loop: 0.5 }, 0.22 * fade);
+        c.restore();
+      } else {
+        enter({ x0: w * 0.1, y0: h * 0.36, x1: w * 0.9, y1: h * 0.98 }, 1000, 400);
+        msDiagram(t, 0.22 * fade, null);
+        leave();
+      }
+      const a = sm(win(t, 0.04, 0.22));
+      const size = Math.min(w * 0.05, h * 0.085, 58);
+      type(lc ? "NOW YOU KNOW HOW LC WORKS." : "NOW YOU KNOW HOW MS WORKS.", w / 2, h * 0.22, { size, weight: 800, alpha: a, blur: (1 - a) * 8, track: 0.005 });
+      const chain = lc ? "SOLVENTS  ·  PUMP  ·  INJECT  ·  SEPARATE  ·  DETECT  ·  READ" : "IONIZE  ·  FILTER  ·  COUNT";
+      whisper(chain, w / 2, h * 0.22 + size * 0.9, a * 0.6, { align: "center", track: 0.3, size: layout().wide ? 10.5 : 8.5 });
+      const b = sm(win(t, 0.2, 0.42));
+      if (b <= 0.01) return;
+      const y = h * 0.52;
+      const main = lc ? "BECOME THE SAMPLE  →" : "RIDE THE IONS  →";
+      const fs = clamp(Math.min(w * 0.026, h * 0.05), 20, 32);
+      const tw = kit.measure(main, fs, 800, 0.04);
+      const over = hot(w / 2 - tw / 2 - 20, y - fs, tw + 40, fs * 2, () => kit.switchTrack(lc ? "ride-lc" : "ride-ms"));
       const pulse = 0.5 + 0.5 * Math.sin(S.time * 2.4);
-      glow(w / 2, y, tw * 0.6, [110, 190, 255], b * (0.12 + pulse * 0.08 + (over ? 0.12 : 0)));
-      type(label0, w / 2, y, { size: fs, weight: 800, alpha: b, track: 0.04 });
+      glow(w / 2, y, tw * 0.6, lc ? [110, 190, 255] : [255, 110, 200], b * (0.12 + pulse * 0.08 + (over ? 0.12 : 0)));
+      type(main, w / 2, y, { size: fs, weight: 800, alpha: b, track: 0.04 });
       c.fillStyle = rgba(WHITE, b * 0.8);
       const ul = over ? 1 : 0.25 + pulse * 0.1;
       c.fillRect(w / 2 - (tw * ul) / 2, y + fs * 0.75, tw * ul, 1.5);
-      whisper("Same machine. This time, you ride inside it as one of the molecules.", w / 2, y + fs * 1.6, b * 0.65, { align: "center", track: 0.06, size: 11 });
+      whisper(lc ? "Same machine. This time, you ride inside it as one of the molecules." : "Same instrument. This time, you are the ion.", w / 2, y + fs * 1.6, b * 0.65, { align: "center", track: 0.06, size: 11 });
       linkRow(
         [
+          lc ? ["NEXT: HOW MS WORKS  →", () => kit.switchTrack("observe-ms")] : ["HOW LC WORKS", () => kit.switchTrack("observe-lc")],
           ["↺  WATCH AGAIN", () => kit.autopilot(0, 4, true)],
-          ["BACK TO THE MACHINE  →", () => kit.close()],
+          ["BACK TO THE MACHINE", () => kit.close()],
         ],
         h * 0.84,
         b
       );
-    }
+    };
   }
-  function edge(c, t) {
+
+  function edge(c, n, t) {
     const fin = c > 0 ? sm(win(t, 0, 0.045)) : 1;
-    const fout = c < 10 ? 1 - sm(win(t, 0.955, 1)) : 1;
+    const fout = c < n - 1 ? 1 - sm(win(t, 0.955, 1)) : 1;
     const k = 1 - fin * fout;
     if (k > 0.005) bgBlack(k);
   }
 
-  const SCENES = [ov, solv, pump, inject, column, detect, read, esi, quad, count, finale];
+  const track = (scenes) => scenes.map((fn, i) => (t, dt) => {
+    fn(t, dt);
+    edge(i, scenes.length, t);
+  });
 
-  RIDE.registerTrack("observe", {
-    names: NAMES,
-    draw: SCENES.map((fn, i) => (t, dt) => {
-      fn(t, dt);
-      edge(i, t);
-    }),
-    energy: (c) => c >= 7 && c <= 9,
-    grab: (c) => c !== 6 && c !== 10,
+  RIDE.registerTrack("observe-lc", {
+    kind: "lc",
+    names: LC_NAMES,
+    draw: track([ov, solv, pump, inject, column, detect, read, finale("lc")]),
+    grab: (c) => c !== 6 && c !== 7,
+  });
+  RIDE.registerTrack("observe-ms", {
+    kind: "ms",
+    names: MS_NAMES,
+    draw: track([msOverview, esi, quad, count, finale("ms")]),
+    energy: () => true,
+    grab: () => false,
   });
 
   void bell;

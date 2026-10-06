@@ -298,9 +298,9 @@
     const k = 0.85 + 0.15 * ease(lab.assemble);
     const pts = pathPts(api, origin, "lc", k);
     const chassis = project([origin[0] - 0.15 * k, origin[1] + 0.15 * k, origin[2] - 0.2]);
-    const cw = 2.55 * chassis.s * k;
-    const ch = 1.7 * chassis.s * k;
-    metal(ctx, chassis.x - cw * 0.42, chassis.y - ch * 0.55, cw, ch, a * 0.92, 16);
+    const cw = 2.35 * chassis.s * k;
+    const ch = 1.55 * chassis.s * k;
+    metal(ctx, chassis.x - cw * 0.42, chassis.y - ch * 0.55, cw, ch, a * 0.55, 14);
     // soft cyan edge light — not neon overload
     ctx.strokeStyle = rgba([96, 214, 255], 0.18 * a);
     ctx.lineWidth = 1;
@@ -414,9 +414,9 @@
     const k = 0.85 + 0.15 * ease(lab.assemble);
     const pts = pathPts(api, origin, "ms", k);
     const chassis = project([origin[0] + 0.15 * k, origin[1], origin[2] - 0.15]);
-    const cw = 2.7 * chassis.s * k;
-    const ch = 1.45 * chassis.s * k;
-    metal(ctx, chassis.x - cw * 0.48, chassis.y - ch * 0.5, cw, ch, a * 0.92, 16);
+    const cw = 2.5 * chassis.s * k;
+    const ch = 1.35 * chassis.s * k;
+    metal(ctx, chassis.x - cw * 0.48, chassis.y - ch * 0.5, cw, ch, a * 0.5, 14);
 
     // ionization chamber — glass
     const ion = pts.ion;

@@ -845,10 +845,10 @@
     let shift = 0;
     if (S.lab) {
       const pull = S.lab.camPull || ease(S.lab.assemble);
-      cam = [0, 1.35, -0.15];
-      zoom = lerp(1.2, S.narrow ? 1.55 : 1.95, pull);
-      if (!S.narrow) shift = -S.w * 0.2;
-      const shiftY = S.narrow ? -S.h * 0.22 : 0;
+      cam = S.lab.kind === "ms" ? [0.25, 1.2, -0.1] : [-0.15, 1.25, -0.12];
+      zoom = lerp(1.05, S.narrow ? 1.28 : 1.48, pull);
+      if (!S.narrow) shift = -S.w * 0.18;
+      const shiftY = S.narrow ? -S.h * 0.2 : 0;
       return { cam, zoom, shift, shiftY };
     }
     if (active) {

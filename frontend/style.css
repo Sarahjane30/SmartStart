@@ -3721,16 +3721,16 @@ body.wm-lock { overflow: hidden; }
 .wr[hidden] { display: none; }
 .wr-canvas { position: absolute; inset: 0; display: block; }
 .wr-corner, .wr-chap, .wr-cue, .wr-esc, .wr-tip {
-  position: absolute; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: 0.32em;
+  position: absolute; font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.24em;
   text-transform: uppercase; color: rgba(214, 228, 255, 0.72); pointer-events: none;
 }
 .wr-corner { top: 26px; left: 28px; font-weight: 600; color: #fff; }
 .wr-corner span { color: rgba(96, 214, 255, 0.9); margin: 0 0.25em; }
 .wr.is-energy .wr-corner span { color: #ff60c4; }
 .wr-mode {
-  position: absolute; top: 48px; left: 28px; padding: 4px 0; border: 0; background: none; cursor: pointer;
-  font-family: "IBM Plex Mono", monospace; font-size: 9.5px; letter-spacing: 0.28em; text-transform: uppercase;
-  color: rgba(214, 228, 255, 0.5); border-bottom: 1px solid rgba(96, 214, 255, 0.3); transition: color 0.25s, border-color 0.25s, letter-spacing 0.35s;
+  position: absolute; top: 50px; left: 28px; padding: 4px 0; border: 0; background: none; cursor: pointer;
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(214, 228, 255, 0.7); border-bottom: 1px solid rgba(96, 214, 255, 0.3); transition: color 0.25s, border-color 0.25s, letter-spacing 0.35s;
 }
 .wr-mode:hover { color: #fff; border-color: #60d6ff; letter-spacing: 0.34em; }
 .wr.is-energy .wr-mode:hover { border-color: #ff60c4; }

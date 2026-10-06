@@ -9,7 +9,7 @@
   const RIDE = global.WatersRide;
   if (!RIDE || !RIDE.kit) return;
   const kit = RIDE.kit;
-  const { S, R, G, W, win, sm, bell, type, whisper, ghost, hot, linkRow, bgBlack, bgVoid, stars, flash } = kit;
+  const { S, R, G, W, win, sm, bell, type, ghost, hot, linkRow, bgBlack, bgVoid, stars, flash } = kit;
   const { TAU, DEG, v, lerp, clamp, rgba, CYAN, MINT, VIOLET } = G;
   const MAGENTA = [255, 96, 196];
   const WHITE = [255, 255, 255];
@@ -22,6 +22,17 @@
   const MS_NAMES = ["HOW MS WORKS", "THE ION SOURCE", "THE QUADRUPOLE", "COUNTING IONS", "YOUR TURN"];
 
   const cx = () => kit.ctx;
+
+  /* Small mono text, readable on any screen: at least ~12.5px after schematic scaling,
+     with tighter tracking than the film's whisper so words stay legible. */
+  function whisper(text, x, y, a, o = {}) {
+    const c = cx();
+    const sc = (c.getTransform().a / (S.dpr || 1)) || 1;
+    const want = (o.size || 10.5) * 1.22;
+    const size = Math.max(want, 12.5 / sc);
+    const track = o.track == null ? 0.16 : Math.min(o.track, 0.2);
+    return kit.whisper(text, x, y, a, { ...o, size, track });
+  }
   const frac = (x) => x - Math.floor(x);
   const hash = (i) => frac(Math.sin(i * 127.1 + 311.7) * 43758.5453);
 
@@ -29,7 +40,7 @@
 
   function layout() {
     const wide = S.w >= 860;
-    const fs = clamp(Math.min(S.w * 0.0115, S.h * 0.021), 13, 16.5);
+    const fs = clamp(Math.min(S.w * 0.0125, S.h * 0.025), 15, 18);
     const size = clamp(Math.min(S.w * 0.03, S.h * 0.052), 22, 40);
     const textTop = Math.max(S.h * 0.5, Math.min(S.h * 0.66, S.h - 30 - (44 + 3 * fs * 1.45))) - size * 0.62 - 30;
     const above = Math.min(S.h * 0.6, textTop);
@@ -103,7 +114,7 @@
      bottom so it never runs off a short screen. */
   function lessonBox(L, o) {
     const size = clamp(Math.min(S.w * 0.03, S.h * 0.052), 22, 40);
-    const fs = clamp(Math.min(S.w * 0.0115, S.h * 0.021), 13, 16.5);
+    const fs = clamp(Math.min(S.w * 0.0125, S.h * 0.025), 15, 18);
     const lh = fs * 1.45;
     const wrapped = o.steps.map(([, text]) => wrap(text, L.text.w - 4, fs));
     const tallest = Math.max(...wrapped.map((l) => l.length));
@@ -270,7 +281,7 @@
   }
 
   function label(text, x, y, a, o = {}) {
-    whisper(text, x, y, a, { size: o.size || 10, weight: o.weight || 600, color: o.color || ICE, align: o.align || "left", track: o.track });
+    whisper(text, x, y, a, { size: o.size || 10.5, weight: o.weight || 600, color: o.color || ICE, align: o.align || "left", track: o.track });
   }
 
   /* Leader-line callout: from a point on the mechanism out to a label. */
@@ -289,7 +300,7 @@
     c.restore();
     dot(px, py, 2.2, ICE, a * 0.8);
     label(text, lx + dir * 20, ly, a, { align: o.align, color: o.color || WHITE });
-    if (o.sub) label(o.sub, lx + dir * 20, ly + 14, a * 0.6, { align: o.align, weight: 500, size: 9.5 });
+    if (o.sub) label(o.sub, lx + dir * 20, ly + 17, a * 0.75, { align: o.align, weight: 500, size: 10, track: 0.04 });
   }
 
   function polyAt(pts, u) {

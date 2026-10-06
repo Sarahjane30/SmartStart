@@ -484,7 +484,7 @@
     { id: "t1b", from: "reservoir", to: "pump", pts: smoothP([[0, 1.84, 0.38], [0, 2.02, 0.38], [0.85, 1.95, 0.5], [1.7, 1.05, 0.55], [2.1, 0.45, 0.62]]), side: true },
     { id: "t2", from: "pump", to: "injector", pts: smoothP([[3.25, 0.4, 0.62], [3.8, 0.6, 0.78], [4.45, 0.66, 0.72], [5.0, 0.65, 0.66]]) },
     { id: "t3", from: "injector", to: "column", pts: smoothP([[5.4, 0.65, 0.66], [5.85, 0.68, 0.6], [6.2, 0.66, 0.3], [6.36, 0.65, 0.15]]) },
-    { id: "t4", from: "column", to: "detector", pts: smoothP([[8.86, 0.65, 0.15], [9.25, 0.62, 0.42], [9.6, 0.6, 0.5], [10.2, 0.6, 0.47]]) },
+    { id: "t4", from: "column", to: "detector", pts: smoothP([[8.86, 0.65, 0.15], [9.22, 0.62, 0.3], [9.52, 0.6, 0.26], [9.8, 0.6, 0.14]]) },
   ];
   const tubeById = (id) => TUBES.find((t) => t.id === id);
 
@@ -709,18 +709,66 @@
   /* ---------- quadrupole tunnel (MS) ---------- */
 
   const QUAD = { len: 30, rod: 0.62, r: 0.3 };
-  function drawQuad(R, camZ, time, alpha) {
-    const z0 = Math.max(-1, camZ + 0.25);
+  /* Rods are drawn straight to the canvas as tapered strips (they sit at the edge of the
+     view, behind everything), shaded across their width and fogged along their length. */
+  function drawQuad(R, ctx, camZ, time, alpha) {
+    const z0 = camZ + 0.55;
+    const z1 = QUAD.len;
+    if (z1 - z0 < 0.2) return;
+    const N = 28;
     [[1, 1], [-1, -1], [1, -1], [-1, 1]].forEach(([sx, sy], i) => {
       const pol = i < 2 ? 1 : -1;
       const pulse = 0.5 + 0.5 * Math.sin(time * 7 * pol);
       const glowC = pol > 0 ? MAGENTA : [150, 140, 255];
-      const pts = [];
-      for (let z = z0; z < QUAD.len; z += 0.6) pts.push(v(sx * QUAD.rod, sy * QUAD.rod, z));
-      pts.push(v(sx * QUAD.rod, sy * QUAD.rod, QUAD.len));
-      if (pts.length < 2) return;
-      G.drawTube(R, pts, QUAD.r, { glass: false, color: [128, 134, 168], alpha, fluid: { color: glowC, alpha: 0.12 + pulse * 0.3 } });
-      G.drawDisc(R, pts[pts.length - 1], v(0, 0, -1), QUAD.r, [150, 156, 190], { alpha });
+      const cs = [];
+      for (let k = 0; k <= N; k += 1) {
+        const z = z0 + Math.pow(k / N, 2.2) * (z1 - z0);
+        const p = R.project(v(sx * QUAD.rod, sy * QUAD.rod, z));
+        if (p.vis) cs.push({ x: p.x, y: p.y, r: QUAD.r * p.s });
+      }
+      if (cs.length < 2) return;
+      const a = cs[0];
+      const b = cs[cs.length - 1];
+      const dl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const nx = -(b.y - a.y) / dl;
+      const ny = (b.x - a.x) / dl;
+      const edge = (side, k = 1) => cs.map((c) => ({ x: c.x + nx * c.r * side * k, y: c.y + ny * c.r * side * k }));
+      const hx = R.w / 2;
+      const hy = R.h / 2;
+      const sideIn = Math.hypot(a.x + nx * a.r - hx, a.y + ny * a.r - hy) < Math.hypot(a.x - nx * a.r - hx, a.y - ny * a.r - hy) ? 1 : -1;
+      const left = edge(1);
+      const right = edge(-1).reverse();
+      ctx.save();
+      ctx.beginPath();
+      left.concat(right).forEach((p, j) => (j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.closePath();
+      const across = ctx.createLinearGradient(a.x + nx * a.r * sideIn, a.y + ny * a.r * sideIn, a.x - nx * a.r * sideIn, a.y - ny * a.r * sideIn);
+      across.addColorStop(0, rgba([230, 232, 250], alpha));
+      across.addColorStop(0.25, rgba([150, 150, 186], alpha));
+      across.addColorStop(0.7, rgba([46, 36, 78], alpha));
+      across.addColorStop(1, rgba([96, 80, 140], alpha));
+      ctx.fillStyle = across;
+      ctx.fill();
+      const fog = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+      fog.addColorStop(0, "rgba(30,8,50,0)");
+      fog.addColorStop(0.35, "rgba(30,8,50,0.35)");
+      fog.addColorStop(1, "rgba(30,8,50,0.95)");
+      ctx.fillStyle = fog;
+      ctx.fill();
+      ctx.globalCompositeOperation = "lighter";
+      const spec = edge(sideIn, 0.5);
+      ctx.strokeStyle = rgba(WHITE, alpha * 0.35);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      spec.forEach((p, j) => (j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+      const inner = edge(sideIn, 0.92);
+      ctx.strokeStyle = rgba(glowC, alpha * (0.25 + pulse * 0.55));
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      inner.forEach((p, j) => (j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+      ctx.restore();
     });
   }
 

@@ -1195,8 +1195,8 @@
     if (t >= 0.5 && t < 0.68) {
       const k = win(t, 0.52, 0.66);
       const keys = [
-        K(0.52, [10.15, 0.72, 1.3], [10.1, 0.6, 0.3], 42),
-        K(0.66, [9.0, 0.82, 1.05], [8.6, 0.65, 0.2], 50),
+        K(0.52, [10.7, 1.15, 2.9], [10.1, 0.6, 0.3], 40),
+        K(0.66, [9.35, 1.0, 1.75], [8.75, 0.65, 0.2], 46),
       ];
       const a = sm(win(t, 0.5, 0.54));
       instrument(track(keys, t), {
@@ -1221,7 +1221,7 @@
       const a = sm(win(t, 0.9, 0.95));
       bgVoid(a);
       stars(0.3 * a);
-      const size = Math.min(w, h) * 0.032 * lerp(0.4, 1, easeIO(win(t, 0.9, 1)));
+      const size = Math.min(w, h) * 0.045 * lerp(0.45, 1, easeIO(win(t, 0.9, 1)));
       W.drawMolecule(ctx, mol, w / 2, h / 2, size, S.clock * 0.4, S.clock * 0.6, a, { glow: 1.4 });
     }
     flash(bell(t, 0.5, 0.53, 0.01) * 0.3 + bell(t, 0.775, 0.8, 0.01) * 0.3 + bell(t, 0.895, 0.915, 0.008) * 0.35);
@@ -1460,7 +1460,7 @@
     R.cam.target = v(lerp(cx * 0.4, tp.x, lock), lerp(cy * 0.4, tp.y, lock), camZ + 5);
     R.cam.fov = 74 * DEG;
     R.prep();
-    W.drawQuad(R, camZ, S.clock, 1);
+    W.drawQuad(R, ctx, camZ, S.clock, 1);
     for (let z = Math.ceil(camZ * 1.25) / 1.25; z < Math.min(DET_Z, camZ + 14); z += 0.8) {
       const pts = [];
       for (let i = 0; i <= 48; i += 1) {
@@ -1513,7 +1513,7 @@
     for (let i = 0; i < 10; i += 1) {
       const th = S.clock * 1.6 + i * 0.63;
       const z = camZ + 0.6 + ((i * 0.37 + S.clock * 0.25) % 1) * 3;
-      glowAt(R.project(v(cx + Math.cos(th + z) * 0.3, cy + Math.sin(th + z) * 0.3, z)), 0.01, [255, 200, 240], 0.7);
+      glowAt(R.project(v(cx + Math.cos(th + z) * 0.3, cy + Math.sin(th + z) * 0.3, z)), 0.01, [255, 200, 240], 0.35, 6);
     }
     S.hoverIon = null;
     const hits = [];
@@ -2110,7 +2110,7 @@
       S.P = S.T;
       S.auto = null;
     },
-    state: () => ({ P: S.P, T: S.T, chapter: S.chapter, peak: S.peak, ion: S.ion }),
+    state: () => ({ P: S.P, T: S.T, chapter: S.chapter, peak: S.peak, ion: S.ion, hoverIon: S.hoverIon, hoverPeak: S.hoverPeak }),
     pick: (kind, i) => {
       if (kind === "peak") S.peak = i;
       if (kind === "ion") {

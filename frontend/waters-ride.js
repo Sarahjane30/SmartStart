@@ -58,7 +58,7 @@
 
   const S = {
     open: false,
-    track: "ride",
+    track: "ride-lc",
     T: 0,
     P: 0,
     prevP: 0,
@@ -1716,8 +1716,8 @@
       whisper("LIQUID CHROMATOGRAPHY  ·  MASS SPECTROMETRY", w / 2, h * 0.22 + size * 0.95, end * 0.6, { align: "center", track: 0.45 });
       linkRow(
         [
-          ["↺  RIDE AGAIN", () => autopilot(0, 4, true)],
-          ["HOW IT WORKS", () => switchTrack("observe", 0)],
+          ["↺  RIDE AGAIN", () => autopilot(lo(), 4, true)],
+          ["HOW MS WORKS", () => switchTrack("observe-ms", 0)],
           ["BACK TO THE MACHINE  →", () => close()],
         ],
         h * 0.86,
@@ -1793,18 +1793,68 @@
     stars(a * 0.8);
   }
 
+  /* A track is one film: its chapters live in [lo, hi) on the shared timeline. The ride is
+     split in two — LC (00–07) and MS (08–10) — so each instrument is its own experience. */
+  const RIDE_DRAW = [ch00, ch01, ch02, ch03, ch04, ch05, ch06, ch07, ch08, ch09, ch10];
+  const rideEnergy = (c, t) => c >= 8 && !(c === 10 && t > 0.7);
   const TRACKS = {
-    ride: { names: CHAPTERS, draw: [ch00, ch01, ch02, ch03, ch04, ch05, ch06, ch07, ch08, ch09, ch10], energy: (c, t) => c >= 8 && !(c === 10 && t > 0.7) },
+    "ride-lc": { kind: "lc", ride: true, names: CHAPTERS, draw: RIDE_DRAW, lo: 0, hi: 8, energy: rideEnergy, outro: lcOutro },
+    "ride-ms": { kind: "ms", ride: true, names: CHAPTERS, draw: RIDE_DRAW, lo: 8, hi: 11, energy: rideEnergy },
   };
+  const cur = () => TRACKS[S.track] || TRACKS["ride-lc"];
+  const lo = () => cur().lo;
+  const hi = () => cur().hi;
+  const clampT = (x) => clamp(x, lo(), hi() - 0.001);
+  const isRide = () => !!cur().ride;
+  /* The other half of the same instrument: teaching ↔ riding. */
+  const MIRROR = { "ride-lc": "observe-lc", "observe-lc": "ride-lc", "ride-ms": "observe-ms", "observe-ms": "ride-ms" };
 
-  function switchTrack(name, at = 0) {
+  /* LC ride ends once a peak has been chosen: hand over to MS, or back to learning. */
+  function lcOutro(c, t) {
+    if (c !== 7) return;
+    const a = sm(win(t, 0.86, 0.96));
+    if (a <= 0.01) return;
+    ctx.fillStyle = `rgba(0,0,0,${0.72 * a})`;
+    ctx.fillRect(0, 0, S.w, S.h);
+    const size = Math.min(S.w * 0.05, S.h * 0.085, 56);
+    type("YOU WERE SEPARATED.", S.w / 2, S.h * 0.42, { size, weight: 800, alpha: a, blur: (1 - a) * 6 });
+    whisper("THAT WAS LIQUID CHROMATOGRAPHY", S.w / 2, S.h * 0.42 + size * 0.9, a * 0.6, { align: "center", track: 0.45 });
+    linkRow(
+      [
+        ["NEXT: RIDE THE IONS (MS)  →", () => switchTrack("ride-ms", 8)],
+        ["HOW LC WORKS", () => switchTrack("observe-lc", 0)],
+        ["BACK TO THE MACHINE", () => close()],
+      ],
+      S.h * 0.66,
+      a
+    );
+  }
+
+  function buildRail() {
+    const tr = cur();
+    const n = tr.hi - tr.lo;
+    const rail = root.querySelector(".wr-rail");
+    rail.querySelectorAll("b").forEach((b) => b.remove());
+    for (let i = 0; i < n; i += 1) {
+      const b = document.createElement("b");
+      b.style.top = `${(i / Math.max(1, n - 1)) * 100}%`;
+      b.dataset.ch = String(tr.lo + i);
+      b.addEventListener("click", () => autopilot(Number(b.dataset.ch) + 0.02, 2.2));
+      rail.appendChild(b);
+    }
+    ui.ticks = [...rail.querySelectorAll("b")];
+    root.querySelector(".wr-corner").innerHTML = `WATERS <span>/</span> ${tr.kind === "ms" ? "MASS SPECTROMETRY" : "LIQUID CHROMATOGRAPHY"}`;
+  }
+
+  function switchTrack(name, at) {
     if (!TRACKS[name]) return;
     S.track = name;
+    at = clampT(at == null ? lo() : at);
     S.T = at;
     S.P = at;
     S.prevP = at;
     S.auto = null;
-    S.peak = name === "ride" && at >= 8 ? 2 : null;
+    S.peak = name === "ride-ms" ? 2 : null;
     S.ion = null;
     S.ionAt = null;
     S.chapter = -1;
@@ -1814,6 +1864,7 @@
       p.ox = p.oy = p.vx = p.vy = 0;
     });
     if (root) {
+      buildRail();
       root.dataset.track = name;
       root.classList.add("is-switch");
       setTimeout(() => root && root.classList.remove("is-switch"), 700);
@@ -1847,15 +1898,15 @@
       S.T += dir * Math.min(Math.abs(S.auto.goal - S.T), dt * S.auto.speed);
       if (Math.abs(S.auto.goal - S.T) < 1e-4) S.auto = null;
     }
-    S.T = clamp(S.T, 0, END - 0.001);
+    S.T = clampT(S.T);
     S.prevP = S.P;
     S.P += (S.T - S.P) * (1 - Math.exp(-dt * (reduce ? 12 : 3.4)));
     if (Math.abs(S.T - S.P) < 1e-4) S.P = S.T;
-    const c = Math.min(END - 1, Math.floor(S.P));
+    const c = clamp(Math.floor(S.P), lo(), hi() - 1);
     const t = S.P - c;
 
-    const tr = TRACKS[S.track] || TRACKS.ride;
-    const ride = S.track === "ride";
+    const tr = cur();
+    const ride = !!tr.ride;
     const frozen = ride && c === 4 && t > 0.57 && t < 0.9;
     S.timeScale = lerp(S.timeScale, frozen ? 0.05 : 1, Math.min(1, dt * 4));
     S.clock += dt * S.timeScale;
@@ -1889,6 +1940,7 @@
       ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
     }
     tr.draw[c](t, dt);
+    if (tr.outro) tr.outro(c, t);
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
     if (since < 0.8) flash(Math.exp(-since * 5) * 0.35, S.boomKind === "snap" ? [255, 220, 250] : [220, 240, 255]);
@@ -1908,21 +1960,21 @@
   function chrome(c, t, tr) {
     if (c !== S.chapter) {
       S.chapter = c;
-      ui.no.textContent = String(c).padStart(2, "0");
+      ui.no.textContent = String(c - tr.lo).padStart(2, "0");
       ui.name.textContent = tr.names[c];
-      ui.mode.textContent = S.track === "ride" ? "HOW IT WORKS ↗" : "BECOME THE SAMPLE ↗";
+      ui.mode.textContent = tr.ride ? "HOW IT WORKS ↗" : tr.kind === "ms" ? "RIDE THE IONS ↗" : "BECOME THE SAMPLE ↗";
       ui.chap.classList.remove("is-in");
       void ui.chap.offsetWidth;
       ui.chap.classList.add("is-in");
       root.dataset.chapter = String(c);
-      ui.ticks.forEach((el, i) => el.classList.toggle("is-on", i <= c));
+      ui.ticks.forEach((el, i) => el.classList.toggle("is-on", i <= c - tr.lo));
     }
-    ui.fill.style.transform = `scaleY(${(S.P / (END - 0.001)).toFixed(4)})`;
+    ui.fill.style.transform = `scaleY(${clamp((S.P - tr.lo) / (tr.hi - tr.lo - 0.001), 0, 1).toFixed(4)})`;
     const idle = S.time - S.lastInput > 6;
-    ui.cue.classList.toggle("is-show", (S.P < 0.06 || (idle && c < 10)) && !S.auto);
+    ui.cue.classList.toggle("is-show", (S.P < tr.lo + 0.06 || (idle && c < tr.hi - 1)) && !S.auto);
     root.classList.toggle("is-energy", tr.energy(c, t));
     const hv = S.hot.some((h) => S.mx >= h.x && S.mx <= h.x + h.w && S.my >= h.y && S.my <= h.y + h.h);
-    const ride = S.track === "ride";
+    const ride = !!tr.ride;
     const clicky = hv || (ride && c === 7 && S.hoverPeak != null && t < 0.3) || (ride && c === 9 && S.hoverIon != null);
     const grab = ride ? c === 3 : tr.grab && tr.grab(c, t);
     root.style.cursor = S.down && S.down.moved ? "grabbing" : clicky ? "pointer" : grab ? "grab" : "default";
@@ -1940,7 +1992,7 @@
   function onWheel(e) {
     e.preventDefault();
     const unit = e.deltaMode === 1 ? 18 : e.deltaMode === 2 ? S.h : 1;
-    S.T = clamp(S.T + e.deltaY * unit * 0.00085, 0, END - 0.001);
+    S.T = clampT(S.T + e.deltaY * unit * 0.00085);
     S.auto = null;
     S.lastInput = S.time;
   }
@@ -1955,10 +2007,10 @@
       return;
     }
     if (step != null) {
-      S.T = clamp(S.T + step, 0, END - 0.001);
+      S.T = clampT(S.T + step);
       S.auto = null;
-    } else if (e.key === "Home") S.T = 0;
-    else if (e.key === "End") S.T = END - 0.001;
+    } else if (e.key === "Home") S.T = lo();
+    else if (e.key === "End") S.T = hi() - 0.001;
     else return;
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -1985,7 +2037,7 @@
         S.orbit.pitch = clamp(S.down.pitch + dy * 0.004, -0.5, 0.7);
       }
       if (e.pointerType === "touch") {
-        S.T = clamp(S.down.T - dy * 0.0024, 0, END - 0.001);
+        S.T = clampT(S.down.T - dy * 0.0024);
         S.auto = null;
       }
     }
@@ -2019,7 +2071,7 @@
     }
     const c = Math.floor(S.P);
     const t = S.P - c;
-    if (S.track !== "ride") {
+    if (!isRide()) {
       if (TRACKS[S.track].click) TRACKS[S.track].click(c, t);
       return;
     }
@@ -2057,7 +2109,7 @@
       <div class="wr-corner">WATERS <span>/</span> LC-MS</div>
       <button type="button" class="wr-mode"></button>
       <div class="wr-chap"><span class="wr-chap-no">00</span><span class="wr-chap-name"></span></div>
-      <div class="wr-rail" aria-hidden="true"><i class="wr-rail-fill"></i>${CHAPTERS.map((_, i) => `<b style="top:${(i / (END - 1)) * 100}%" data-ch="${i}"></b>`).join("")}</div>
+      <div class="wr-rail" aria-hidden="true"><i class="wr-rail-fill"></i></div>
       <div class="wr-cue"><span>SCROLL</span><i></i></div>
       <button type="button" class="wr-esc" aria-label="Leave the ride">ESC</button>
       <div class="wr-tip" role="status"></div>`;
@@ -2071,15 +2123,12 @@
       no: root.querySelector(".wr-chap-no"),
       name: root.querySelector(".wr-chap-name"),
       fill: root.querySelector(".wr-rail-fill"),
-      ticks: [...root.querySelectorAll(".wr-rail b")],
+      ticks: [],
       cue: root.querySelector(".wr-cue"),
       tip: root.querySelector(".wr-tip"),
       mode: root.querySelector(".wr-mode"),
     };
-    ui.mode.addEventListener("click", () => {
-      if (S.track === "ride") switchTrack("observe", S.P >= 8 ? 7 : 0);
-      else switchTrack("ride", S.P >= 7 ? 8 : 0);
-    });
+    ui.mode.addEventListener("click", () => switchTrack(MIRROR[S.track]));
     ui.mode.addEventListener("pointerdown", (e) => e.stopPropagation());
     root.addEventListener("wheel", onWheel, { passive: false });
     root.addEventListener("pointermove", onMove);
@@ -2089,7 +2138,6 @@
       S.mx = S.my = -9999;
     });
     root.querySelector(".wr-esc").addEventListener("click", close);
-    ui.ticks.forEach((b) => b.addEventListener("click", () => autopilot(Number(b.dataset.ch) + 0.02, 2.2)));
     root.querySelector(".wr-rail").addEventListener("pointerdown", (e) => e.stopPropagation());
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("resize", resize);
@@ -2115,8 +2163,7 @@
   function open(opts = {}) {
     if (!root) build();
     S.onClose = opts.onClose || null;
-    const at = clamp(opts.at || 0, 0, END - 0.001);
-    switchTrack(TRACKS[opts.track] ? opts.track : "ride", at);
+    switchTrack(TRACKS[opts.track] ? opts.track : "observe-lc", opts.at);
     S.lastInput = 0;
     S.time = 0;
     S.boomT = -10;
@@ -2165,13 +2212,13 @@
   global.WatersRide = {
     kit,
     registerTrack(name, def) {
-      TRACKS[name] = { energy: () => false, ...def };
+      TRACKS[name] = { energy: () => false, lo: 0, hi: def.draw.length, ...def };
     },
     open,
     close,
     isOpen: () => S.open,
     seek: (p) => {
-      S.T = clamp(p, 0, END - 0.001);
+      S.T = clampT(p);
       S.P = S.T;
       S.auto = null;
     },

@@ -654,7 +654,7 @@
     const k = W.explodeOffsets(e)._k;
     instrument(cam03(t), { explode: e, headSplit: k(0.1), rotorOut: k(0.2), spin: k(0.2) * 2.4, colGlow: 0.3 });
     samplePath(e, win(t, 0.55, 0.85), bell(t, 0.5, 1.1, 0.05));
-    const hv = hoverComps(e);
+    const hv = hoverComps(e, false);
     if (hv) compLabel(hv.id, e, 0.9, W.COMP_IDS.indexOf(hv.id));
 
     const a1 = bell(t, 0.48, 1.1, 0.06);
@@ -1888,6 +1888,62 @@
     S.auto = { goal, speed };
   }
 
+  /* Any frame that jumps hard from the last one (a scene cut, a flash, a fast scroll through a
+     short crossfade) dissolves out of the previous picture over real time, so cuts never pop
+     regardless of how fast the reader scrolls. */
+  const CUT = { prev: null, hold: null, probe: null, pctx: null, lum: null, k: 0, avg: 0 };
+  const CUT_SECS = 0.55;
+  function blendCuts(dt) {
+    if (reduce) return;
+    if (!CUT.prev) {
+      CUT.prev = document.createElement("canvas");
+      CUT.hold = document.createElement("canvas");
+      CUT.probe = document.createElement("canvas");
+      CUT.probe.width = 32;
+      CUT.probe.height = 20;
+      CUT.pctx = CUT.probe.getContext("2d", { willReadFrequently: true });
+    }
+    const w = cv.width;
+    const h = cv.height;
+    if (CUT.prev.width !== w || CUT.prev.height !== h) {
+      [CUT.prev, CUT.hold].forEach((c) => {
+        c.width = w;
+        c.height = h;
+      });
+      CUT.lum = null;
+      CUT.k = 0;
+    }
+    CUT.pctx.drawImage(cv, 0, 0, 32, 20);
+    const px = CUT.pctx.getImageData(0, 0, 32, 20).data;
+    const lum = new Float32Array(640);
+    let diff = 0;
+    for (let i = 0; i < 640; i += 1) {
+      lum[i] = px[i * 4] * 0.3 + px[i * 4 + 1] * 0.55 + px[i * 4 + 2] * 0.15;
+      if (CUT.lum) diff += Math.abs(lum[i] - CUT.lum[i]);
+    }
+    diff /= 640;
+    const fresh = CUT.lum != null;
+    CUT.lum = lum;
+    const spike = fresh && diff > Math.max(9, CUT.avg * 3.2) && CUT.k < 0.3;
+    CUT.avg = lerp(CUT.avg, diff, 0.12);
+    if (spike) {
+      [CUT.prev, CUT.hold] = [CUT.hold, CUT.prev];
+      CUT.k = 1;
+    }
+    const pc = CUT.prev.getContext("2d");
+    pc.clearRect(0, 0, w, h);
+    pc.drawImage(cv, 0, 0);
+    if (CUT.k > 0) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = CUT.k * CUT.k * (3 - 2 * CUT.k);
+      ctx.drawImage(CUT.hold, 0, 0);
+      ctx.restore();
+      CUT.k = Math.max(0, CUT.k - dt / CUT_SECS);
+    }
+  }
+
   function frame(time) {
     if (!S.open) return;
     const dt = S.last ? Math.min(0.05, (time - S.last) / 1000) : 0.016;
@@ -1936,8 +1992,8 @@
     ctx.filter = "none";
     const since = S.time - S.boomT;
     if (!reduce && since < 0.7) {
-      const k = Math.exp(-since * 6) * 22;
-      ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
+      const k = Math.exp(-since * 7) * 7;
+      ctx.translate(Math.sin(since * 47) * k, Math.cos(since * 39) * k * 0.7);
     }
     tr.draw[c](t, dt);
     if (tr.outro) tr.outro(c, t);
@@ -1946,6 +2002,7 @@
     if (since < 0.8) flash(Math.exp(-since * 5) * 0.35, S.boomKind === "snap" ? [255, 220, 250] : [220, 240, 255]);
     vignette(ride && c === 0 ? 0.2 : 0.55);
     chrome(c, t, tr);
+    blendCuts(dt);
     S.raf = requestAnimationFrame(frame);
   }
 
@@ -2167,6 +2224,9 @@
     S.lastInput = 0;
     S.time = 0;
     S.boomT = -10;
+    CUT.lum = null;
+    CUT.k = 0;
+    CUT.avg = 0;
     S.open = true;
     root.hidden = false;
     root.classList.remove("is-closing");

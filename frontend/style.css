@@ -3764,6 +3764,9 @@ body.wm-lock { overflow: hidden; }
 .wm.is-lab .wm-labels { opacity: 0 !important; pointer-events: none; }
 .wm.is-lab .wm-panel { opacity: 0; pointer-events: none; }
 .wm.is-lab .wm-hint { display: none; }
+.wm.is-lab .wm-intro,
+.wm.is-lab .wm-you-word { opacity: 0 !important; pointer-events: none !important; visibility: hidden; }
+.wm:not(.is-lab) .wl-hud { display: none !important; }
 @media (max-width: 900px) {
   .wl-hud .wl-top { top: 3.4rem; left: 1.1rem; }
   .wl-parts { left: 0.6rem; gap: 0; }

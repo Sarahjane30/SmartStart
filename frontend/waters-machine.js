@@ -575,6 +575,7 @@
   }
 
   function leaveLab() {
+    const wasIn = !!S.lab;
     S.lab = null;
     S.labSig = null;
     delete root.dataset.lab;
@@ -583,10 +584,14 @@
       host.hidden = true;
       host.innerHTML = "";
     }
+    canvas.style.cursor = "default";
+    if (!wasIn) {
+      setHint();
+      return;
+    }
     S.chamber = -1;
     S.level = 1;
-    canvas.style.cursor = "default";
-    renderPanel();
+    if (S.open) renderPanel();
     setHint();
   }
 
@@ -1379,10 +1384,7 @@
   }
 
   function enterFinale() {
-    if (S.lab) {
-      S.lab = null;
-      delete root.dataset.lab;
-    }
+    leaveLab();
     S.active = null;
     S.finale = true;
     S.finaleShown = false;
@@ -1608,6 +1610,7 @@
     S.assemble = 0;
     S.closing = 0;
     S.last = 0;
+    leaveLab();
     els.intro.classList.remove("is-gone");
     leaveFinale();
     renderPanel();
@@ -1635,8 +1638,8 @@
     if (!S.open) return;
     S.open = false;
     cancelAnimationFrame(S.raf);
-    S.lab = null;
-    delete root.dataset.lab;
+    leaveLab();
+    els.intro.classList.add("is-gone");
     root.classList.remove("is-open", "is-lab", "is-active", "is-finale");
     document.body.classList.remove("wm-lock");
     els.sources.hidden = true;

@@ -520,7 +520,7 @@
   }
 
   /* The LC/MS ride is its own full-screen film; the machine sleeps underneath until it ends. */
-  function enterRide(kind) {
+  function enterRide(kind, trackName = "observe") {
     if (!window.WatersRide) return;
     hideIntro();
     if (S.finale) leaveFinale();
@@ -528,7 +528,8 @@
     cancelAnimationFrame(S.raf);
     root.classList.add("is-ride");
     window.WatersRide.open({
-      at: kind === "ms" ? 8 : 0,
+      track: trackName,
+      at: kind === "ms" ? (trackName === "observe" ? 7 : 8) : 0,
       onClose: () => {
         if (!S.ride) return;
         S.ride = false;
@@ -1071,7 +1072,8 @@
               <header><span class="wm-ch-tag">${esc(ch.short)}</span><strong>${esc(ch.name)}</strong></header>
               <ol class="wm-steps">${ch.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
               <p>${esc(ch.simple)}</p>
-              <button type="button" class="wm-ride-enter" data-ride="${i === 1 ? "ms" : "lc"}">${i === 1 ? "Ride the ions" : "Become the sample"} →</button>
+              <button type="button" class="wm-ride-enter" data-ride="${i === 1 ? "ms" : "lc"}" data-track="observe">How it works →</button>
+              <button type="button" class="wm-ride-enter is-dive" data-ride="${i === 1 ? "ms" : "lc"}" data-track="ride">${i === 1 ? "Ride the ions" : "Become the sample"} →</button>
               <button type="button" class="wm-deep-btn" aria-expanded="false">Explain deeper</button>
               <div class="wm-deeper" hidden><span>The technical version</span>${esc(ch.deeper)}</div>
             </article>`
@@ -1179,7 +1181,7 @@
       P.querySelectorAll("[data-ride]").forEach((b) =>
         b.addEventListener("click", (e) => {
           e.stopPropagation();
-          enterRide(b.dataset.ride);
+          enterRide(b.dataset.ride, b.dataset.track);
         })
       );
       P.querySelectorAll(".wm-chamber").forEach((card) => {

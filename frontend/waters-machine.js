@@ -59,6 +59,7 @@
     overview: "Move to look around · hover a part to light it up · click to open · scroll to travel",
     active: "Click the part again to zoom · scroll or → for next · Esc to step back",
     deep: "Scroll or → for next · Esc to step back",
+    lab: "Click the vial to inject · click peaks to identify · Esc to leave the experiment",
   };
 
   const fib = (n) =>
@@ -118,6 +119,7 @@
     youT: 0,
     youStage: 0,
     chamber: -1,
+    lab: null,
     site: null,
     node: null,
     area: -1,
@@ -466,6 +468,17 @@
   }
 
   function drawChambers(P, a, k) {
+    if (S.lab && window.WatersLab) {
+      window.WatersLab.draw(S.lab, {
+        ctx,
+        project,
+        glow,
+        origin: P,
+        alpha: a,
+        t: S.t,
+      });
+      return;
+    }
     const open = S.fx.technology.open;
     ctx.globalCompositeOperation = "lighter";
     const l = project([P[0] - 0.28 * k, P[1], P[2]]);
@@ -517,6 +530,29 @@
         }
       }
     });
+  }
+
+  function enterLab(kind) {
+    if (!window.WatersLab) return;
+    hideIntro();
+    if (S.finale) leaveFinale();
+    S.active = "technology";
+    S.level = 2;
+    S.chamber = kind === "ms" ? 1 : 0;
+    S.lab = window.WatersLab.create(kind === "ms" ? "ms" : "lc");
+    if (reduce) S.lab.assemble = 1;
+    root.dataset.lab = S.lab.kind;
+    renderPanel();
+    setHint();
+  }
+
+  function leaveLab() {
+    S.lab = null;
+    delete root.dataset.lab;
+    S.chamber = -1;
+    S.level = 1;
+    renderPanel();
+    setHint();
   }
 
   function drawImpact(P, a, k) {
@@ -773,29 +809,33 @@
   function targets() {
     const active = S.active;
     const youLit = active === "you" && S.youT > 5.4;
+    const inLab = !!S.lab;
     ORDER.forEach((id) => {
       const fx = S.fx[id];
       let a;
       if (S.finale) a = 1 - ease(S.closing * 1.2);
+      else if (inLab) a = id === "technology" ? 1 : 0.04;
       else if (active) a = id === active ? 1 : active === "you" ? (youLit ? 0.22 : 0.04) : 0.15;
       else if (S.hover) a = id === S.hover ? 1 : 0.26;
       else a = id === "you" ? 0.6 : 0.92;
       fx.ta = a * ease(S.assemble * 1.3 - ORDER.indexOf(id) * 0.08);
-      fx.tk = id === active || id === S.hover ? 1.08 : 1;
-      fx.topen = id === active ? (id === "technology" ? (S.level > 1 || S.chamber >= 0 ? 1 : 0.35) : 1) : 0;
+      fx.tk = id === active || id === S.hover || (inLab && id === "technology") ? 1.08 : 1;
+      fx.topen = id === active ? (id === "technology" ? (S.level > 1 || S.chamber >= 0 || inLab ? 1 : 0.35) : 1) : 0;
     });
     const core = S.fx.core;
     core.ta = S.finale
       ? 1 - ease(S.closing) * 0.85
-      : active === "you"
-        ? youLit
-          ? 0.75
-          : 0.06
-        : active
-          ? 0.22
-          : S.hover
-            ? 0.4
-            : 1;
+      : inLab
+        ? 0.08
+        : active === "you"
+          ? youLit
+            ? 0.75
+            : 0.06
+          : active
+            ? 0.22
+            : S.hover
+              ? 0.4
+              : 1;
   }
 
   function cameraTargets() {
@@ -803,6 +843,14 @@
     let cam = [0, 0, 0];
     let zoom = S.narrow ? 0.78 : 1;
     let shift = 0;
+    if (S.lab) {
+      const pull = S.lab.camPull || ease(S.lab.assemble);
+      cam = [0, 1.35, -0.15];
+      zoom = lerp(1.2, S.narrow ? 1.55 : 1.95, pull);
+      if (!S.narrow) shift = -S.w * 0.2;
+      const shiftY = S.narrow ? -S.h * 0.22 : 0;
+      return { cam, zoom, shift, shiftY };
+    }
     if (active) {
       const L = LAYOUT[active];
       cam = L.pos.slice();
@@ -833,6 +881,13 @@
     S.smy = lerp(S.smy, S.my, Math.min(1, dt * 3));
 
     targets();
+    if (S.lab && window.WatersLab) {
+      const prev = S.lab.phase;
+      const prevFocus = S.lab.focus;
+      window.WatersLab.update(S.lab, dt, reduce);
+      if (S.lab.phase !== prev || S.lab.focus !== prevFocus) renderPanel();
+      root.dataset.lab = S.lab.kind;
+    }
     const k6 = Math.min(1, dt * 5);
     [...ORDER, "core"].forEach((id) => {
       const fx = S.fx[id];
@@ -1031,6 +1086,7 @@
         <p class="wm-plain"><span>The point</span>Not just measuring things — helping scientists make better decisions.</p>`;
     },
     technology(c) {
+      if (S.lab && window.WatersLab) return window.WatersLab.panelHtml(S.lab);
       return `${kicker(c)}<h2>${esc(c.title)}</h2>
         <p class="wm-lead">${esc(c.lead)}</p>
         <div class="wm-chambers">${c.chambers
@@ -1039,6 +1095,7 @@
               <header><span class="wm-ch-tag">${esc(ch.short)}</span><strong>${esc(ch.name)}</strong></header>
               <ol class="wm-steps">${ch.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
               <p>${esc(ch.simple)}</p>
+              <button type="button" class="wm-lab-enter" data-enter-lab="${i === 1 ? "ms" : "lc"}">Enter the experiment →</button>
               <button type="button" class="wm-deep-btn" aria-expanded="false">Explain deeper</button>
               <div class="wm-deeper" hidden><span>The technical version</span>${esc(ch.deeper)}</div>
             </article>`
@@ -1099,8 +1156,11 @@
     }
     const c = comp(id);
     els.panel.dataset.part = id;
-    els.panel.innerHTML = `<div class="wm-panel-body">${PANELS[id](c)}</div>${navFooter(id)}`;
-    els.panel.classList.toggle("is-show", id !== "you" || S.youStage >= 4);
+    const body = PANELS[id](c);
+    els.panel.innerHTML = S.lab
+      ? `<div class="wm-panel-body">${body}</div>`
+      : `<div class="wm-panel-body">${body}</div>${navFooter(id)}`;
+    els.panel.classList.toggle("is-show", id !== "you" || S.youStage >= 4 || !!S.lab);
     if (id === "you") {
       els.youCard.innerHTML = `<strong>${esc(c.name)}</strong><span class="l2">${esc(c.role_title)}</span><span class="l2 dim">${esc(c.team)} · ${esc(c.department)}</span>`;
     }
@@ -1112,15 +1172,34 @@
     P.querySelectorAll("[data-nav]").forEach((b) =>
       b.addEventListener("click", () => goStep(ORDER.indexOf(S.active) + Number(b.dataset.nav)))
     );
+    if (S.lab && window.WatersLab) {
+      P.querySelectorAll("[data-lab]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const result = window.WatersLab.onAction(S.lab, b.dataset.lab);
+          if (result === "exit") leaveLab();
+          else renderPanel();
+        })
+      );
+      P.querySelectorAll("[data-peak]").forEach((b) =>
+        b.addEventListener("click", () => {
+          window.WatersLab.onAction(S.lab, { type: "peak", id: b.dataset.peak });
+          renderPanel();
+        })
+      );
+      return;
+    }
     if (id === "science") {
       const c = comp("science");
       P.querySelectorAll(".wm-x").forEach((b) =>
         b.addEventListener("click", () => {
           const x = c.explore[Number(b.dataset.x)];
+          if (x.goto === "technology") {
+            const kind = /mass/i.test(x.name) ? "ms" : "lc";
+            enterLab(kind);
+            return;
+          }
           if (x.goto) {
             goStep(ORDER.indexOf(x.goto));
-            S.chamber = x.name.startsWith("Mass") ? 1 : 0;
-            renderPanel();
             return;
           }
           const d = b.parentElement.querySelector(".wm-deeper");
@@ -1140,6 +1219,12 @@
       });
     }
     if (id === "technology") {
+      P.querySelectorAll("[data-enter-lab]").forEach((b) =>
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          enterLab(b.dataset.enterLab);
+        })
+      );
       P.querySelectorAll(".wm-chamber").forEach((card) => {
         const on = () => {
           S.chamber = Number(card.dataset.ch);
@@ -1147,8 +1232,11 @@
         };
         card.addEventListener("mouseenter", on);
         card.addEventListener("focus", on);
-        card.addEventListener("click", on);
-        card.querySelector(".wm-deep-btn").addEventListener("click", (e) => {
+        card.addEventListener("click", () => {
+          on();
+          enterLab(Number(card.dataset.ch) === 1 ? "ms" : "lc");
+        });
+        card.querySelector(".wm-deep-btn")?.addEventListener("click", (e) => {
           e.stopPropagation();
           const d = card.querySelector(".wm-deeper");
           d.hidden = !d.hidden;
@@ -1189,9 +1277,16 @@
   /* ---------- navigation ---------- */
 
   function setHint() {
-    const key = S.active ? (["world", "people", "you"].includes(S.active) || S.level > 1 ? "deep" : "active") : "overview";
+    const key = S.lab
+      ? "lab"
+      : S.active
+        ? ["world", "people", "you"].includes(S.active) || S.level > 1
+          ? "deep"
+          : "active"
+        : "overview";
     els.hint.textContent = S.finale ? "" : HINTS[key];
-    root.classList.toggle("is-active", !!S.active);
+    root.classList.toggle("is-active", !!S.active || !!S.lab);
+    root.classList.toggle("is-lab", !!S.lab);
     root.classList.toggle("is-finale", S.finale);
     els.rail.querySelectorAll(".wm-rail-btn").forEach((b) => {
       const i = Number(b.dataset.step);
@@ -1208,6 +1303,7 @@
   function select(id) {
     hideIntro();
     if (S.finale) leaveFinale();
+    if (S.lab) leaveLab();
     if (S.active === id) {
       if (["science", "impact", "technology"].includes(id)) {
         S.level = S.level > 1 ? 1 : 2;
@@ -1233,6 +1329,7 @@
 
   function overview() {
     if (S.finale) leaveFinale();
+    if (S.lab) leaveLab();
     S.active = null;
     S.level = 1;
     S.globeTarget = null;
@@ -1257,6 +1354,10 @@
   }
 
   function enterFinale() {
+    if (S.lab) {
+      S.lab = null;
+      delete root.dataset.lab;
+    }
     S.active = null;
     S.finale = true;
     S.finaleShown = false;
@@ -1318,6 +1419,12 @@
     const r = canvas.getBoundingClientRect();
     S.mx = ((e.clientX - r.left) / r.width) * 2 - 1;
     S.my = ((e.clientY - r.top) / r.height) * 2 - 1;
+    if (S.lab && window.WatersLab) {
+      const labHit = window.WatersLab.hit(S.lab, e.clientX - r.left, e.clientY - r.top);
+      S.lab.hover = labHit?.type === "vial" ? "vial" : labHit?.type === "peak" ? labHit.id : null;
+      canvas.style.cursor = labHit ? "pointer" : "default";
+      return;
+    }
     if (S.intro || S.finale) return;
     const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
     if (!S.active) S.hover = hit;
@@ -1346,7 +1453,17 @@
 
   function onClick(e) {
     const r = canvas.getBoundingClientRect();
-    const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    if (S.lab && window.WatersLab) {
+      const labHit = window.WatersLab.hit(S.lab, x, y);
+      if (labHit) {
+        window.WatersLab.onAction(S.lab, labHit);
+        renderPanel();
+      }
+      return;
+    }
+    const hit = hitTest(x, y);
     if (S.intro) {
       hideIntro();
       if (hit) select(hit);
@@ -1358,6 +1475,7 @@
   }
 
   function onWheel(e) {
+    if (S.lab) return;
     const inPanel = e.target.closest(".wm-panel, .wm-sources");
     if (inPanel && inPanel.scrollHeight > inPanel.clientHeight + 2) return;
     e.preventDefault();
@@ -1376,9 +1494,12 @@
     if (e.key === "Escape") {
       e.preventDefault();
       if (!els.sources.hidden) els.sources.hidden = true;
+      else if (S.lab) leaveLab();
       else if (S.finale) goStep(ORDER.length - 1);
       else if (S.active) overview();
       else close();
+    } else if (S.lab) {
+      return;
     } else if (["ArrowRight", "ArrowDown", "PageDown"].includes(e.key) && !e.target.closest("input, textarea")) {
       e.preventDefault();
       step(1);
@@ -1476,7 +1597,9 @@
     if (!S.open) return;
     S.open = false;
     cancelAnimationFrame(S.raf);
-    root.classList.remove("is-open");
+    S.lab = null;
+    delete root.dataset.lab;
+    root.classList.remove("is-open", "is-lab", "is-active", "is-finale");
     document.body.classList.remove("wm-lock");
     els.sources.hidden = true;
     setTimeout(() => {

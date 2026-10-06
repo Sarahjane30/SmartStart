@@ -55,12 +55,12 @@ SCIENCE = {
     "explore": [
         {
             "name": "Liquid chromatography",
-            "simple": "Separates a mixture into its ingredients.",
+            "simple": "Enter the experiment — inject a sample and watch compounds separate.",
             "goto": "technology",
         },
         {
             "name": "Mass spectrometry",
-            "simple": "Identifies each ingredient and how much of it there is.",
+            "simple": "Follow the sample into the analyzer — ions split by mass-to-charge.",
             "goto": "technology",
         },
         {

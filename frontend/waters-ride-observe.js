@@ -18,7 +18,7 @@
   const AMBER = [255, 196, 120];
   const MOLS = W.MOLS;
 
-  const LC_NAMES = ["HOW LC WORKS", "THE SOLVENTS", "THE PUMP", "THE INJECTOR", "THE COLUMN", "THE UV DETECTOR", "READING THE PEAKS", "YOUR TURN"];
+  const LC_NAMES = ["THE LC SYSTEM", "THE SOLVENTS", "THE PUMP", "THE INJECTOR", "THE COLUMN", "THE UV DETECTOR", "READING THE PEAKS", "YOUR TURN"];
   const MS_NAMES = ["HOW MS WORKS", "THE ION SOURCE", "THE QUADRUPOLE", "COUNTING IONS", "YOUR TURN"];
 
   const cx = () => kit.ctx;
@@ -370,21 +370,43 @@
 
   /* ---------- 00 · overview ---------- */
 
+  const JOBS = { reservoir: "holds the solvents", detector: "sees what comes out", column: "keeps the column warm", injector: "injects the sample", pump: "pushes the solvent" };
+
+  /* One instrument, as it sits on the bench, that comes apart into the five parts of LC. */
   function ov(t) {
     const L = layout();
     const w = S.w;
     const h = S.h;
     backdrop(t);
-    const yaw = lerp(-0.18, 0.22, t);
-    const tg = v(5.6, 0.75, 0.2);
-    const d = L.wide ? 13.2 : 17;
-    const cam = { pos: v(tg.x + Math.sin(yaw) * d, 3.4, tg.z + Math.cos(yaw) * d), target: tg, fov: 40 * DEG };
+    const b = win(t, 0.3, 0.8);
+    const k = G.ease(win(t, 0.26, 0.84));
+    const T0 = v(5.2, 1.2, 0.2);
+    const T1 = v(5.6, 0.75, 0.2);
+    const d = lerp(L.wide ? 8.4 : 11, L.wide ? 13.2 : 17, k);
+    const yaw = lerp(-0.62, 0.22, t);
+    const el = lerp(0.24, 0.2, k);
+    const tg = G.mix3(T0, T1, k);
+    const cam = { pos: v(tg.x + Math.sin(yaw) * Math.cos(el) * d, tg.y + Math.sin(el) * d, tg.z + Math.cos(yaw) * Math.cos(el) * d), target: tg, fov: 40 * DEG };
     const c = cx();
     c.save();
-    c.translate(L.wide ? -w * 0.06 : 0, -h * 0.17);
-    kit.instrument(cam, { detGlow: 0.35, loop: 0.5 }, sm(win(t, 0, 0.12)));
+    c.translate(lerp(L.wide ? w * 0.12 : 0, L.wide ? -w * 0.06 : 0, k), lerp(-h * 0.1, -h * 0.17, k));
+    kit.setCam(cam);
+    W.drawTower(R, { break: b, time: S.clock, alpha: sm(win(t, 0, 0.1)), detGlow: 0.35, loop: 0.5 });
+    c.globalCompositeOperation = "source-over";
+    R.flush(c);
+    const pre = sm(win(t, 0.04, 0.14)) * (1 - sm(win(t, 0.26, 0.33)));
+    W.STACK.forEach((m, i) => {
+      const al = pre * sm(win(t, 0.05 + i * 0.025, 0.12 + i * 0.025));
+      if (al <= 0.01) return;
+      const q = R.project(G.add(W.towerSlot(m), v(W.TOWER.w + 0.02, m.id === "reservoir" ? 0.2 : 0, 0)));
+      if (!q.vis) return;
+      const lx = q.x + 40 + (i % 2) * 18;
+      callout(q.x, q.y, lx, q.y, m.name, al, { sub: JOBS[m.id] });
+    });
     W.COMP_IDS.forEach((id, i) => {
-      const al = sm(win(t, 0.08 + i * 0.05, 0.16 + i * 0.05));
+      const m = W.STACK.find((x) => x.id === id);
+      const f = W.towerFlight(m, b);
+      const al = sm(win(f.k, 0.88, 1)) * sm(win(t, 0.5, 0.6));
       const q = R.project(W.COMP[id].c);
       if (!q.vis || al <= 0.01) return;
       const ly = q.y - W.COMP[id].r * q.s * 0.95 - (i % 2) * 22;
@@ -397,33 +419,14 @@
       c.restore();
       whisper(`0${i + 1}  ${W.COMP[id].label}`, q.x, ly, al, { align: "center", weight: 600, color: WHITE });
     });
-    const p = R.project(W.COMP.detector.c);
-    const ms = 0;
-    if (p.vis && ms > 0.01) {
-      const x0 = p.x + 60;
-      const x1 = Math.min(w * 0.97, x0 + w * 0.16);
-      c.save();
-      c.strokeStyle = rgba(MAGENTA, ms * 0.6);
-      c.setLineDash([4, 8]);
-      c.lineDashOffset = -S.time * 30;
-      c.lineWidth = 1.4;
-      c.beginPath();
-      c.moveTo(p.x + 30, p.y);
-      c.lineTo(x1 - 10, p.y);
-      c.stroke();
-      c.restore();
-      arrowHead(x1 - 6, p.y, 0, 7, MAGENTA, ms * 0.8);
-      whisper("06–08  MASS SPEC", x1 - 6, p.y - 18, ms, { align: "right", weight: 600, color: [255, 190, 235] });
-      whisper("ion source · quadrupole · detector", x1 - 6, p.y + 18, ms * 0.6, { align: "right", size: 9.5, track: 0.06 });
-    }
     c.restore();
     lesson(t, L, {
       kicker: "LC  ·  HOW IT WORKS",
-      title: "Liquid chromatography",
+      title: "One instrument, five jobs.",
       steps: [
-        [0.0, "LC separates a mixture into its individual compounds. It pushes the sample, dissolved in liquid, through a column that holds some compounds back longer than others."],
-        [0.3, "Five parts do the work: the solvents, a pump, an injector, the column and a detector."],
-        [0.6, "Scroll to follow the liquid through each one, in order. Drag to turn the machine."],
+        [0.0, "This is a complete liquid chromatography (LC) system, the way it sits on a lab bench: one tower of stacked modules."],
+        [0.3, "Let's take it apart. Each module does one job: hold the solvents, pump them, inject the sample, separate it in the column, and detect what comes out."],
+        [0.7, "Laid out in the order the liquid flows, that's the whole of LC. Scroll to look inside each part. Drag to turn the machine."],
       ],
     });
   }

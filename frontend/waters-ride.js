@@ -58,6 +58,7 @@
 
   const S = {
     open: false,
+    track: "ride",
     T: 0,
     P: 0,
     prevP: 0,
@@ -1713,22 +1714,31 @@
       const size = Math.min(w * 0.058, 66);
       type("YOU WERE THE SAMPLE.", w / 2, h * 0.22, { size, weight: 800, track: 0.01, alpha: end, blur: (1 - end) * 8 });
       whisper("LIQUID CHROMATOGRAPHY  ·  MASS SPECTROMETRY", w / 2, h * 0.22 + size * 0.95, end * 0.6, { align: "center", track: 0.45 });
-      const links = [
-        ["↺  RIDE AGAIN", () => autopilot(0, 4, true)],
-        ["BACK TO THE MACHINE  →", () => close()],
-      ];
-      const y = h * 0.86;
-      let x = w / 2 - 170;
-      links.forEach(([label, act], i) => {
-        const tw = measure(label, 11, 600, 0.32, true);
-        const lx = i === 0 ? w / 2 - 40 - tw : w / 2 + 40;
-        const over = hot(lx - 8, y - 14, tw + 16, 28, act);
-        whisper(label, lx, y, end * (over ? 1 : 0.6), { weight: 600, color: WHITE });
-        ctx.fillStyle = rgba(WHITE, end * 0.7);
-        ctx.fillRect(lx, y + 11, tw * (over ? 1 : 0.15), 1);
-        x += tw;
-      });
+      linkRow(
+        [
+          ["↺  RIDE AGAIN", () => autopilot(0, 4, true)],
+          ["HOW IT WORKS", () => switchTrack("observe", 0)],
+          ["BACK TO THE MACHINE  →", () => close()],
+        ],
+        h * 0.86,
+        end
+      );
     }
+  }
+
+  /* A centred row of tiny typographic links — the only "buttons" the film ever shows. */
+  function linkRow(links, y, alpha) {
+    const gap = 56;
+    const widths = links.map(([label]) => measure(label, 11, 600, 0.32, true));
+    let x = S.w / 2 - (widths.reduce((a, b) => a + b, 0) + gap * (links.length - 1)) / 2;
+    links.forEach(([label, act], i) => {
+      const tw = widths[i];
+      const over = hot(x - 8, y - 14, tw + 16, 28, act);
+      whisper(label, x, y, alpha * (over ? 1 : 0.6), { weight: 600, color: WHITE });
+      ctx.fillStyle = rgba(WHITE, alpha * 0.7);
+      ctx.fillRect(x, y + 11, tw * (over ? 1 : 0.15), 1);
+      x += tw + gap;
+    });
   }
 
   function specField() {
@@ -1783,7 +1793,32 @@
     stars(a * 0.8);
   }
 
-  const DRAW = [ch00, ch01, ch02, ch03, ch04, ch05, ch06, ch07, ch08, ch09, ch10];
+  const TRACKS = {
+    ride: { names: CHAPTERS, draw: [ch00, ch01, ch02, ch03, ch04, ch05, ch06, ch07, ch08, ch09, ch10], energy: (c, t) => c >= 8 && !(c === 10 && t > 0.7) },
+  };
+
+  function switchTrack(name, at = 0) {
+    if (!TRACKS[name]) return;
+    S.track = name;
+    S.T = at;
+    S.P = at;
+    S.prevP = at;
+    S.auto = null;
+    S.peak = name === "ride" && at >= 8 ? 2 : null;
+    S.ion = null;
+    S.ionAt = null;
+    S.chapter = -1;
+    S.orbit.yaw = 0;
+    S.orbit.pitch = 0;
+    S.parts.forEach((p) => {
+      p.ox = p.oy = p.vx = p.vy = 0;
+    });
+    if (root) {
+      root.dataset.track = name;
+      root.classList.add("is-switch");
+      setTimeout(() => root && root.classList.remove("is-switch"), 700);
+    }
+  }
 
   /* ---------- autopilot, frame, chrome ---------- */
 
@@ -1819,7 +1854,9 @@
     const c = Math.min(END - 1, Math.floor(S.P));
     const t = S.P - c;
 
-    const frozen = c === 4 && t > 0.57 && t < 0.9;
+    const tr = TRACKS[S.track] || TRACKS.ride;
+    const ride = S.track === "ride";
+    const frozen = ride && c === 4 && t > 0.57 && t < 0.9;
     S.timeScale = lerp(S.timeScale, frozen ? 0.05 : 1, Math.min(1, dt * 4));
     S.clock += dt * S.timeScale;
     S.flow += dt * 0.9 * S.timeScale;
@@ -1830,14 +1867,15 @@
     S.cvy = (S.my - S.pmy) / Math.max(dt, 1e-3);
     S.pmx = S.mx;
     S.pmy = S.my;
-    if (!S.down && c !== 3) {
-      S.orbit.yaw = lerp(S.orbit.yaw, 0, Math.min(1, dt * 1.2));
-      S.orbit.pitch = lerp(S.orbit.pitch, 0, Math.min(1, dt * 1.2));
+    if (!S.down && !(ride && c === 3)) {
+      const k = Math.min(1, dt * (ride ? 1.2 : 0.5));
+      S.orbit.yaw = lerp(S.orbit.yaw, 0, k);
+      S.orbit.pitch = lerp(S.orbit.pitch, 0, k);
     }
-    if (c === 0) updateWake(dt);
+    if (ride && c === 0) updateWake(dt);
 
-    if (S.prevP < 6.42 && S.P >= 6.42) boom("boom");
-    if (S.prevP < 9.875 && S.P >= 9.875) boom("snap");
+    if (ride && S.prevP < 6.42 && S.P >= 6.42) boom("boom");
+    if (ride && S.prevP < 9.875 && S.P >= 9.875) boom("snap");
 
     S.hot = [];
     S.tip = "";
@@ -1850,12 +1888,12 @@
       const k = Math.exp(-since * 6) * 22;
       ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
     }
-    DRAW[c](t, dt);
+    tr.draw[c](t, dt);
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
     if (since < 0.8) flash(Math.exp(-since * 5) * 0.35, S.boomKind === "snap" ? [255, 220, 250] : [220, 240, 255]);
-    vignette(c === 0 ? 0.2 : 0.55);
-    chrome(c, t);
+    vignette(ride && c === 0 ? 0.2 : 0.55);
+    chrome(c, t, tr);
     S.raf = requestAnimationFrame(frame);
   }
 
@@ -1867,11 +1905,12 @@
     root.classList.add("is-boom");
   }
 
-  function chrome(c, t) {
+  function chrome(c, t, tr) {
     if (c !== S.chapter) {
       S.chapter = c;
       ui.no.textContent = String(c).padStart(2, "0");
-      ui.name.textContent = CHAPTERS[c];
+      ui.name.textContent = tr.names[c];
+      ui.mode.textContent = S.track === "ride" ? "HOW IT WORKS ↗" : "BECOME THE SAMPLE ↗";
       ui.chap.classList.remove("is-in");
       void ui.chap.offsetWidth;
       ui.chap.classList.add("is-in");
@@ -1881,10 +1920,12 @@
     ui.fill.style.transform = `scaleY(${(S.P / (END - 0.001)).toFixed(4)})`;
     const idle = S.time - S.lastInput > 6;
     ui.cue.classList.toggle("is-show", (S.P < 0.06 || (idle && c < 10)) && !S.auto);
-    root.classList.toggle("is-energy", c >= 8 && !(c === 10 && t > 0.7));
+    root.classList.toggle("is-energy", tr.energy(c, t));
     const hv = S.hot.some((h) => S.mx >= h.x && S.mx <= h.x + h.w && S.my >= h.y && S.my <= h.y + h.h);
-    const clicky = hv || (c === 7 && S.hoverPeak != null && t < 0.3) || (c === 9 && S.hoverIon != null);
-    root.style.cursor = S.down && S.down.moved ? "grabbing" : clicky ? "pointer" : c === 3 ? "grab" : "default";
+    const ride = S.track === "ride";
+    const clicky = hv || (ride && c === 7 && S.hoverPeak != null && t < 0.3) || (ride && c === 9 && S.hoverIon != null);
+    const grab = ride ? c === 3 : tr.grab && tr.grab(c, t);
+    root.style.cursor = S.down && S.down.moved ? "grabbing" : clicky ? "pointer" : grab ? "grab" : "default";
     if (S.tip) {
       ui.tip.textContent = S.tip;
       ui.tip.style.transform = `translate(${Math.min(S.mx + 18, S.w - 300)}px, ${S.my + 16}px)`;
@@ -1951,7 +1992,7 @@
   }
 
   function onDown(e) {
-    if (e.target.closest(".wr-esc, .wr-rail")) return;
+    if (e.target.closest(".wr-esc, .wr-rail, .wr-mode")) return;
     pointer(e);
     S.down = { x: S.mx, y: S.my, yaw: S.orbit.yaw, pitch: S.orbit.pitch, T: S.T, moved: false };
     try {
@@ -1978,6 +2019,10 @@
     }
     const c = Math.floor(S.P);
     const t = S.P - c;
+    if (S.track !== "ride") {
+      if (TRACKS[S.track].click) TRACKS[S.track].click(c, t);
+      return;
+    }
     if (c === 7 && t < 0.3 && S.hoverPeak != null) {
       S.peak = S.hoverPeak;
       S.T = Math.max(S.T, 7.28);
@@ -2010,6 +2055,7 @@
     root.innerHTML = `
       <canvas class="wr-canvas" aria-hidden="true"></canvas>
       <div class="wr-corner">WATERS <span>/</span> LC-MS</div>
+      <button type="button" class="wr-mode"></button>
       <div class="wr-chap"><span class="wr-chap-no">00</span><span class="wr-chap-name"></span></div>
       <div class="wr-rail" aria-hidden="true"><i class="wr-rail-fill"></i>${CHAPTERS.map((_, i) => `<b style="top:${(i / (END - 1)) * 100}%" data-ch="${i}"></b>`).join("")}</div>
       <div class="wr-cue"><span>SCROLL</span><i></i></div>
@@ -2028,7 +2074,13 @@
       ticks: [...root.querySelectorAll(".wr-rail b")],
       cue: root.querySelector(".wr-cue"),
       tip: root.querySelector(".wr-tip"),
+      mode: root.querySelector(".wr-mode"),
     };
+    ui.mode.addEventListener("click", () => {
+      if (S.track === "ride") switchTrack("observe", S.P >= 8 ? 7 : 0);
+      else switchTrack("ride", S.P >= 7 ? 8 : 0);
+    });
+    ui.mode.addEventListener("pointerdown", (e) => e.stopPropagation());
     root.addEventListener("wheel", onWheel, { passive: false });
     root.addEventListener("pointermove", onMove);
     root.addEventListener("pointerdown", onDown);
@@ -2064,14 +2116,7 @@
     if (!root) build();
     S.onClose = opts.onClose || null;
     const at = clamp(opts.at || 0, 0, END - 0.001);
-    S.T = at;
-    S.P = at;
-    S.prevP = at;
-    S.auto = null;
-    S.peak = at >= 8 ? 2 : null;
-    S.ion = null;
-    S.ionAt = null;
-    S.chapter = -1;
+    switchTrack(TRACKS[opts.track] ? opts.track : "ride", at);
     S.lastInput = 0;
     S.time = 0;
     S.boomT = -10;
@@ -2101,7 +2146,27 @@
     if (cb) cb();
   }
 
+  /* Everything another track needs to draw in the same visual language. */
+  const kit = {
+    get ctx() {
+      return ctx;
+    },
+    S, R, G, W, PEAKS, END,
+    win, sm, bell, easeIO, easeIn, K, track, camMix,
+    type, measure, whisper, ghost, hot, linkRow,
+    bgBlack, bgVoid, stars, vignette, flash,
+    setCam, instrument, compLabel, hoverComps, drawChrom, chromBox,
+    autopilot, switchTrack, close,
+    get OVERVIEW() {
+      return OVERVIEW;
+    },
+  };
+
   global.WatersRide = {
+    kit,
+    registerTrack(name, def) {
+      TRACKS[name] = { energy: () => false, ...def };
+    },
     open,
     close,
     isOpen: () => S.open,
@@ -2110,7 +2175,7 @@
       S.P = S.T;
       S.auto = null;
     },
-    state: () => ({ P: S.P, T: S.T, chapter: S.chapter, peak: S.peak, ion: S.ion, hoverIon: S.hoverIon, hoverPeak: S.hoverPeak }),
+    state: () => ({ track: S.track, P: S.P, T: S.T, chapter: S.chapter, peak: S.peak, ion: S.ion, hoverIon: S.hoverIon, hoverPeak: S.hoverPeak }),
     pick: (kind, i) => {
       if (kind === "peak") S.peak = i;
       if (kind === "ion") {

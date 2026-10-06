@@ -554,12 +554,15 @@
       if (reveal >= 1) return 1;
       return ease(clamp((reveal - COMP[id].u + 0.035) / 0.07, 0, 1));
     };
-    const vis = (id) => (st.only ? (st.only.includes(id) ? 1 : st.dim || 0) : 1);
-    const off = (id) => add(ex[id], v(0, -(1 - appear(id)) * 0.7, 0));
+    const vis = (id) => {
+      if (st.compAlpha) return st.compAlpha[id] || 0;
+      return st.only ? (st.only.includes(id) ? 1 : st.dim || 0) : 1;
+    };
+    const off = (id) => add(add(ex[id], v(0, -(1 - appear(id)) * 0.7, 0)), (st.compOff && st.compOff[id]) || v(0, 0, 0));
 
     const fluid = { color: [120, 210, 255], alpha: 0.5 };
     TUBES.forEach((t) => {
-      const ta = a * Math.min(vis(t.from), vis(t.to));
+      const ta = a * Math.min(vis(t.from), vis(t.to)) * (st.tubeAlpha == null ? 1 : st.tubeAlpha);
       if (ta <= 0.01) return;
       let f = 1;
       if (reveal < 1) {
@@ -701,6 +704,90 @@
     G.decal(R, add(c, v(0.3, -0.3, 0.43)), "λ 254 nm", { size: 0.045, mono: true, weight: 500, color: [96, 180, 230], alpha: a, lift: 0.5 });
   }
 
+  /* ---------- the integrated system: one stacked tower, as it sits on a bench ---------- */
+
+  const TOWER = { base: v(5.2, 0, 0.2), w: 0.78, d: 0.62 };
+  /* Top-down, because that's how you'd lift modules off a real stack. */
+  const STACK = [
+    { id: "reservoir", y: 2.16, hy: 0.05, name: "SOLVENT TRAY", to: v(0.44, 0.05, 0.84), delay: 0 },
+    { id: "detector", y: 1.84, hy: 0.25, name: "PDA DETECTOR", to: v(0.58, 0.46, 0.42), delay: 0.12 },
+    { id: "column", y: 1.42, hy: 0.15, name: "COLUMN MANAGER", to: v(1.25, 0.2, 0.22), delay: 0.24 },
+    { id: "injector", y: 0.95, hy: 0.3, name: "SAMPLE MANAGER", to: v(0.5, 0.5, 0.4), delay: 0.36 },
+    { id: "pump", y: 0.34, hy: 0.32, name: "BINARY SOLVENT MANAGER", to: v(0.62, 0.42, 0.45), delay: 0.48 },
+  ];
+  const towerSlot = (m) => add(TOWER.base, v(0, m.y, 0));
+  const towerK = (m, b) => ease(clamp((b - m.delay) / 0.5, 0, 1));
+
+  /* Where a module is mid-flight: an arc up and toward the viewer, from its slot to its part. */
+  function towerFlight(m, b) {
+    const k = towerK(m, b);
+    const target = m.id === "column" ? v(7.6, 0.65, 0.15) : COMP[m.id].c;
+    const p = mix3(towerSlot(m), target, k);
+    return { k, p: add(p, v(0, Math.sin(Math.PI * k) * 0.9, Math.sin(Math.PI * k) * 0.8)), target };
+  }
+
+  function drawModuleShell(R, m, c, hs, a, time) {
+    const dark = [14, 22, 44];
+    const fz = hs.z + 0.004;
+    G.drawBox(R, null, c, hs, { color: PEARL, alpha: a, radius: 10 });
+    G.drawBox(R, null, add(c, v(-hs.x + 0.03, 0, fz)), v(0.008, hs.y * 0.7, 0.004), { color: CYAN, alpha: a, radius: 2, lift: 0.3 });
+    G.decal(R, add(c, v(-hs.x + 0.07, hs.y * 0.62, fz + 0.004)), m.name, { size: 0.042, mono: true, weight: 600, color: [96, 112, 150], alpha: a, lift: 0.5, align: "left" });
+    if (m.id === "reservoir") {
+      [-0.27, -0.09, 0.09, 0.27].forEach((x, i) => {
+        const b0 = add(c, v(x * 2, hs.y, 0));
+        const col = i % 2 ? MINT : CYAN;
+        G.drawCylinder(R, b0, add(b0, v(0, 0.34, 0)), 0.1, { glass: true, alpha: a, segments: 18 });
+        G.drawCylinder(R, add(b0, v(0, 0.01, 0)), add(b0, v(0, 0.24, 0)), 0.088, { color: shade(col, 0.7), alpha: a * 0.6, segments: 18, emissive: [col, 0.35] });
+        G.drawCylinder(R, add(b0, v(0, 0.34, 0)), add(b0, v(0, 0.39, 0)), 0.05, { color: [44, 58, 100], alpha: a, segments: 14 });
+      });
+    } else if (m.id === "detector") {
+      G.drawBox(R, null, add(c, v(0.22, -0.02, fz)), v(0.24, 0.1, 0.004), { color: dark, alpha: a, radius: 4, lift: 0.3 });
+      G.decal(R, add(c, v(0.22, -0.02, fz + 0.006)), "λ 254 nm  ·  0.82 AU", { size: 0.04, mono: true, weight: 500, color: [120, 220, 255], alpha: a, lift: 0.6 });
+      G.decal(R, add(c, v(-hs.x + 0.07, -hs.y * 0.55, fz + 0.004)), "WATERS", { size: 0.06, weight: 800, color: [60, 74, 110], alpha: a, lift: 0.5, align: "left", track: 0.2 });
+    } else if (m.id === "column") {
+      G.drawBox(R, null, add(c, v(0.06, -0.02, fz)), v(0.56, 0.06, 0.004), { color: dark, alpha: a, radius: 4, lift: 0.3 });
+      const ring = 0.5 + 0.5 * Math.sin(time * 1.2);
+      G.drawBox(R, null, add(c, v(-0.48 + ring * 1.08, -0.02, fz + 0.002)), v(0.035, 0.035, 0.004), { color: CYAN, alpha: a, radius: 3, lift: 0.4 });
+      G.decal(R, add(c, v(0.44, hs.y * 0.62, fz + 0.004)), "45 °C", { size: 0.04, mono: true, weight: 500, color: [120, 220, 255], alpha: a, lift: 0.5 });
+    } else if (m.id === "injector") {
+      G.drawBox(R, null, add(c, v(0.1, -0.04, fz)), v(0.5, 0.2, 0.004), { color: dark, alpha: a, radius: 6, lift: 0.3 });
+      for (let i = 0; i < 12; i += 1) {
+        const x = -0.33 + (i % 6) * 0.12;
+        const y = i < 6 ? 0.04 : -0.1;
+        G.drawDisc(R, add(c, v(0.12 + x, y, fz + 0.006)), v(0, 0, 1), 0.03, i === 4 ? VIOLET : [70, 86, 130], { alpha: a });
+      }
+    } else if (m.id === "pump") {
+      G.drawBox(R, null, add(c, v(0.3, 0.12, fz)), v(0.28, 0.07, 0.004), { color: dark, alpha: a, radius: 4, lift: 0.3 });
+      G.decal(R, add(c, v(0.3, 0.12, fz + 0.006)), "1,000 bar · 0.6 mL/min", { size: 0.036, mono: true, weight: 500, color: [120, 220, 255], alpha: a, lift: 0.6 });
+      G.drawSphere(R, add(c, v(-hs.x + 0.1, -hs.y + 0.08, fz + 0.01)), 0.02, MINT, { alpha: a, glow: 1.5 });
+    }
+  }
+
+  /* st: { break: 0..1, time, alpha }. 0 = one assembled instrument; 1 = the five parts laid out in flow order. */
+  function drawTower(R, st) {
+    const b = st.break || 0;
+    const a = st.alpha == null ? 1 : st.alpha;
+    const time = st.time || 0;
+    const compAlpha = {};
+    const compOff = {};
+    STACK.forEach((m) => {
+      const f = towerFlight(m, b);
+      const morph = clamp((f.k - 0.6) / 0.4, 0, 1);
+      compAlpha[m.id] = a * smooth(morph);
+      compOff[m.id] = sub(f.p, f.target);
+      const shell = a * (1 - smooth(clamp((f.k - 0.7) / 0.3, 0, 1)));
+      if (shell <= 0.01) return;
+      const base = v(TOWER.w, m.hy, TOWER.d);
+      const hs = mix3(base, m.to, smooth(clamp((f.k - 0.2) / 0.6, 0, 1)));
+      drawModuleShell(R, m, f.p, hs, shell, time);
+    });
+    if (b < 0.02) {
+      G.drawBox(R, null, add(TOWER.base, v(0, -0.02, 0)), v(TOWER.w + 0.04, 0.02, TOWER.d + 0.04), { color: [70, 80, 110], alpha: a, radius: 6 });
+    }
+    const tubeAlpha = smooth(clamp((b - 0.9) / 0.1, 0, 1));
+    drawInstrument(R, { time, compAlpha, compOff, tubeAlpha, detGlow: st.detGlow, loop: st.loop });
+  }
+
   function compCenter(id, explode) {
     const ex = explodeOffsets(explode || 0);
     return add(COMP[id].c, ex[id]);
@@ -776,6 +863,7 @@
     MOLS, molById, MAGENTA, WHITE, INK, mixC,
     drawMolecule, drawBead, makeBeadSprites, drawLandscape, landProject, drawSideLayer, SIDE, drawTunnel,
     COMP, COMP_IDS, TUBES, PATH, explodeOffsets, drawInstrument, compCenter,
+    STACK, TOWER, towerSlot, towerFlight, drawTower,
     QUAD, drawQuad,
   };
 })(window);

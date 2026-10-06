@@ -3595,6 +3595,9 @@ body.wm-lock { overflow: hidden; }
 .wm-label-idx { color: #60d6ff; }
 .wm-label.is-hover { color: #fff; border-color: rgba(96, 214, 255, 0.75); box-shadow: 0 0 26px rgba(96, 214, 255, 0.35); }
 .wm-label.is-dim { opacity: 0.28; }
+@media (max-height: 640px) {
+  .wm .wm-label { padding: 0.28rem 0.65rem; font-size: 0.8rem; letter-spacing: 0.1em; gap: 0.4rem; }
+}
 .wm-marker {
   position: absolute; left: 0; top: 0; margin: -11px 0 0 -6px; pointer-events: auto; cursor: pointer;
   display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.22rem 0.65rem 0.22rem 0.3rem; border-radius: 999px;

@@ -944,16 +944,57 @@
       .join("");
   }
 
+  /* Labels are pinned to 3D anchors; on short screens they collide. Nudge overlapping pills
+     apart vertically and keep them below the top chapter rail. y is each pill's bottom edge. */
+  function spreadLabels(boxes) {
+    const gap = 6;
+    const rb = els.rail?.getBoundingClientRect();
+    const rootTop = root.getBoundingClientRect().top;
+    const minBottom = (rb && rb.height ? rb.bottom - rootTop : 0) + gap;
+    const maxBottom = root.clientHeight - 40;
+    for (let it = 0; it < 8; it += 1) {
+      let moved = false;
+      boxes.forEach((a) => {
+        a.y = Math.min(maxBottom, Math.max(a.y, minBottom + a.h));
+      });
+      for (let i = 0; i < boxes.length; i += 1) {
+        for (let j = i + 1; j < boxes.length; j += 1) {
+          const a = boxes[i];
+          const b = boxes[j];
+          if (Math.abs(a.x - b.x) * 2 >= a.w + b.w + gap * 2) continue;
+          const [up, dn] = a.y <= b.y ? [a, b] : [b, a];
+          const overlap = up.y + gap - (dn.y - dn.h);
+          if (overlap <= 0) continue;
+          up.y -= overlap / 2;
+          dn.y += overlap / 2;
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+  }
+
   function syncDom() {
     const showLabels = !S.intro && !S.active && !S.finale && S.assemble > 0.7;
     els.labels.classList.toggle("is-show", showLabels);
+    const boxes = [];
     els.labels.querySelectorAll(".wm-label").forEach((b) => {
       const id = b.dataset.part;
       const p = S.proj[id];
       if (!p) return;
       const L = LAYOUT[id].label;
       const q = project(add(posOf(id), L));
-      b.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -100%)`;
+      if (!b._w || b._wAt !== innerWidth) {
+        b._w = b.offsetWidth;
+        b._h = b.offsetHeight;
+        b._wAt = innerWidth;
+      }
+      boxes.push({ b, id, x: q.x, y: q.y, w: b._w, h: b._h });
+    });
+    spreadLabels(boxes);
+    boxes.forEach(({ b, id, x, y }) => {
+      b._y = b._y == null ? y : b._y + (y - b._y) * 0.25;
+      b.style.transform = `translate(${Math.round(x)}px, ${Math.round(b._y)}px) translate(-50%, -100%)`;
       b.classList.toggle("is-hover", S.hover === id);
       b.classList.toggle("is-dim", !!S.hover && S.hover !== id);
     });

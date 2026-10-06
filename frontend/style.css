@@ -3508,8 +3508,11 @@ body:has(.joiner-drawer:not([hidden])) .nia-launcher { right: calc(min(440px, 10
 
 body.wm-lock { overflow: hidden; }
 .wm {
-  position: fixed; inset: 0; z-index: 2000; overflow: hidden; background: #02040b; color: #e8eeff;
+  position: fixed; inset: 0; z-index: 2000; background: #02040b; color: #e8eeff;
   font-family: Inter, system-ui, sans-serif; opacity: 0; transition: opacity 0.45s ease;
+  /* clip, not hidden: the oversized grain layer would otherwise make this a scroll container,
+     and any scrollIntoView on a control would drag the whole scene off-screen */
+  overflow: clip;
 }
 .wm.is-open { opacity: 1; }
 .wm::after {
@@ -3702,25 +3705,72 @@ body.wm-lock { overflow: hidden; }
 }
 .wm-chamber[data-ch="1"] .wm-lab-enter:hover { background: rgba(170, 128, 255, 0.22); }
 
-.wm-lab-panel .wm-lab-caption {
-  margin: 0.55rem 0 1rem; color: rgba(220, 230, 255, 0.86); font-size: 0.95rem; line-height: 1.55;
-  min-height: 2.8em;
+/* --- instrument HUD: the machine is the interface, so this stays tiny --- */
+.wl-hud { position: absolute; inset: 0; z-index: 7; pointer-events: none; font-family: Inter, sans-serif; }
+.wl-hud > * { pointer-events: auto; }
+.wl-hud .wl-top { position: absolute; top: 4.2rem; left: 2.2rem; }
+.wl-title {
+  margin: 0; display: flex; align-items: center; gap: 0.6rem; color: #fff;
+  font-size: 1.02rem; font-weight: 700; letter-spacing: 0.01em;
 }
-.wm-lab-actions { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-bottom: 0.9rem; }
-.wm-lab-peaks { display: grid; gap: 0.4rem; margin: 0.4rem 0 0.9rem; }
-.wm-lab-peak {
-  cursor: pointer; display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 0.7rem;
-  padding: 0.65rem 0.8rem; border-radius: 12px; border: 1px solid rgba(160, 190, 255, 0.16);
-  background: rgba(255, 255, 255, 0.03); color: #e8eeff; text-align: left;
+.wl-title span {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; letter-spacing: 0.14em;
+  padding: 0.15rem 0.42rem; border-radius: 6px; background: rgba(96, 214, 255, 0.16); color: #8fe0ff;
 }
-.wm-lab-peak i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 12px var(--c); }
-.wm-lab-peak strong { font-size: 0.88rem; }
-.wm-lab-peak span { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: rgba(180, 200, 230, 0.7); }
-.wm-lab-peak:hover, .wm-lab-peak.is-on {
-  border-color: color-mix(in srgb, var(--c) 70%, white); background: rgba(255, 255, 255, 0.06);
+.wl-stage {
+  margin: 0.25rem 0 0; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: rgba(190, 210, 240, 0.62);
 }
+.wl-parts { position: absolute; top: 50%; left: 1.6rem; transform: translateY(-50%); list-style: none; margin: 0; padding: 0; display: grid; gap: 0.1rem; }
+.wl-part {
+  cursor: pointer; display: flex; align-items: center; gap: 0.55rem; padding: 0.3rem 0.5rem;
+  border: 0; background: none; color: rgba(205, 220, 245, 0.5); font-size: 0.76rem; letter-spacing: 0.02em;
+  border-left: 2px solid transparent; transition: color 0.25s, border-color 0.25s;
+}
+.wl-part span { font-family: "IBM Plex Mono", monospace; font-size: 0.64rem; color: rgba(140, 170, 210, 0.55); }
+.wl-part:hover { color: #fff; }
+.wl-part.is-on { color: #fff; border-left-color: #60d6ff; }
+.wl-part.is-on span { color: #60d6ff; }
+.wl-bottom { position: absolute; left: 50%; bottom: 3.2rem; transform: translateX(-50%); width: min(44rem, 80vw); text-align: center; }
+.wl-caption {
+  margin: 0 auto 0.75rem; max-width: 34rem; color: rgba(222, 232, 255, 0.86);
+  font-size: 0.9rem; line-height: 1.5; text-shadow: 0 2px 18px rgba(2, 6, 20, 0.9);
+}
+.wl-controls { display: flex; flex-wrap: wrap; gap: 0.45rem; justify-content: center; }
+.wl-btn {
+  cursor: pointer; padding: 0.45rem 0.9rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+  border: 1px solid rgba(180, 205, 245, 0.26); background: rgba(8, 14, 32, 0.6); color: #e9f1ff;
+  backdrop-filter: blur(6px); transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.wl-btn:hover { border-color: rgba(96, 214, 255, 0.8); background: rgba(96, 214, 255, 0.14); transform: translateY(-1px); }
+.wl-btn.primary { background: #fff; color: #0b1026; border-color: #fff; }
+.wl-btn.primary:hover { background: #e3ecff; }
+.wl-chips { position: absolute; right: 1.8rem; bottom: 3.2rem; display: grid; gap: 0.35rem; }
+.wl-chip {
+  cursor: pointer; display: grid; grid-template-columns: 8px auto auto; align-items: center; gap: 0.55rem;
+  padding: 0.4rem 0.7rem; border-radius: 10px; border: 1px solid rgba(160, 190, 255, 0.16);
+  background: rgba(8, 14, 32, 0.62); color: #e8eeff; backdrop-filter: blur(6px);
+}
+.wl-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.wl-chip b { font-size: 0.78rem; }
+.wl-chip span { font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; color: rgba(175, 198, 230, 0.68); }
+.wl-chip:hover, .wl-chip.is-on { border-color: var(--c); background: rgba(255, 255, 255, 0.07); }
+.wl-exit {
+  position: absolute; left: 1.8rem; bottom: 1.4rem; cursor: pointer; border: 0; background: none;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(185, 205, 235, 0.5);
+}
+.wl-exit:hover { color: #fff; }
 .wm.is-lab .wm-labels { opacity: 0 !important; pointer-events: none; }
-.wm.is-lab .wm-hint { color: rgba(200, 220, 255, 0.75); }
+.wm.is-lab .wm-panel { opacity: 0; pointer-events: none; }
+.wm.is-lab .wm-hint { display: none; }
+@media (max-width: 900px) {
+  .wl-hud .wl-top { top: 3.4rem; left: 1.1rem; }
+  .wl-parts { left: 0.6rem; gap: 0; }
+  .wl-part { font-size: 0.68rem; padding: 0.22rem 0.35rem; }
+  .wl-bottom { width: 92vw; bottom: 2.2rem; }
+  .wl-chips { right: 0.8rem; bottom: 9.5rem; }
+}
 .wm-stat { display: flex; align-items: baseline; gap: 0.7rem; margin: 0.2rem 0 0.6rem; }
 .wm-stat strong {
   font-size: 3.1rem; font-weight: 800; letter-spacing: -0.03em;

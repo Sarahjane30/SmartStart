@@ -468,17 +468,6 @@
   }
 
   function drawChambers(P, a, k) {
-    if (S.lab && window.WatersLab) {
-      window.WatersLab.draw(S.lab, {
-        ctx,
-        project,
-        glow,
-        origin: P,
-        alpha: a,
-        t: S.t,
-      });
-      return;
-    }
     const open = S.fx.technology.open;
     ctx.globalCompositeOperation = "lighter";
     const l = project([P[0] - 0.28 * k, P[1], P[2]]);
@@ -532,25 +521,71 @@
     });
   }
 
+  function labHost() {
+    let host = root.querySelector(".wl-hud");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "wl-hud";
+      host.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-act]");
+        if (!btn || !S.lab) return;
+        const out = window.WatersLab3D.act(S.lab, btn.dataset.act);
+        if (out === "exit") leaveLab();
+        else if (out === "ms" || out === "lc") enterLab(out);
+        else syncLabHud(true);
+      });
+      root.appendChild(host);
+    }
+    return host;
+  }
+
+  function syncLabHud(force) {
+    if (!S.lab) return;
+    const host = labHost();
+    const sig = [
+      S.lab.kind,
+      S.lab.stage,
+      S.lab.focus,
+      S.lab.paused,
+      S.lab.running,
+      S.lab.selectedCompound,
+      S.lab.autoScan,
+      S.lab.flow,
+      Object.keys(S.lab.arrivals || {}).join(","),
+    ].join("|");
+    if (!force && sig === S.labSig) return;
+    S.labSig = sig;
+    host.innerHTML = window.WatersLab3D.hudHtml(S.lab);
+  }
+
   function enterLab(kind) {
-    if (!window.WatersLab) return;
+    if (!window.WatersLab3D) return;
     hideIntro();
     if (S.finale) leaveFinale();
     S.active = "technology";
     S.level = 2;
     S.chamber = kind === "ms" ? 1 : 0;
-    S.lab = window.WatersLab.create(kind === "ms" ? "ms" : "lc");
-    if (reduce) S.lab.assemble = 1;
+    S.lab = window.WatersLab3D.create(kind === "ms" ? "ms" : "lc", { reduce });
+    S.labSig = null;
     root.dataset.lab = S.lab.kind;
-    renderPanel();
+    els.panel.classList.remove("is-show");
+    labHost().hidden = false;
+    syncLabHud(true);
     setHint();
   }
 
   function leaveLab() {
     S.lab = null;
+    S.labSig = null;
     delete root.dataset.lab;
+    const host = root.querySelector(".wl-hud");
+    if (host) {
+      host.hidden = true;
+      host.innerHTML = "";
+    }
     S.chamber = -1;
     S.level = 1;
+    canvas.style.cursor = "default";
     renderPanel();
     setHint();
   }
@@ -880,14 +915,21 @@
     S.smx = lerp(S.smx, S.mx, Math.min(1, dt * 3));
     S.smy = lerp(S.smy, S.my, Math.min(1, dt * 3));
 
-    targets();
-    if (S.lab && window.WatersLab) {
-      const prev = S.lab.phase;
-      const prevFocus = S.lab.focus;
-      window.WatersLab.update(S.lab, dt, reduce);
-      if (S.lab.phase !== prev || S.lab.focus !== prevFocus) renderPanel();
-      root.dataset.lab = S.lab.kind;
+    if (S.lab && window.WatersLab3D) {
+      ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+      drawBackdrop();
+      // the backdrop leaves the context in additive mode; the instrument needs normal blending
+      ctx.globalCompositeOperation = "source-over";
+      window.WatersLab3D.update(S.lab, dt);
+      window.WatersLab3D.render(S.lab, ctx, S.w, S.h, dt);
+      ctx.globalCompositeOperation = "source-over";
+      syncLabHud(false);
+      els.labels.classList.remove("is-show");
+      S.raf = requestAnimationFrame(frame);
+      return;
     }
+
+    targets();
     const k6 = Math.min(1, dt * 5);
     [...ORDER, "core"].forEach((id) => {
       const fx = S.fx[id];
@@ -1086,7 +1128,6 @@
         <p class="wm-plain"><span>The point</span>Not just measuring things — helping scientists make better decisions.</p>`;
     },
     technology(c) {
-      if (S.lab && window.WatersLab) return window.WatersLab.panelHtml(S.lab);
       return `${kicker(c)}<h2>${esc(c.title)}</h2>
         <p class="wm-lead">${esc(c.lead)}</p>
         <div class="wm-chambers">${c.chambers
@@ -1172,22 +1213,6 @@
     P.querySelectorAll("[data-nav]").forEach((b) =>
       b.addEventListener("click", () => goStep(ORDER.indexOf(S.active) + Number(b.dataset.nav)))
     );
-    if (S.lab && window.WatersLab) {
-      P.querySelectorAll("[data-lab]").forEach((b) =>
-        b.addEventListener("click", () => {
-          const result = window.WatersLab.onAction(S.lab, b.dataset.lab);
-          if (result === "exit") leaveLab();
-          else renderPanel();
-        })
-      );
-      P.querySelectorAll("[data-peak]").forEach((b) =>
-        b.addEventListener("click", () => {
-          window.WatersLab.onAction(S.lab, { type: "peak", id: b.dataset.peak });
-          renderPanel();
-        })
-      );
-      return;
-    }
     if (id === "science") {
       const c = comp("science");
       P.querySelectorAll(".wm-x").forEach((b) =>
@@ -1419,10 +1444,9 @@
     const r = canvas.getBoundingClientRect();
     S.mx = ((e.clientX - r.left) / r.width) * 2 - 1;
     S.my = ((e.clientY - r.top) / r.height) * 2 - 1;
-    if (S.lab && window.WatersLab) {
-      const labHit = window.WatersLab.hit(S.lab, e.clientX - r.left, e.clientY - r.top);
-      S.lab.hover = labHit?.type === "vial" ? "vial" : labHit?.type === "peak" ? labHit.id : null;
-      canvas.style.cursor = labHit ? "pointer" : "default";
+    if (S.lab && window.WatersLab3D) {
+      const kind = window.WatersLab3D.pointerMove(S.lab, e.clientX - r.left, e.clientY - r.top);
+      canvas.style.cursor = kind === "drag" ? "grabbing" : kind === "pointer" ? "pointer" : "grab";
       return;
     }
     if (S.intro || S.finale) return;
@@ -1451,18 +1475,25 @@
     return best;
   }
 
+  function onPointerDown(e) {
+    if (!S.lab || !window.WatersLab3D) return;
+    const r = canvas.getBoundingClientRect();
+    window.WatersLab3D.pointerDown(S.lab, e.clientX - r.left, e.clientY - r.top);
+    canvas.setPointerCapture?.(e.pointerId);
+  }
+
+  function onPointerUp(e) {
+    if (!S.lab || !window.WatersLab3D) return;
+    const r = canvas.getBoundingClientRect();
+    window.WatersLab3D.pointerUp(S.lab, e.clientX - r.left, e.clientY - r.top);
+    syncLabHud(true);
+  }
+
   function onClick(e) {
     const r = canvas.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
-    if (S.lab && window.WatersLab) {
-      const labHit = window.WatersLab.hit(S.lab, x, y);
-      if (labHit) {
-        window.WatersLab.onAction(S.lab, labHit);
-        renderPanel();
-      }
-      return;
-    }
+    if (S.lab) return;
     const hit = hitTest(x, y);
     if (S.intro) {
       hideIntro();
@@ -1475,7 +1506,11 @@
   }
 
   function onWheel(e) {
-    if (S.lab) return;
+    if (S.lab && window.WatersLab3D) {
+      e.preventDefault();
+      window.WatersLab3D.wheel(S.lab, e.deltaY);
+      return;
+    }
     const inPanel = e.target.closest(".wm-panel, .wm-sources");
     if (inPanel && inPanel.scrollHeight > inPanel.clientHeight + 2) return;
     e.preventDefault();
@@ -1521,6 +1556,9 @@
   }
 
   canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerUp);
   canvas.addEventListener("pointerleave", () => {
     S.hover = null;
     S.mx = 0;

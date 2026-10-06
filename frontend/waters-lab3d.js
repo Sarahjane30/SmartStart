@@ -38,6 +38,11 @@
   const VIOLET = [170, 128, 255];
   const MINT = [112, 238, 208];
 
+  // seconds of simulated run time that fill the chromatogram's x axis
+  const RUN_WINDOW = 48;
+  // simulated seconds per displayed minute of retention time
+  const RT_PER_MIN = 9;
+
   const COMPOUNDS = [
     { id: "a", name: "Compound A", short: "A", color: [96, 214, 255], affinity: 0.1, mz: 180 },
     { id: "b", name: "Compound B", short: "B", color: [112, 238, 208], affinity: 0.45, mz: 310 },
@@ -822,7 +827,7 @@
 
     if (lab.running && !lab.paused) {
       lab.runT += dt * speed;
-      const base = 0.055 * lab.flow;
+      const base = 0.03 * lab.flow;
       lab.molecules.forEach((m) => {
         if (m.u >= 1) return;
         let s = base;
@@ -840,7 +845,7 @@
         if (!m.counted && m.u >= lab.detU) {
           m.counted = true;
           const comp = COMPOUNDS.find((c) => c.id === m.cid);
-          const bin = clamp(Math.round((lab.runT / 26) * lab.signal.length), 0, lab.signal.length - 1);
+          const bin = clamp(Math.round((lab.runT / RUN_WINDOW) * lab.signal.length), 0, lab.signal.length - 1);
           for (let i = -3; i <= 3; i += 1) {
             const j = bin + i;
             if (j >= 0 && j < lab.signal.length) lab.signal[j] += Math.exp(-(i * i) / 3.2);
@@ -1362,7 +1367,7 @@
     ctx.fillStyle = rgba([110, 138, 180], 0.7);
     ctx.textAlign = "right";
     ctx.fillText(
-      lab.kind === "ms" ? `m/z ${Math.round(lab.scanMz)}` : `${lab.runT.toFixed(1)} min`,
+      lab.kind === "ms" ? `m/z ${Math.round(lab.scanMz)}` : `${(lab.runT / RT_PER_MIN).toFixed(1)} min`,
       x + W - pad,
       y + 20
     );
@@ -1413,7 +1418,7 @@
       const comp = COMPOUNDS.find((c) => c.id === cid);
       if (!comp) return;
       const dim = lab.selectedCompound && lab.selectedCompound !== cid ? 0.22 : 1;
-      const i = clamp(Math.round((time / 26) * (n - 1)), 0, n - 1);
+      const i = clamp(Math.round((time / RUN_WINDOW) * (n - 1)), 0, n - 1);
       const sx = px(i);
       const sy = py(lab.signal[i]);
       ctx.strokeStyle = rgba(comp.color, 0.35 * dim);
@@ -1847,12 +1852,17 @@
       case "inside-column":
         lab.stage = lab.stage === "column-inside" ? "inside" : "column-inside";
         lab.focus = lab.stage === "column-inside" ? "column" : lab.focus;
+        // nothing to watch if the sample already eluted — start a fresh run
+        if (lab.stage === "column-inside" && !lab.molecules.some((m) => m.u > lab.colIn && m.u < lab.colOut)) {
+          inject(lab);
+        }
         break;
       case "trace":
         if (lab.stage === "trace") {
           lab.stage = "inside";
           lab.traceId = null;
         } else {
+          if (!lab.molecules.some((m) => m.u < 0.9)) inject(lab);
           const cid = lab.selectedCompound || "b";
           const m = lab.molecules.find((x) => x.cid === cid && x.u < 0.98) || lab.molecules[0];
           if (m) {
@@ -1950,7 +1960,7 @@
     const chips = COMPOUNDS.map((c) => {
       const rt = lab.arrivals[c.id];
       const on = lab.selectedCompound === c.id;
-      const meta = lab.kind === "ms" ? `m/z ${c.mz}` : rt ? `${(rt / 5).toFixed(1)} min` : "in column";
+      const meta = lab.kind === "ms" ? `m/z ${c.mz}` : rt ? `${(rt / RT_PER_MIN).toFixed(1)} min` : "in column";
       return `<button type="button" class="wl-chip${on ? " is-on" : ""}" data-act="compound:${c.id}" style="--c:${rgba(c.color, 1)}">
         <i></i><b>${esc(c.short)}</b><span>${esc(meta)}</span></button>`;
     }).join("");

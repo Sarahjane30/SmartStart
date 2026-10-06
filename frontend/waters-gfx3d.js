@@ -125,6 +125,39 @@
         const s = this.focal / Math.max(0.06, z);
         return { x: this.w / 2 + dot(d, r) * s, y: this.h / 2 - dot(d, u) * s, z, s, vis: z > 0.06 };
       },
+      /* Near-plane clip in camera space. Without it a face with one corner just in front of the
+         lens projects with a huge scale and smears across the frame as a flat slab. */
+      near: 0.1,
+      nearFade: 1.1,
+      clipProject(world) {
+        const { f } = this.basis;
+        const cp = this.cam.pos;
+        const zs = world.map((p) => dot(sub(p, cp), f));
+        let minZ = Infinity;
+        for (const z of zs) minZ = Math.min(minZ, z);
+        if (minZ >= this.near) return { pts: world.map((p) => this.project(p)), minZ };
+        const out = [];
+        const n = world.length;
+        for (let i = 0; i < n; i += 1) {
+          const j = (i + 1) % n;
+          const a = world[i];
+          const b = world[j];
+          const za = zs[i];
+          const zb = zs[j];
+          if (za >= this.near) out.push(this.project(a));
+          if ((za >= this.near) !== (zb >= this.near)) {
+            const t = (this.near - za) / (zb - za);
+            out.push(this.project(mix3(a, b, t)));
+          }
+        }
+        if (out.length < 3) return null;
+        return { pts: out, minZ: this.near };
+      },
+      /* Opacity multiplier so geometry dissolves as the lens reaches it instead of popping. */
+      nearAlpha(minZ) {
+        const k = smooth(clamp((minZ - this.near) / (this.nearFade - this.near), 0, 1));
+        return k * k;
+      },
       push(z, draw) {
         this.q.push({ z, draw });
       },
@@ -193,19 +226,22 @@
   function drawBox(R, ctx0, c, hs, opts = {}) {
     // `lift` biases the sort depth: surface details (windows, vents, badges) sit on a panel, and
     // sorting by face centroid alone would let the panel they belong to cover them.
-    const { color = PEARL, alpha = 1, radius = 10, skip = null, glass = false, edge = 0.22, lift = 0 } = opts;
+    const { color = PEARL, alpha: alpha0 = 1, radius = 10, skip = null, glass = false, edge = 0.22, lift = 0 } = opts;
     boxFaces(c, hs).forEach((f) => {
       if (skip && skip(f)) return;
       const toCam = sub(R.cam.pos, f.center);
       const facing = dot(f.n, toCam);
       if (!glass && facing <= 0) return;
-      const pts = f.corners.map((p) => R.project(p));
-      if (pts.some((p) => !p.vis)) return;
+      const clip = R.clipProject(f.corners);
+      if (!clip) return;
+      const pts = clip.pts;
+      const alpha = alpha0 * R.nearAlpha(clip.minZ);
+      if (alpha < 0.01) return;
       const lam = clamp(dot(f.n, LIGHT), 0, 1);
       const base = shade(color, 0.34 + lam * 0.52);
-      const z = R.project(f.center).z - lift;
+      const z = Math.max(R.project(f.center).z, clip.minZ) - lift;
       R.push(z, (ctx) => {
-        facePath(ctx, pts, radius);
+        facePath(ctx, pts, pts.length === 4 ? radius : 0);
         const g = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[2].x, pts[2].y);
         g.addColorStop(0, rgba(shade(base, 1.06), alpha * (glass ? 0.14 : 0.98)));
         g.addColorStop(0.55, rgba(base, alpha * (glass ? 0.08 : 0.95)));
@@ -238,7 +274,7 @@
 
   function drawCylinder(R, a, b, r, opts = {}) {
     const {
-      color = STEEL, alpha = 1, segments = 26, glass = false, caps = true,
+      color = STEEL, alpha: alpha0 = 1, segments = 26, glass = false, caps = true,
       capColor = null, emissive = null, rim = 0.5,
     } = opts;
     const axis = sub(b, a);
@@ -252,11 +288,14 @@
       const toCam = norm(sub(R.cam.pos, center));
       const facing = dot(nrm, toCam);
       if (!glass && facing <= 0.02) continue;
-      const pts = quad.map((p) => R.project(p));
-      if (pts.some((p) => !p.vis)) continue;
+      const clip = R.clipProject(quad);
+      if (!clip) continue;
+      const pts = clip.pts;
+      const alpha = alpha0 * R.nearAlpha(clip.minZ);
+      if (alpha < 0.01) continue;
       const lam = clamp(dot(nrm, LIGHT), 0, 1);
       const spec = Math.pow(clamp(dot(norm(add(LIGHT, toCam)), nrm), 0, 1), 26);
-      const z = R.project(center).z;
+      const z = Math.max(R.project(center).z, clip.minZ);
       const fres = Math.pow(1 - clamp(facing, 0, 1), 2);
       R.push(z, (ctx) => {
         facePath(ctx, pts, 0);
@@ -293,14 +332,17 @@
         const nrm = norm(ax);
         const toCam = sub(R.cam.pos, c);
         if (dot(nrm, toCam) <= 0) return;
-        const ring = circlePts(c, ax, r, segments).map((p) => R.project(p.p));
-        if (ring.some((p) => !p.vis)) return;
+        const clip = R.clipProject(circlePts(c, ax, r, segments).map((p) => p.p));
+        if (!clip) return;
+        const ring = clip.pts;
+        const alpha = alpha0 * R.nearAlpha(clip.minZ);
+        if (alpha < 0.01) return;
         const lam = clamp(dot(nrm, LIGHT), 0, 1);
         const col = capColor || shade(color, 0.9);
-        const z = R.project(c).z - 0.002;
+        const z = Math.max(R.project(c).z, clip.minZ) - 0.002;
         R.push(z, (ctx) => {
           facePath(ctx, ring, 0);
-          const g = ctx.createLinearGradient(ring[0].x, ring[0].y, ring[(segments / 2) | 0].x, ring[(segments / 2) | 0].y);
+          const g = ctx.createLinearGradient(ring[0].x, ring[0].y, ring[(ring.length / 2) | 0].x, ring[(ring.length / 2) | 0].y);
           g.addColorStop(0, rgba(shade(col, 0.6 + lam * 0.6), alpha * (glass ? 0.22 : 1)));
           g.addColorStop(1, rgba(shade(col, 0.42 + lam * 0.4), alpha * (glass ? 0.14 : 1)));
           ctx.fillStyle = g;
@@ -355,13 +397,20 @@
   }
 
   function drawTube(R, pts, r, opts = {}) {
-    const { color = STEEL, alpha = 1, glass = true, fluid = null } = opts;
+    const { color = STEEL, alpha: alpha0 = 1, glass = true, fluid = null } = opts;
+    const { f } = R.basis;
     for (let i = 0; i < pts.length - 1; i += 1) {
-      const a = pts[i];
-      const b = pts[i + 1];
+      let a = pts[i];
+      let b = pts[i + 1];
+      const za = dot(sub(a, R.cam.pos), f);
+      const zb = dot(sub(b, R.cam.pos), f);
+      if (za < R.near && zb < R.near) continue;
+      if (za < R.near) a = mix3(a, b, (R.near - za) / (zb - za));
+      else if (zb < R.near) b = mix3(a, b, (R.near - za) / (zb - za));
+      const alpha = alpha0 * R.nearAlpha(Math.max(R.near, Math.min(za, zb)));
+      if (alpha < 0.01) continue;
       const pa = R.project(a);
       const pb = R.project(b);
-      if (!pa.vis || !pb.vis) continue;
       const center = mix3(a, b, 0.5);
       const z = R.project(center).z;
       const dx = pb.x - pa.x;
@@ -421,10 +470,14 @@
   }
 
   function drawDisc(R, c, axis, r, color, opts = {}) {
-    const { alpha = 1, segments = 30, ring = false } = opts;
-    const pts = circlePts(c, axis, r, segments).map((p) => R.project(p.p));
-    if (pts.some((p) => !p.vis)) return;
+    let { alpha = 1, segments = 30, ring = false } = opts;
+    const clip = R.clipProject(circlePts(c, axis, r, segments).map((p) => p.p));
+    if (!clip) return;
+    const pts = clip.pts;
     const p = R.project(c);
+    if (!p.vis) return;
+    alpha *= R.nearAlpha(clip.minZ);
+    if (alpha < 0.01) return;
     const lam = clamp(Math.abs(dot(norm(axis), LIGHT)), 0.2, 1);
     R.push(p.z, (ctx) => {
       facePath(ctx, pts, 0);

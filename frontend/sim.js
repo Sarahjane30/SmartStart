@@ -110,6 +110,7 @@
   function render() {
     const d = sim.data;
     window.ssSimJoinerId = d && d.active && !d.done ? d.joiner.id : null;
+    document.body.classList.toggle("ss-live", Boolean(d && d.active));
     if (!d || !d.active) {
       root.hidden = true;
       startBtn.hidden = false;

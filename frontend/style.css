@@ -4141,6 +4141,9 @@ body.wm-lock { overflow: hidden; }
 .sim-lost { list-style: none; margin: -0.3rem 0 0.75rem; padding: 0; display: grid; gap: 0.2rem; font-size: 0.8rem; color: var(--sim-ink); }
 .sim-lost b { color: #fb7185; font-family: var(--mono); margin-right: 0.35rem; }
 
+/* Panels re-render on every simulated step; entrance animations would replay each time. */
+body.ss-live .kpi:not(.kpi-bump), body.ss-live .card, body.ss-live .alert, body.ss-live .h-bar-fill { animation: none; }
+
 /* The simulated joiner, wherever they appear in the Command Center. */
 .sim-mark { position: relative; }
 tr.sim-mark td:first-child, .sim-mark:not(tr) { box-shadow: inset 3px 0 0 var(--cyan); }

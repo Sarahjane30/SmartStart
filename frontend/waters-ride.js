@@ -95,6 +95,9 @@
     heroOff: { x: 0, y: 0 },
     molOff: [{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }],
     lastInput: 0,
+    wheelAcc: 0,
+    wheelT: 0,
+    stepLock: 0,
     chapter: -1,
     onClose: null,
     parts: [],
@@ -1804,8 +1807,9 @@
   const cur = () => TRACKS[S.track] || TRACKS["ride-lc"];
   const lo = () => cur().lo;
   const hi = () => cur().hi;
-  const clampT = (x) => clamp(x, lo(), hi() - 0.001);
-  const isRide = () => !!cur().ride;
+  /* Staged tracks are played, not scrubbed: they cap the playhead at the first unfinished stage. */
+  const clampT = (x) => clamp(x, lo(), Math.min(hi() - 0.001, cur().limit ? cur().limit() : Infinity));
+  const isRide = () => !!cur().ride && !cur().stages;
   /* The other half of the same instrument: teaching ↔ riding. */
   const MIRROR = { "ride-lc": "observe-lc", "observe-lc": "ride-lc", "ride-ms": "observe-ms", "observe-ms": "ride-ms" };
 
@@ -1839,7 +1843,11 @@
       const b = document.createElement("b");
       b.style.top = `${(i / Math.max(1, n - 1)) * 100}%`;
       b.dataset.ch = String(tr.lo + i);
-      b.addEventListener("click", () => autopilot(Number(b.dataset.ch) + 0.02, 2.2));
+      b.addEventListener("click", () => {
+        const t = cur();
+        if (t.go) t.go(Number(b.dataset.ch));
+        else autopilot(Number(b.dataset.ch) + 0.02, 2.2);
+      });
       rail.appendChild(b);
     }
     ui.ticks = [...rail.querySelectorAll("b")];
@@ -1863,6 +1871,7 @@
     S.parts.forEach((p) => {
       p.ox = p.oy = p.vx = p.vy = 0;
     });
+    if (TRACKS[name].enter) TRACKS[name].enter(at);
     if (root) {
       buildRail();
       root.dataset.track = name;
@@ -1962,7 +1971,7 @@
     const t = S.P - c;
 
     const tr = cur();
-    const ride = !!tr.ride;
+    const ride = !!tr.ride && !tr.stages;
     const frozen = ride && c === 4 && t > 0.57 && t < 0.9;
     S.timeScale = lerp(S.timeScale, frozen ? 0.05 : 1, Math.min(1, dt * 4));
     S.clock += dt * S.timeScale;
@@ -2028,10 +2037,11 @@
     }
     ui.fill.style.transform = `scaleY(${clamp((S.P - tr.lo) / (tr.hi - tr.lo - 0.001), 0, 1).toFixed(4)})`;
     const idle = S.time - S.lastInput > 6;
-    ui.cue.classList.toggle("is-show", (S.P < tr.lo + 0.06 || (idle && c < tr.hi - 1)) && !S.auto);
+    const cue = tr.cue ? tr.cue(c, t, idle) : (S.P < tr.lo + 0.06 || (idle && c < tr.hi - 1)) && !S.auto;
+    ui.cue.classList.toggle("is-show", cue);
     root.classList.toggle("is-energy", tr.energy(c, t));
     const hv = S.hot.some((h) => S.mx >= h.x && S.mx <= h.x + h.w && S.my >= h.y && S.my <= h.y + h.h);
-    const ride = !!tr.ride;
+    const ride = !!tr.ride && !tr.stages;
     const clicky = hv || (ride && c === 7 && S.hoverPeak != null && t < 0.3) || (ride && c === 9 && S.hoverIon != null);
     const grab = ride ? c === 3 : tr.grab && tr.grab(c, t);
     root.style.cursor = S.down && S.down.moved ? "grabbing" : clicky ? "pointer" : grab ? "grab" : "default";
@@ -2046,9 +2056,33 @@
 
   /* ---------- input ---------- */
 
+  /* One deliberate gesture = one stage. Trackpad inertia keeps extending the lock so a single
+     flick never skips two stages. */
+  function stageGesture(delta) {
+    const tr = cur();
+    if (S.time < S.stepLock) {
+      S.stepLock = Math.max(S.stepLock, S.time + 0.25);
+      S.wheelAcc = 0;
+      return;
+    }
+    if (S.time - S.wheelT > 0.35) S.wheelAcc = 0;
+    S.wheelT = S.time;
+    S.wheelAcc += delta;
+    if (Math.abs(S.wheelAcc) > 60) {
+      tr.step(Math.sign(S.wheelAcc));
+      S.wheelAcc = 0;
+      S.stepLock = S.time + 0.8;
+    }
+  }
+
   function onWheel(e) {
     e.preventDefault();
     const unit = e.deltaMode === 1 ? 18 : e.deltaMode === 2 ? S.h : 1;
+    if (cur().stages) {
+      S.lastInput = S.time;
+      stageGesture(e.deltaY * unit);
+      return;
+    }
     S.T = clampT(S.T + e.deltaY * unit * 0.00085);
     S.auto = null;
     S.lastInput = S.time;
@@ -2063,7 +2097,9 @@
       close();
       return;
     }
-    if (step != null) {
+    if (step != null && cur().stages) {
+      cur().step(Math.sign(step));
+    } else if (step != null) {
       S.T = clampT(S.T + step);
       S.auto = null;
     } else if (e.key === "Home") S.T = lo();
@@ -2089,6 +2125,7 @@
       const dx = S.mx - S.down.x;
       const dy = S.my - S.down.y;
       if (Math.hypot(dx, dy) > 5) S.down.moved = true;
+      if (cur().stages) return;
       if (S.down.moved && e.pointerType !== "touch") {
         S.orbit.yaw = S.down.yaw - dx * 0.006;
         S.orbit.pitch = clamp(S.down.pitch + dy * 0.004, -0.5, 0.7);
@@ -2114,7 +2151,13 @@
   function onUp(e) {
     if (!S.down) return;
     const wasDrag = S.down.moved;
+    const swipe = S.down.y - S.my;
+    const grabbed = S.down.grab;
     S.down = null;
+    if (cur().stages && wasDrag && !grabbed && e.pointerType === "touch" && Math.abs(swipe) > 60) {
+      cur().step(Math.sign(swipe));
+      return;
+    }
     if (wasDrag) return;
     pointer(e);
     click();

@@ -451,7 +451,12 @@ def alerts(
     """Synthetic SLA / pending-task alerts, worded and scoped for the caller's role."""
     ctx = build_role_context(session)
     view = ctx.resolve_view(role_view)
-    return present_alerts(ctx, build_alerts(), view)
+    payload = present_alerts(ctx, build_alerts(), view)
+    live = simulation.alerts_for(ctx.role, ctx.manager_id)
+    if not live:
+        return payload
+    out = payload.model_dump(mode="json")
+    return {**out, "alerts": live + out["alerts"], "total": out["total"] + len(live)}
 
 
 @app.get("/api/analytics")

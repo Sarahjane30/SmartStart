@@ -301,7 +301,13 @@
 
   async function act(choice, detail) {
     const t = S.token;
-    const next = await postJSON("/api/sim/act", { choice, detail: detail || {} });
+    S.acting = true;
+    let next;
+    try {
+      next = await postJSON("/api/sim/act", { choice, detail: detail || {} });
+    } finally {
+      S.acting = false;
+    }
     if (t !== S.token) throw CANCEL;
     S.d = next;
     paintNodes();
@@ -1181,7 +1187,7 @@
 
   function syncButton() {
     const live = S.d && S.d.active;
-    window.ssSimJoinerId = live && S.d.joiner_id ? S.d.joiner_id : null;
+    window.ssSimJoinerId = (live && S.d.joiner_id) || L.joiners[0] || null;
     btn.lastChild.textContent = live && !S.d.done ? "Resume simulation" : "Simulate a new hire";
   }
 
@@ -1220,11 +1226,12 @@
   }
 
   function mark() {
-    const id = window.ssSimJoinerId;
-    if (!id) return;
-    document.querySelectorAll(`[data-id="${CSS.escape(id)}"], [data-open="${CSS.escape(id)}"]`).forEach((n) => {
-      if (ov.contains(n)) return;
-      (n.closest(".joiner-row, .nn-row, .joiner-line, .action-card, .al-row, .alert, li, tr") || n).classList.add("sim-mark");
+    const ids = new Set([window.ssSimJoinerId, ...L.joiners].filter(Boolean));
+    ids.forEach((id) => {
+      document.querySelectorAll(`[data-id="${CSS.escape(id)}"], [data-open="${CSS.escape(id)}"]`).forEach((n) => {
+        if (ov.contains(n) || n.closest(".ssn-tray, .ssn-live")) return;
+        (n.closest(".joiner-row, .nn-row, .joiner-line, .action-card, .al-row, .alert, li, tr") || n).classList.add("sim-mark");
+      });
     });
   }
 
@@ -1260,6 +1267,178 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && S.open && !e.target.closest("[contenteditable=true], textarea, input, select")) close();
   });
+
+  /* ---------- live link: every open Command Center hears the run ---------- */
+  const L = { seq: null, notes: [], joiners: [], open: false, timer: null };
+  const seenKey = `ss_sim_seen_${employerSession.username || "employer"}`;
+  const ago = (iso) => {
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 45) return "just now";
+    if (s < 3600) return `${Math.round(s / 60)} min ago`;
+    return clock(iso).slice(0, 5);
+  };
+  const FROM = {
+    MANAGER_NOTIFIED: "From HR", IT_REQUEST_CREATED: "From HR", ACCESS_REQUEST_CREATED: "From Ava Chen",
+    CONTEXT_GAP: "NIA", OFFER_ACCEPTED: "iCIMS", DOCUMENTS_SUBMITTED: "iCIMS", IT_PROVISIONING_COMPLETED: "ServiceNow",
+    ACCESS_GRANTED: "Access Management", PROJECT_ASSIGNED: "Jira", DAY1_PREPARED: "Manager", EMPLOYEE_READY: "SmartStart",
+  };
+  const NOTE_SRC = { "From HR": "ss", "From Ava Chen": "mgr", NIA: "nia", iCIMS: "icims", ServiceNow: "snow",
+    "Access Management": "access", Jira: "jira", Manager: "mgr", SmartStart: "ss" };
+
+  const bell = document.createElement("button");
+  bell.type = "button";
+  bell.className = "ssn-bell";
+  bell.setAttribute("aria-label", "Notifications");
+  bell.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.6 2H4.4L6 16Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg><span class="ssn-n" hidden></span>`;
+  btn.parentNode.insertBefore(bell, btn);
+  const tray = document.createElement("section");
+  tray.className = "ssn-tray";
+  tray.hidden = true;
+  tray.setAttribute("aria-label", "Notifications");
+  document.body.appendChild(tray);
+  const live = document.createElement("div");
+  live.className = "ssn-live";
+  live.setAttribute("aria-live", "polite");
+  document.body.appendChild(live);
+
+  const seen = () => Number(localStorage.getItem(seenKey) || 0);
+  function paintBell() {
+    const unread = L.notes.filter((n) => n.seq > seen()).length;
+    const badge = bell.querySelector(".ssn-n");
+    badge.hidden = !unread;
+    badge.textContent = unread > 9 ? "9+" : unread;
+    bell.classList.toggle("has", unread > 0);
+  }
+
+  function noteHTML(n, compact) {
+    const from = FROM[n.code] || n.source;
+    return `<div class="ssn-top"><span class="ssn-src s-${NOTE_SRC[from] || "ss"}">${esc(from)}</span>
+        <span class="ssn-via">via SmartStart</span><time>${ago(n.at)}</time></div>
+      <p class="ssn-title">${esc(n.title)}</p><p class="ssn-text">${esc(n.text)}</p>
+      ${!compact && n.body ? `<details class="ssn-body"><summary>Read the message</summary><pre>${esc(n.body)}</pre></details>` : ""}
+      <div class="ssn-acts"><button type="button" data-ssn-open="${esc(n.joiner_id)}">View ${esc(n.joiner_name.split(" ")[0])}</button>
+        ${n.mine && L.mine && L.mine.step !== "done" ? `<button type="button" data-ssn-sim>Continue in simulation</button>` : ""}</div>`;
+  }
+
+  function paintTray() {
+    const s = seen();
+    tray.innerHTML = `<header><b>Notifications</b><span>Live from the onboarding simulation</span>
+        ${L.notes.length ? `<button type="button" data-ssn-read>Mark all read</button>` : ""}</header>
+      ${L.notes.length ? `<ol>${L.notes.map((n) => `<li class="${n.seq > s ? "unread" : ""}">${noteHTML(n, false)}</li>`).join("")}</ol>`
+        : `<p class="ssn-empty">Nothing yet. When someone runs <b>Simulate a new hire</b>, the steps that need you show up here.</p>`}`;
+  }
+
+  function toggleTray(force) {
+    const was = L.open;
+    L.open = force ?? !L.open;
+    if (was && !L.open) {
+      localStorage.setItem(seenKey, String(L.seq || 0));
+      paintBell();
+    }
+    tray.hidden = !L.open;
+    bell.classList.toggle("on", L.open);
+    if (L.open) {
+      const r = bell.getBoundingClientRect();
+      tray.style.top = `${r.bottom + 10}px`;
+      tray.style.right = `${Math.max(12, window.innerWidth - r.right - 8)}px`;
+      paintTray();
+    }
+  }
+
+  function popLive(n) {
+    const card = document.createElement("article");
+    card.className = `ssn-card t-${n.tone}`;
+    card.innerHTML = `<button type="button" class="ssn-x" aria-label="Dismiss">×</button>${noteHTML(n, true)}<i class="ssn-timer"></i>`;
+    live.prepend(card);
+    [...live.children].slice(3).forEach((c) => c.remove());
+    const gone = () => {
+      card.classList.add("out");
+      setTimeout(() => card.remove(), 350);
+    };
+    card.querySelector(".ssn-x").addEventListener("click", gone);
+    card._t = setTimeout(gone, 9000);
+    card.addEventListener("mouseenter", () => clearTimeout(card._t));
+    card.addEventListener("mouseleave", () => (card._t = setTimeout(gone, 4000)));
+  }
+
+  async function poll() {
+    clearTimeout(L.timer);
+    if (!document.hidden) {
+      try {
+        const f = await fetchJSON("/api/sim/feed");
+        if (f.seq < seen()) localStorage.setItem(seenKey, "0");
+        const first = L.seq == null;
+        const fresh = first ? [] : f.notes.filter((n) => n.seq > L.seq);
+        L.seq = f.seq;
+        L.notes = f.notes;
+        L.joiners = f.joiners;
+        L.mine = f.mine;
+        const pin = (S.d && S.d.active && !S.d.done && S.d.joiner_id) || f.joiners[0] || null;
+        const repin = pin !== window.ssSimJoinerId;
+        window.ssSimJoinerId = pin;
+        paintBell();
+        if (L.open) paintTray();
+        if (fresh.length || repin) {
+          if (fresh.length) {
+            bell.classList.remove("ring");
+            void bell.offsetWidth;
+            bell.classList.add("ring");
+          }
+          if (!S.open) {
+            fresh.slice(0, 3).reverse().forEach(popLive);
+            window.ssQuietRender = true;
+            try {
+              await loadAll();
+            } catch {}
+            window.ssQuietRender = false;
+            mark();
+          }
+        }
+        if (S.open && !S.acting && S.d && f.mine.step && f.mine.run === S.d.run && f.mine.step !== S.d.step) {
+          S.d = await fetchJSON("/api/sim");
+          S.token++;
+          run(false);
+        } else if (!S.open && f.mine.run && S.d && f.mine.step !== S.d.step) {
+          S.d = await fetchJSON("/api/sim");
+          syncButton();
+        }
+      } catch {}
+    }
+    L.timer = setTimeout(poll, 4000);
+  }
+
+  bell.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleTray();
+  });
+  document.addEventListener("click", (e) => {
+    const o = e.target.closest("[data-ssn-open]");
+    if (o) {
+      toggleTray(false);
+      o.closest(".ssn-card")?.remove();
+      try {
+        openJoinerDrawer(o.dataset.ssnOpen);
+      } catch {}
+      return;
+    }
+    if (e.target.closest("[data-ssn-sim]")) {
+      toggleTray(false);
+      e.target.closest(".ssn-card")?.remove();
+      openSim();
+      return;
+    }
+    if (e.target.closest("[data-ssn-read]")) {
+      localStorage.setItem(seenKey, String(L.seq || 0));
+      paintBell();
+      paintTray();
+      return;
+    }
+    if (L.open && !e.target.closest(".ssn-tray")) toggleTray(false);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) poll();
+  });
+  poll();
 
   fetchJSON("/api/sim")
     .then((data) => {

@@ -434,6 +434,54 @@ def _notes_for(sim: dict, e: dict) -> Optional[dict]:
             "joiner_id": sim["jid"], "joiner_name": c["name"], "manager_id": c["manager_id"]}
 
 
+# Whose desk each open step is on, and how it reads in that person's "Alerts for you".
+_OPEN = {
+    "start_onboarding": ("HR", "high", "Start onboarding for {name}", "Offer accepted in iCIMS. NIA built the plan — review it and start onboarding."),
+    "send_it": ("HR", "medium", "Send {first}'s IT request", "NIA drafted the IT onboarding request. Review and send it."),
+    "start_provisioning": ("IT", "high", "New joiner request: {name}", "HR sent a setup request via SmartStart — laptop, VPN, Microsoft 365, Jira, engineering apps."),
+    "complete_provisioning": ("IT", "medium", "Fulfil ServiceNow {ticket}", "{first}'s catalog tasks are open in ServiceNow."),
+    "send_manager": ("HR", "medium", "Notify {manager}", "IT setup is complete. NIA is ready to brief the hiring manager."),
+    "prepare_day1": ("MANAGER", "high", "New joiner brief from HR: {name}", "{first} starts {start}. Confirm {mentor} as mentor and book Day-1 orientation."),
+    "request_access": ("MANAGER", "medium", "NIA suggests Confluence for {first}", "{team} works in Confluence and {first} doesn't have it yet. Request it if it's needed."),
+    "approve_access": ("IT", "high", "Access request: {app} for {first}", "{manager} requested {app} ({level}) — SmartStart validated identity, team and authorization."),
+    "assign_project": ("MANAGER", "medium", "Assign {first}'s first project", "Access is in place. NIA recommends Platform Analytics Dashboard in PLAT-ONBOARDING."),
+}
+
+
+def alerts_for(role: str, manager_id: Optional[str]) -> list[dict]:
+    """The open simulation step, as an alert on the desk it's waiting on."""
+    out = []
+    c = CANDIDATE
+    with _LOCK:
+        for sim in list(_SIMS.values()):
+            if not sim.get("jid") or sim.get("done") or store.get_joiner(sim["jid"]) is None:
+                continue
+            _detect(sim)
+            if sim["done"]:
+                continue
+            step = STEP_NAMES[sim["step"]]
+            spec = _OPEN.get(step)
+            if not spec:
+                continue
+            who, severity, title, msg = spec
+            if role != "OPS" and role != who:
+                continue
+            if role == "MANAGER" and manager_id and manager_id != c["manager_id"]:
+                continue
+            acc = sim["access"][-1] if sim["access"] else {}
+            vals = {"name": c["name"], "first": c["first"], "ticket": sim["ticket"], "manager": c["manager"],
+                    "mentor": c["mentor"], "team": c["team"], "app": acc.get("app", ""), "level": acc.get("level", ""),
+                    "start": (TODAY + timedelta(days=START_IN)).strftime("%d %b")}
+            out.append({
+                "id": f"ALT-SIM-{sim['run']}-{step}", "severity": severity, "category": who.title() if who != "IT" else "IT",
+                "title": title.format(**vals), "message": msg.format(**vals) + " Live from the simulation.",
+                "joiner_id": sim["jid"], "joiner_name": c["name"], "role_view": "All", "created_at": _now(),
+                "synthetic": True, "joiner_ids": [], "audience": who, "action_required": True,
+                "event_title": title.format(**vals), "simulated": True,
+            })
+    return out
+
+
 def feed(user: str, role: str, manager_id: Optional[str]) -> dict:
     """The simulation notes meant for this role (managers only see their own joiners), newest first."""
     with _LOCK:

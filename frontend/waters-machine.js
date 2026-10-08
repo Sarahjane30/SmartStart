@@ -59,7 +59,6 @@
     overview: "Move to look around · hover a part to light it up · click to open · scroll to travel",
     active: "Click the part again to zoom · scroll or → for next · Esc to step back",
     deep: "Scroll or → for next · Esc to step back",
-    lab: "Click the vial to inject · click peaks to identify · Esc to leave the experiment",
   };
 
   const fib = (n) =>
@@ -119,7 +118,6 @@
     youT: 0,
     youStage: 0,
     chamber: -1,
-    lab: null,
     site: null,
     node: null,
     area: -1,
@@ -521,78 +519,34 @@
     });
   }
 
-  function labHost() {
-    let host = root.querySelector(".wl-hud");
-    if (!host) {
-      host = document.createElement("div");
-      host.className = "wl-hud";
-      host.addEventListener("click", (e) => {
-        const btn = e.target.closest("[data-act]");
-        if (!btn || !S.lab) return;
-        const out = window.WatersLab3D.act(S.lab, btn.dataset.act);
-        if (out === "exit") leaveLab();
-        else if (out === "ms" || out === "lc") enterLab(out);
-        else syncLabHud(true);
-      });
-      root.appendChild(host);
-    }
-    return host;
-  }
-
-  function syncLabHud(force) {
-    if (!S.lab) return;
-    const host = labHost();
-    const sig = [
-      S.lab.kind,
-      S.lab.stage,
-      S.lab.focus,
-      S.lab.paused,
-      S.lab.running,
-      S.lab.selectedCompound,
-      S.lab.autoScan,
-      S.lab.flow,
-      Object.keys(S.lab.arrivals || {}).join(","),
-    ].join("|");
-    if (!force && sig === S.labSig) return;
-    S.labSig = sig;
-    host.innerHTML = window.WatersLab3D.hudHtml(S.lab);
-  }
-
-  function enterLab(kind) {
-    if (!window.WatersLab3D) return;
+  /* The LC/MS ride is its own full-screen film; the machine sleeps underneath until it ends. */
+  function enterRide(kind, trackName = "observe") {
+    if (!window.WatersRide) return;
     hideIntro();
     if (S.finale) leaveFinale();
-    S.active = "technology";
-    S.level = 2;
-    S.chamber = kind === "ms" ? 1 : 0;
-    S.lab = window.WatersLab3D.create(kind === "ms" ? "ms" : "lc", { reduce });
-    S.labSig = null;
-    root.dataset.lab = S.lab.kind;
-    els.panel.classList.remove("is-show");
-    labHost().hidden = false;
-    syncLabHud(true);
-    setHint();
+    S.ride = true;
+    cancelAnimationFrame(S.raf);
+    root.classList.add("is-ride");
+    window.WatersRide.open({
+      track: `${trackName}-${kind === "ms" ? "ms" : "lc"}`,
+      onClose: () => {
+        if (!S.ride) return;
+        S.ride = false;
+        root.classList.remove("is-ride");
+        if (!S.open) return;
+        overview();
+        S.last = 0;
+        cancelAnimationFrame(S.raf);
+        S.raf = requestAnimationFrame(frame);
+      },
+    });
   }
 
-  function leaveLab() {
-    const wasIn = !!S.lab;
-    S.lab = null;
-    S.labSig = null;
-    delete root.dataset.lab;
-    const host = root.querySelector(".wl-hud");
-    if (host) {
-      host.hidden = true;
-      host.innerHTML = "";
-    }
-    canvas.style.cursor = "default";
-    if (!wasIn) {
-      setHint();
-      return;
-    }
-    S.chamber = -1;
-    S.level = 1;
-    if (S.open) renderPanel();
-    setHint();
+  function leaveRide() {
+    if (!S.ride) return;
+    S.ride = false;
+    root.classList.remove("is-ride");
+    if (window.WatersRide && window.WatersRide.isOpen()) window.WatersRide.close();
   }
 
   function drawImpact(P, a, k) {
@@ -849,33 +803,29 @@
   function targets() {
     const active = S.active;
     const youLit = active === "you" && S.youT > 5.4;
-    const inLab = !!S.lab;
     ORDER.forEach((id) => {
       const fx = S.fx[id];
       let a;
       if (S.finale) a = 1 - ease(S.closing * 1.2);
-      else if (inLab) a = id === "technology" ? 1 : 0.04;
       else if (active) a = id === active ? 1 : active === "you" ? (youLit ? 0.22 : 0.04) : 0.15;
       else if (S.hover) a = id === S.hover ? 1 : 0.26;
       else a = id === "you" ? 0.6 : 0.92;
       fx.ta = a * ease(S.assemble * 1.3 - ORDER.indexOf(id) * 0.08);
-      fx.tk = id === active || id === S.hover || (inLab && id === "technology") ? 1.08 : 1;
-      fx.topen = id === active ? (id === "technology" ? (S.level > 1 || S.chamber >= 0 || inLab ? 1 : 0.35) : 1) : 0;
+      fx.tk = id === active || id === S.hover ? 1.08 : 1;
+      fx.topen = id === active ? (id === "technology" ? (S.level > 1 || S.chamber >= 0 ? 1 : 0.35) : 1) : 0;
     });
     const core = S.fx.core;
     core.ta = S.finale
       ? 1 - ease(S.closing) * 0.85
-      : inLab
-        ? 0.08
-        : active === "you"
-          ? youLit
-            ? 0.75
-            : 0.06
-          : active
-            ? 0.22
-            : S.hover
-              ? 0.4
-              : 1;
+      : active === "you"
+        ? youLit
+          ? 0.75
+          : 0.06
+        : active
+          ? 0.22
+          : S.hover
+            ? 0.4
+            : 1;
   }
 
   function cameraTargets() {
@@ -883,14 +833,6 @@
     let cam = [0, 0, 0];
     let zoom = S.narrow ? 0.78 : 1;
     let shift = 0;
-    if (S.lab) {
-      const pull = S.lab.camPull || ease(S.lab.assemble);
-      cam = S.lab.kind === "ms" ? [0.25, 1.2, -0.1] : [-0.15, 1.25, -0.12];
-      zoom = lerp(1.05, S.narrow ? 1.28 : 1.48, pull);
-      if (!S.narrow) shift = -S.w * 0.18;
-      const shiftY = S.narrow ? -S.h * 0.2 : 0;
-      return { cam, zoom, shift, shiftY };
-    }
     if (active) {
       const L = LAYOUT[active];
       cam = L.pos.slice();
@@ -920,19 +862,7 @@
     S.smx = lerp(S.smx, S.mx, Math.min(1, dt * 3));
     S.smy = lerp(S.smy, S.my, Math.min(1, dt * 3));
 
-    if (S.lab && window.WatersLab3D) {
-      ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
-      drawBackdrop();
-      // the backdrop leaves the context in additive mode; the instrument needs normal blending
-      ctx.globalCompositeOperation = "source-over";
-      window.WatersLab3D.update(S.lab, dt);
-      window.WatersLab3D.render(S.lab, ctx, S.w, S.h, dt);
-      ctx.globalCompositeOperation = "source-over";
-      syncLabHud(false);
-      els.labels.classList.remove("is-show");
-      S.raf = requestAnimationFrame(frame);
-      return;
-    }
+    if (S.ride) return;
 
     targets();
     const k6 = Math.min(1, dt * 5);
@@ -1014,16 +944,57 @@
       .join("");
   }
 
+  /* Labels are pinned to 3D anchors; on short screens they collide. Nudge overlapping pills
+     apart vertically and keep them below the top chapter rail. y is each pill's bottom edge. */
+  function spreadLabels(boxes) {
+    const gap = 6;
+    const rb = els.rail?.getBoundingClientRect();
+    const rootTop = root.getBoundingClientRect().top;
+    const minBottom = (rb && rb.height ? rb.bottom - rootTop : 0) + gap;
+    const maxBottom = root.clientHeight - 40;
+    for (let it = 0; it < 8; it += 1) {
+      let moved = false;
+      boxes.forEach((a) => {
+        a.y = Math.min(maxBottom, Math.max(a.y, minBottom + a.h));
+      });
+      for (let i = 0; i < boxes.length; i += 1) {
+        for (let j = i + 1; j < boxes.length; j += 1) {
+          const a = boxes[i];
+          const b = boxes[j];
+          if (Math.abs(a.x - b.x) * 2 >= a.w + b.w + gap * 2) continue;
+          const [up, dn] = a.y <= b.y ? [a, b] : [b, a];
+          const overlap = up.y + gap - (dn.y - dn.h);
+          if (overlap <= 0) continue;
+          up.y -= overlap / 2;
+          dn.y += overlap / 2;
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+  }
+
   function syncDom() {
     const showLabels = !S.intro && !S.active && !S.finale && S.assemble > 0.7;
     els.labels.classList.toggle("is-show", showLabels);
+    const boxes = [];
     els.labels.querySelectorAll(".wm-label").forEach((b) => {
       const id = b.dataset.part;
       const p = S.proj[id];
       if (!p) return;
       const L = LAYOUT[id].label;
       const q = project(add(posOf(id), L));
-      b.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -100%)`;
+      if (!b._w || b._wAt !== innerWidth) {
+        b._w = b.offsetWidth;
+        b._h = b.offsetHeight;
+        b._wAt = innerWidth;
+      }
+      boxes.push({ b, id, x: q.x, y: q.y, w: b._w, h: b._h });
+    });
+    spreadLabels(boxes);
+    boxes.forEach(({ b, id, x, y }) => {
+      b._y = b._y == null ? y : b._y + (y - b._y) * 0.25;
+      b.style.transform = `translate(${Math.round(x)}px, ${Math.round(b._y)}px) translate(-50%, -100%)`;
       b.classList.toggle("is-hover", S.hover === id);
       b.classList.toggle("is-dim", !!S.hover && S.hover !== id);
     });
@@ -1141,7 +1112,8 @@
               <header><span class="wm-ch-tag">${esc(ch.short)}</span><strong>${esc(ch.name)}</strong></header>
               <ol class="wm-steps">${ch.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
               <p>${esc(ch.simple)}</p>
-              <button type="button" class="wm-lab-enter" data-enter-lab="${i === 1 ? "ms" : "lc"}">Enter the experiment →</button>
+              <button type="button" class="wm-ride-enter" data-ride="${i === 1 ? "ms" : "lc"}" data-track="observe">How it works →</button>
+              <button type="button" class="wm-ride-enter is-dive" data-ride="${i === 1 ? "ms" : "lc"}" data-track="ride">${i === 1 ? "Ride the ions" : "Become the sample"} →</button>
               <button type="button" class="wm-deep-btn" aria-expanded="false">Explain deeper</button>
               <div class="wm-deeper" hidden><span>The technical version</span>${esc(ch.deeper)}</div>
             </article>`
@@ -1203,10 +1175,8 @@
     const c = comp(id);
     els.panel.dataset.part = id;
     const body = PANELS[id](c);
-    els.panel.innerHTML = S.lab
-      ? `<div class="wm-panel-body">${body}</div>`
-      : `<div class="wm-panel-body">${body}</div>${navFooter(id)}`;
-    els.panel.classList.toggle("is-show", id !== "you" || S.youStage >= 4 || !!S.lab);
+    els.panel.innerHTML = `<div class="wm-panel-body">${body}</div>${navFooter(id)}`;
+    els.panel.classList.toggle("is-show", id !== "you" || S.youStage >= 4);
     if (id === "you") {
       els.youCard.innerHTML = `<strong>${esc(c.name)}</strong><span class="l2">${esc(c.role_title)}</span><span class="l2 dim">${esc(c.team)} · ${esc(c.department)}</span>`;
     }
@@ -1224,8 +1194,7 @@
         b.addEventListener("click", () => {
           const x = c.explore[Number(b.dataset.x)];
           if (x.goto === "technology") {
-            const kind = /mass/i.test(x.name) ? "ms" : "lc";
-            enterLab(kind);
+            enterRide(/mass/i.test(x.name) ? "ms" : "lc");
             return;
           }
           if (x.goto) {
@@ -1249,10 +1218,10 @@
       });
     }
     if (id === "technology") {
-      P.querySelectorAll("[data-enter-lab]").forEach((b) =>
+      P.querySelectorAll("[data-ride]").forEach((b) =>
         b.addEventListener("click", (e) => {
           e.stopPropagation();
-          enterLab(b.dataset.enterLab);
+          enterRide(b.dataset.ride, b.dataset.track);
         })
       );
       P.querySelectorAll(".wm-chamber").forEach((card) => {
@@ -1264,7 +1233,7 @@
         card.addEventListener("focus", on);
         card.addEventListener("click", () => {
           on();
-          enterLab(Number(card.dataset.ch) === 1 ? "ms" : "lc");
+          enterRide(Number(card.dataset.ch) === 1 ? "ms" : "lc");
         });
         card.querySelector(".wm-deep-btn")?.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -1307,16 +1276,13 @@
   /* ---------- navigation ---------- */
 
   function setHint() {
-    const key = S.lab
-      ? "lab"
-      : S.active
-        ? ["world", "people", "you"].includes(S.active) || S.level > 1
-          ? "deep"
-          : "active"
-        : "overview";
+    const key = S.active
+      ? ["world", "people", "you"].includes(S.active) || S.level > 1
+        ? "deep"
+        : "active"
+      : "overview";
     els.hint.textContent = S.finale ? "" : HINTS[key];
-    root.classList.toggle("is-active", !!S.active || !!S.lab);
-    root.classList.toggle("is-lab", !!S.lab);
+    root.classList.toggle("is-active", !!S.active);
     root.classList.toggle("is-finale", S.finale);
     els.rail.querySelectorAll(".wm-rail-btn").forEach((b) => {
       const i = Number(b.dataset.step);
@@ -1333,7 +1299,6 @@
   function select(id) {
     hideIntro();
     if (S.finale) leaveFinale();
-    if (S.lab) leaveLab();
     if (S.active === id) {
       if (["science", "impact", "technology"].includes(id)) {
         S.level = S.level > 1 ? 1 : 2;
@@ -1359,7 +1324,6 @@
 
   function overview() {
     if (S.finale) leaveFinale();
-    if (S.lab) leaveLab();
     S.active = null;
     S.level = 1;
     S.globeTarget = null;
@@ -1384,7 +1348,7 @@
   }
 
   function enterFinale() {
-    leaveLab();
+    leaveRide();
     S.active = null;
     S.finale = true;
     S.finaleShown = false;
@@ -1446,11 +1410,6 @@
     const r = canvas.getBoundingClientRect();
     S.mx = ((e.clientX - r.left) / r.width) * 2 - 1;
     S.my = ((e.clientY - r.top) / r.height) * 2 - 1;
-    if (S.lab && window.WatersLab3D) {
-      const kind = window.WatersLab3D.pointerMove(S.lab, e.clientX - r.left, e.clientY - r.top);
-      canvas.style.cursor = kind === "drag" ? "grabbing" : kind === "pointer" ? "pointer" : "grab";
-      return;
-    }
     if (S.intro || S.finale) return;
     const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
     if (!S.active) S.hover = hit;
@@ -1477,25 +1436,10 @@
     return best;
   }
 
-  function onPointerDown(e) {
-    if (!S.lab || !window.WatersLab3D) return;
-    const r = canvas.getBoundingClientRect();
-    window.WatersLab3D.pointerDown(S.lab, e.clientX - r.left, e.clientY - r.top);
-    canvas.setPointerCapture?.(e.pointerId);
-  }
-
-  function onPointerUp(e) {
-    if (!S.lab || !window.WatersLab3D) return;
-    const r = canvas.getBoundingClientRect();
-    window.WatersLab3D.pointerUp(S.lab, e.clientX - r.left, e.clientY - r.top);
-    syncLabHud(true);
-  }
-
   function onClick(e) {
     const r = canvas.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
-    if (S.lab) return;
     const hit = hitTest(x, y);
     if (S.intro) {
       hideIntro();
@@ -1508,11 +1452,6 @@
   }
 
   function onWheel(e) {
-    if (S.lab && window.WatersLab3D) {
-      e.preventDefault();
-      window.WatersLab3D.wheel(S.lab, e.deltaY);
-      return;
-    }
     const inPanel = e.target.closest(".wm-panel, .wm-sources");
     if (inPanel && inPanel.scrollHeight > inPanel.clientHeight + 2) return;
     e.preventDefault();
@@ -1527,16 +1466,13 @@
   }
 
   function onKey(e) {
-    if (!S.open) return;
+    if (!S.open || S.ride) return;
     if (e.key === "Escape") {
       e.preventDefault();
       if (!els.sources.hidden) els.sources.hidden = true;
-      else if (S.lab) leaveLab();
       else if (S.finale) goStep(ORDER.length - 1);
       else if (S.active) overview();
       else close();
-    } else if (S.lab) {
-      return;
     } else if (["ArrowRight", "ArrowDown", "PageDown"].includes(e.key) && !e.target.closest("input, textarea")) {
       e.preventDefault();
       step(1);
@@ -1558,9 +1494,6 @@
   }
 
   canvas.addEventListener("pointermove", onMove);
-  canvas.addEventListener("pointerdown", onPointerDown);
-  canvas.addEventListener("pointerup", onPointerUp);
-  canvas.addEventListener("pointercancel", onPointerUp);
   canvas.addEventListener("pointerleave", () => {
     S.hover = null;
     S.mx = 0;
@@ -1610,7 +1543,7 @@
     S.assemble = 0;
     S.closing = 0;
     S.last = 0;
-    leaveLab();
+    leaveRide();
     els.intro.classList.remove("is-gone");
     leaveFinale();
     renderPanel();
@@ -1638,9 +1571,9 @@
     if (!S.open) return;
     S.open = false;
     cancelAnimationFrame(S.raf);
-    leaveLab();
+    leaveRide();
     els.intro.classList.add("is-gone");
-    root.classList.remove("is-open", "is-lab", "is-active", "is-finale");
+    root.classList.remove("is-open", "is-ride", "is-active", "is-finale");
     document.body.classList.remove("wm-lock");
     els.sources.hidden = true;
     setTimeout(() => {

@@ -39,7 +39,7 @@ from backend.employee_experience import (
     remove_skill,
     skills_for,
 )
-from backend import ira_profile, manager_assistant, nia, onboarding_cases, resolutions, simulation, waters_explorer
+from backend import grounded, ira_profile, knowledge_sources, manager_assistant, nia, onboarding_cases, resolutions, simulation, waters_explorer
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -54,6 +54,7 @@ from backend.role_context import (
     ROLE_OPS,
     access_items,
     build_role_context,
+    role_for_session,
     is_resolved_for,
     lens_queue,
     build_role_insights,
@@ -91,6 +92,8 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 NO_CACHE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
 EmployerSession = Annotated[dict, Depends(require_employer)]
 OptionalEmployerSession = Annotated[Optional[dict], Depends(optional_employer)]
+
+grounded.install()
 
 API_DESCRIPTION = """
 SmartStart Layers 1–4 — Synthetic onboarding data engine, Employer Command Center,
@@ -1039,21 +1042,29 @@ def learning_module_complete(joiner_id: str, module_id: str) -> LearningTrackRes
         raise HTTPException(status_code=409, detail=str(exc)) from None
 
 
+def _reader(src: knowledge_sources.Source) -> dict:
+    return {
+        "id": src.id,
+        "slug": src.id.split(":", 1)[1],
+        "title": src.rev.title,
+        "category": src.rev.category,
+        "owner": src.rev.owner,
+        "updated": src.rev.updated,
+        "origin_label": knowledge_sources.ORIGIN_LABELS.get(src.origin, src.origin),
+        "version": src.version,
+        "sections": [{"heading": s.heading, "body": s.text} for s in src.sections],
+        "synthetic": True,
+    }
+
+
 @app.get("/api/policies")
 def policies_index() -> dict:
-    """Approved policy library (HR, Finance, Legal, Information Security)."""
-    from ira.policy_kb import load_policies
-
+    """Approved policy library (HR, Finance, Legal, Information Security) as currently approved."""
     return {
         "policies": [
-            {
-                "slug": d.slug,
-                "title": d.title,
-                "category": d.category,
-                "owner": d.owner,
-                "updated": d.updated,
-            }
-            for d in load_policies()
+            {k: v for k, v in _reader(s).items() if k != "sections"}
+            for s in knowledge_sources.approved_sources()
+            if s.origin == "policy"
         ],
         "synthetic": True,
     }
@@ -1062,18 +1073,112 @@ def policies_index() -> dict:
 @app.get("/api/policies/{slug}")
 def policy_detail(slug: str) -> dict:
     """Full text of one approved policy, split into sections."""
-    from ira.policy_kb import load_policies
-
-    doc = next((d for d in load_policies() if d.slug == slug), None)
-    if doc is None:
+    src = knowledge_sources.approved(f"policy:{slug}")
+    if src is None:
         raise HTTPException(status_code=404, detail="Policy not found")
+    return _reader(src)
+
+
+@app.get("/api/sources/{source_id}")
+def source_reader(source_id: str, session: OptionalEmployerSession) -> dict:
+    """Read one approved source an answer cited. Employer-only sources need an employer login."""
+    src = knowledge_sources.approved(source_id)
+    role = role_for_session(session) if session else "EMPLOYEE"
+    if src is None or not (knowledge_sources.audience_ok(src, "EMPLOYEE") or knowledge_sources.audience_ok(src, role)):
+        raise HTTPException(status_code=404, detail="Source not found")
+    return _reader(src)
+
+
+class KnowledgeDraft(BaseModel):
+    title: str = Field(max_length=120)
+    category: str = Field(default="General", max_length=40)
+    owner: str = Field(max_length=80)
+    audience: list[str] = Field(default_factory=list, max_length=5)
+    keywords: list[str] = Field(default_factory=list, max_length=30)
+    actions: list[str] = Field(default_factory=list, max_length=5)
+    body: str = Field(max_length=20000)
+    note: str = Field(default="", max_length=200)
+
+
+class KnowledgePreview(BaseModel):
+    question: str = Field(min_length=2, max_length=300)
+    audience: Optional[str] = None
+
+
+def _kb_call(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from None
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Source not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+@app.get("/api/knowledge")
+def knowledge_library(session: EmployerSession) -> dict:
+    """The approved-source library NIA and IRA answer from, with drafts awaiting approval."""
+    role = role_for_session(session)
     return {
-        "slug": doc.slug,
-        "title": doc.title,
-        "category": doc.category,
-        "owner": doc.owner,
-        "updated": doc.updated,
-        "sections": [{"heading": s.heading, "body": s.body} for s in doc.sections],
+        **knowledge_sources.library(),
+        "assistant": grounded.status(),
+        "can_edit": role in knowledge_sources.EDIT_ROLES,
+        "can_approve": role in knowledge_sources.APPROVE_ROLES,
+        "audiences": list(knowledge_sources.AUDIENCES),
+        "role": role,
+    }
+
+
+@app.get("/api/knowledge/sources/{source_id}")
+def knowledge_source(source_id: str, session: EmployerSession) -> dict:
+    return _kb_call(knowledge_sources.detail, source_id)
+
+
+@app.post("/api/knowledge/sources")
+def knowledge_create(body: KnowledgeDraft, session: EmployerSession) -> dict:
+    return _kb_call(knowledge_sources.save_draft, None, body.model_dump(),
+                    role=role_for_session(session), user=session["display_name"])
+
+
+@app.put("/api/knowledge/sources/{source_id}/draft")
+def knowledge_save_draft(source_id: str, body: KnowledgeDraft, session: EmployerSession) -> dict:
+    return _kb_call(knowledge_sources.save_draft, source_id, body.model_dump(),
+                    role=role_for_session(session), user=session["display_name"])
+
+
+@app.delete("/api/knowledge/sources/{source_id}/draft")
+def knowledge_discard_draft(source_id: str, session: EmployerSession) -> dict:
+    return _kb_call(knowledge_sources.discard, source_id, role=role_for_session(session), user=session["display_name"])
+
+
+@app.post("/api/knowledge/sources/{source_id}/approve")
+def knowledge_approve(source_id: str, session: EmployerSession) -> dict:
+    return _kb_call(knowledge_sources.approve, source_id, role=role_for_session(session), user=session["display_name"])
+
+
+@app.post("/api/knowledge/sources/{source_id}/retire")
+def knowledge_retire(source_id: str, session: EmployerSession) -> dict:
+    return _kb_call(knowledge_sources.retire, source_id, role=role_for_session(session), user=session["display_name"])
+
+
+@app.post("/api/knowledge/sources/{source_id}/restore")
+def knowledge_restore(source_id: str, session: EmployerSession) -> dict:
+    return _kb_call(knowledge_sources.retire, source_id, role=role_for_session(session),
+                    user=session["display_name"], restore=True)
+
+
+@app.post("/api/knowledge/preview")
+def knowledge_preview(body: KnowledgePreview, session: EmployerSession) -> dict:
+    """How NIA / IRA would answer now, and how they would answer once pending drafts are approved."""
+    audience = (body.audience or role_for_session(session)).upper()
+    if audience not in knowledge_sources.AUDIENCES:
+        raise HTTPException(status_code=422, detail="Unknown audience")
+    return {
+        "question": body.question,
+        "audience": audience,
+        "current": grounded.answer(body.question, audience),
+        "with_drafts": grounded.answer(body.question, audience, drafts=True),
         "synthetic": True,
     }
 

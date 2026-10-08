@@ -546,12 +546,22 @@ RELATIONS: list[tuple[str, str, str]] = [
 ]
 
 
+def _current(ent: KnowledgeEntity) -> Optional[KnowledgeEntity]:
+    """The entity as approved in the knowledge library (None once retired)."""
+    from backend.knowledge_sources import entity_view
+
+    return entity_view(ent)
+
+
 def find_entities(query: str, *, role: str | None = None, limit: int = 5) -> list[KnowledgeEntity]:
     """Keyword score entities; optional role filter (intern/fte)."""
     q = " ".join(query.lower().split())
     role_l = (role or "").lower()
     scored: list[tuple[int, KnowledgeEntity]] = []
-    for ent in ENTITIES.values():
+    for base in ENTITIES.values():
+        ent = _current(base)
+        if ent is None:
+            continue
         if role_l in {"intern", "fte"} and ent.kind == "application":
             if role_l not in ent.role_tags:
                 continue
@@ -569,7 +579,8 @@ def find_entities(query: str, *, role: str | None = None, limit: int = 5) -> lis
 
 
 def get_entity(entity_id: str) -> Optional[KnowledgeEntity]:
-    return ENTITIES.get(entity_id)
+    ent = ENTITIES.get(entity_id)
+    return _current(ent) if ent else None
 
 
 def related(entity_id: str) -> list[KnowledgeEntity]:
@@ -578,8 +589,9 @@ def related(entity_id: str) -> list[KnowledgeEntity]:
         return []
     out: list[KnowledgeEntity] = []
     for rid in ent.related_ids:
-        if rid in ENTITIES:
-            out.append(ENTITIES[rid])
+        cur = get_entity(rid)
+        if cur:
+            out.append(cur)
     return out
 
 
@@ -609,4 +621,4 @@ def role_recommended_apps(role_type: str) -> list[KnowledgeEntity]:
         if role_l == "intern"
         else ["app-jira", "app-teams", "app-learning", "app-hr-portal", "app-servicenow", "app-celonis"]
     )
-    return [ENTITIES[i] for i in preferred if i in ENTITIES]
+    return [e for e in (get_entity(i) for i in preferred) if e]

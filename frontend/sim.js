@@ -378,7 +378,7 @@
     PLAN.forEach((h) => {
       const hx = cx + R1 * Math.cos(rad(h.a)), hy = cy + R1 * Math.sin(rad(h.a));
       const n = h.leaves.length;
-      const spread = n > 3 ? 15 : 19;
+      const spread = n > 3 ? 12 : 19;
       const done = h.leaves.filter(([, k]) => ok[k]).length;
       const st = done === n ? "ok" : done ? "part" : "todo";
       parts.lines.push(`<line class="pg-l pg-hub-l rv-s" style="--i:${i}" x1="${cx}" y1="${cy}" x2="${hx}" y2="${hy}"/>`);
@@ -387,8 +387,7 @@
       i++;
       h.leaves.forEach(([label, key], j) => {
         const a = h.a + (j - (n - 1) / 2) * spread;
-        const r = R2 + (j % 2 ? 24 : 0) * (Math.abs(Math.cos(rad(h.a))) < 0.7 ? 1 : 0);
-        const lx = cx + r * Math.cos(rad(a)), ly = cy + r * Math.sin(rad(a));
+        const lx = cx + R2 * Math.cos(rad(a)), ly = cy + R2 * Math.sin(rad(a));
         const right = Math.cos(rad(a)) >= 0;
         const anchor = right ? "start" : "end";
         const tx = right ? 9 : -9;

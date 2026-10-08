@@ -115,6 +115,7 @@ const TITLES = {
     "Queue metrics — who’s blocked, and where they sit in the pipeline",
   ],
   roles: ["Role Views", "Mock iCIMS / ServiceNow / Jira connectors + queue for this lens"],
+  knowledge: ["Knowledge", "The approved sources NIA and IRA answer from — edits go live only after Ops approves them"],
 };
 
 const FILTER_EXPLAIN = {
@@ -1384,6 +1385,7 @@ function setSection(name) {
   if (name === "analytics") renderAnalytics();
   if (name === "roles") renderRoles();
   if (name === "learning") window.renderTeamLearning?.();
+  if (name === "knowledge") window.renderKnowledge?.();
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.section === name);
   });

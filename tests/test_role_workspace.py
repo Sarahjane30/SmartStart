@@ -34,7 +34,7 @@ def test_hr_workspace_is_hr_focused_without_switcher():
         ws = client.get("/api/employer/workspace", headers=h).json()
         assert ws["role"] == "HR"
         assert ws["can_switch_queues"] is False
-        assert _nav(ws) == ["Dashboard", "My Actions", "Joiners", "Alerts", "Analytics"]
+        assert _nav(ws) == ["Dashboard", "My Actions", "Joiners", "Alerts", "Analytics", "Knowledge"]
         assert _cards(ws) == ["Joiners in view", "Documents pending", "Document rework", "HR actions", "At risk"]
         assert ws["question"] == "What does HR need to act on right now?"
         assert ws["action_queue"], "HR should have document work in the seed-42 cohort"
@@ -64,7 +64,7 @@ def test_it_workspace_is_it_focused():
         ws = client.get("/api/employer/workspace", headers=h).json()
         assert ws["role"] == "IT"
         assert ws["can_switch_queues"] is False
-        assert _nav(ws) == ["Dashboard", "IT Requests", "Joiners", "Alerts", "Analytics"]
+        assert _nav(ws) == ["Dashboard", "IT Requests", "Joiners", "Alerts", "Analytics", "Knowledge"]
         assert _cards(ws) == ["Joiners in view", "Pending hardware", "SLA breaches", "Access requests", "IT risks"]
         assert all(j["hardware_status"] != "Delivered" for j in ws["action_queue"])
         labels = {a["label"] for j in ws["action_queue"] for a in j["actions"]}
@@ -92,7 +92,7 @@ def test_manager_sees_only_their_joiners():
         ws = client.get("/api/employer/workspace", headers=h).json()
         assert ws["role"] == "MANAGER"
         assert ws["can_switch_queues"] is False
-        assert _nav(ws) == ["Dashboard", "My Joiners", "My Actions", "Learning", "Alerts"]
+        assert _nav(ws) == ["Dashboard", "My Joiners", "My Actions", "Learning", "Alerts", "Knowledge"]
         assert _cards(ws) == ["My Joiners", "On Track", "Need My Action", "Project Assignment Pending", "Project Ready"]
         assert set(ws["visible_joiners"]) == mine
         assert set(ws["actionable_joiners"]) <= mine

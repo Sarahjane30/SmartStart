@@ -688,6 +688,13 @@ def sim_start(session: EmployerSession) -> dict:
     return simulation.start(_sim_user(session))
 
 
+@app.get("/api/sim/feed")
+def sim_feed(session: EmployerSession) -> dict:
+    """Simulation notes for the caller's role, so every open Command Center reflects the run live."""
+    ctx = build_role_context(session)
+    return simulation.feed(_sim_user(session), ctx.role, getattr(ctx, "manager_id", None))
+
+
 @app.post("/api/sim/act")
 def sim_act(body: SimActRequest, session: EmployerSession) -> dict:
     """Take the next human action in the journey; the consequence is written to the shared store."""

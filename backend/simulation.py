@@ -92,6 +92,9 @@ STEP_NAMES = [s for s, _, _ in STEPS]
 _SIMS: dict[str, dict] = {}
 _SIM: dict = {}
 _RUNS = {"n": 0}
+# Every simulation event gets a global sequence number so any open Command Center can ask
+# "what's new since N" and show the notes meant for its role.
+_SEQ = {"n": 0}
 _LOCK = threading.RLock()
 
 
@@ -101,6 +104,8 @@ def _for_user(fn):
         global _SIM
         with _LOCK:
             _SIM = _SIMS.setdefault(user, {})
+            if _SIM:
+                _detect(_SIM)
             return fn(*args, **kwargs)
     return bound
 
@@ -160,17 +165,24 @@ def _sync() -> None:
 
 
 def _event(source: str, code: str, text: str, route: list[str], tone: str = "info") -> None:
-    _SIM["events"].append({"n": len(_SIM["events"]) + 1, "source": source, "code": code, "text": text,
-                           "route": route, "tone": tone, "at": _now()})
+    _SEQ["n"] += 1
+    _SIM["events"].append({"n": len(_SIM["events"]) + 1, "seq": _SEQ["n"], "source": source, "code": code,
+                           "text": text, "route": route, "tone": tone, "at": _now()})
 
 
-@_for_user
-def start() -> dict:
+def start(user: str) -> dict:
+    with _LOCK:
+        return _start(user)
+
+
+def _start(user: str) -> dict:
+    global _SIM
+    _SIM = _SIMS.setdefault(user, {})
     _drop(_SIM)
     _RUNS["n"] += 1
     n = _RUNS["n"]
     _SIM.update(
-        run=n, jid=None, step=0, ticket=f"IT-{1041 + n}", state=OnboardingState.OFFER_ACCEPTED,
+        user=user, run=n, jid=None, step=0, ticket=f"IT-{1041 + n}", state=OnboardingState.OFFER_ACCEPTED,
         docs=DocumentStatus.PENDING, hw=HardwareStatus.PENDING, software=[], access=[], sent={}, events=[],
         project=None, done=False,
     )
@@ -216,9 +228,12 @@ def _clean(text: str, limit: int) -> str:
     return (text or "").strip()[:limit]
 
 
-def _do(step: str, detail: dict) -> None:
+def _do(step: str, detail: dict, outside: bool = False) -> None:
+    """Apply one step. `outside` means the person already did it in the real Command Center, so only
+    the simulation's own record moves on."""
     s, c = _SIM, CANDIDATE
     hr, it, mgr = PEOPLE["HR"], PEOPLE["IT"], PEOPLE["Manager"]
+    where = " from the Command Center" if outside else ""
 
     if step == "accept_offer":
         s["jid"] = f"SYN-SIM-{900 + s['run']}"
@@ -236,8 +251,10 @@ def _do(step: str, detail: dict) -> None:
                                     "11 requirements across HR, IT, Manager, Learning and Project.", ["ss"])
 
     elif step == "start_onboarding":
-        cases.approve(_facts(), hr, mentor_name=c["mentor"])
-        _event("SmartStart", "ONBOARDING_STARTED", f"{hr} started onboarding. Document packet requested in iCIMS.",
+        if cases.case_status(_facts()) == "review":
+            cases.approve(_facts(), hr, mentor_name=c["mentor"])
+        hr = cases._CASES.get(s["jid"], {}).get("approved_by") or hr
+        _event("SmartStart", "ONBOARDING_STARTED", f"{hr} started onboarding{where}. Document packet requested in iCIMS.",
                ["ss", "hr", "icims"], "good")
         s["docs"] = DocumentStatus.COMPLETE
         s["state"] = OnboardingState.DOCS_SUBMITTED
@@ -282,9 +299,12 @@ def _do(step: str, detail: dict) -> None:
 
     elif step == "prepare_day1":
         f = _facts()
-        manager_assistant.confirm_mentor(f, mgr, c["mentor"])
-        manager_assistant.book_day1(_facts(), mgr, TODAY + timedelta(days=START_IN), "10:00")
-        _event("Manager", "DAY1_PREPARED", f"{mgr} confirmed {c['mentor']} as mentor and booked Day-1 orientation.",
+        if not outside:
+            manager_assistant.confirm_mentor(f, mgr, c["mentor"])
+            manager_assistant.book_day1(_facts(), mgr, TODAY + timedelta(days=START_IN), "10:00")
+        p = manager_assistant.prep(_facts())
+        _event("Manager", "DAY1_PREPARED", f"{mgr} confirmed {p['mentor']['name']} as mentor and booked Day-1 "
+                                           f"orientation{where}.",
                ["mgr", "ss", "emp"], "good")
         _event("NIA", "CONTEXT_GAP", f"{c['team']} usually works in Confluence. It isn't in {c['first']}'s access yet.",
                ["ss", "mgr"], "warn")
@@ -320,9 +340,11 @@ def _do(step: str, detail: dict) -> None:
                ["access", "it", "ss"], "good")
 
     elif step == "assign_project":
-        manager_assistant.assign_project(_facts(), mgr, PROJECT["name"])
-        s["project"] = {**PROJECT, "at": _now()}
-        _event("Jira", "PROJECT_ASSIGNED", f"{PROJECT['jira']}: {PROJECT['name']} assigned with "
+        if not outside:
+            manager_assistant.assign_project(_facts(), mgr, PROJECT["name"])
+        name = manager_assistant.prep(_facts())["project"]["name"]
+        s["project"] = {**PROJECT, "name": name, "at": _now()}
+        _event("Jira", "PROJECT_ASSIGNED", f"{PROJECT['jira']}: {name} assigned{where} with "
                                            f"{len(PROJECT['tasks'])} first-week tasks.", ["mgr", "jira", "ss"], "good")
         _event("SmartStart", "EMPLOYEE_READY", f"Every onboarding dependency for {c['name']} is connected.",
                ["ss", "emp"], "good")
@@ -347,6 +369,95 @@ def act(choice: str, detail: Optional[dict] = None) -> dict:
 @_for_user
 def state() -> dict:
     return snapshot()
+
+
+def _detect(sim: dict) -> None:
+    """Steps someone already took in the real Command Center (approving the case in NIA, booking
+    Day 1 or assigning the project from the manager dashboard) move the simulation on by themselves."""
+    global _SIM
+    if not sim.get("jid") or sim.get("done") or store.get_joiner(sim["jid"]) is None:
+        return
+    _SIM = sim
+    f = _facts()
+    step = STEP_NAMES[sim["step"]]
+    p = manager_assistant.prep(f)
+    taken = (
+        (step == "start_onboarding" and cases.case_status(f) != "review")
+        or (step == "prepare_day1" and p.get("mentor") and p.get("day1"))
+        or (step == "assign_project" and p.get("project"))
+    )
+    if taken:
+        _do(step, {}, outside=True)
+        if not sim["done"]:
+            sim["step"] += 1
+
+
+# --- notes for whoever the event concerns -------------------------------------------------------
+
+def _notes_for(sim: dict, e: dict) -> Optional[dict]:
+    c = CANDIDATE
+    sent = sim.get("sent", {})
+    access = sim["access"][-1] if sim.get("access") else {}
+    n = c["first"]
+    spec = {
+        "OFFER_ACCEPTED": (("HR",), "New hire from iCIMS",
+                           f"{c['name']} accepted the {c['position']} offer. NIA has built the onboarding plan.", None),
+        "DOCUMENTS_SUBMITTED": (("HR",), "Documents verified", f"{n} completed all 30 onboarding forms in iCIMS.", None),
+        "IT_REQUEST_CREATED": (("IT",), sent.get("it", {}).get("subject") or "New joiner request",
+                               f"{PEOPLE['HR']} sent a setup request for {c['name']} via SmartStart.",
+                               sent.get("it", {}).get("body")),
+        "IT_PROVISIONING_COMPLETED": (("HR", "MANAGER"), "IT setup complete",
+                                      f"ServiceNow {sim['ticket']} closed: laptop, VPN, Microsoft 365, Jira and "
+                                      f"engineering apps are ready for {n}.", None),
+        "MANAGER_NOTIFIED": (("MANAGER",), sent.get("manager", {}).get("subject") or "New joiner brief",
+                             f"{PEOPLE['HR']} sent you {c['name']}'s preparation brief. Confirm the mentor and book "
+                             f"Day 1.", sent.get("manager", {}).get("body")),
+        "DAY1_PREPARED": (("HR",), "Day 1 is booked", e["text"], None),
+        "CONTEXT_GAP": (("MANAGER",), f"NIA suggests Confluence for {n}",
+                        f"{c['team']} works in Confluence and {n} doesn't have it yet. Request it if it's needed — "
+                        f"nothing is granted automatically.", None),
+        "ACCESS_REQUEST_CREATED": (("IT",), f"Access request: {access.get('app', 'application')}",
+                                   f"{PEOPLE['Manager']} requested {access.get('app')} ({access.get('level')}) for "
+                                   f"{c['name']}: {access.get('reason')}.", None),
+        "ACCESS_GRANTED": (("MANAGER", "HR"), f"{access.get('app', 'Access')} granted",
+                           f"IT approved {access.get('app')} for {c['name']}. Next: assign the first project.", None),
+        "PROJECT_ASSIGNED": (("HR",), "First project assigned", e["text"], None),
+        "EMPLOYEE_READY": (("HR", "MANAGER", "IT"), f"{c['name']} is ready",
+                           f"Every onboarding dependency is connected. Day 1 is {(TODAY + timedelta(days=START_IN)).strftime('%d %b')}.",
+                           None),
+    }.get(e["code"])
+    if not spec:
+        return None
+    roles, title, text, body = spec
+    return {"seq": e["seq"], "code": e["code"], "source": e["source"], "tone": e["tone"], "at": e["at"],
+            "roles": list(roles), "title": title, "text": text, "body": body,
+            "joiner_id": sim["jid"], "joiner_name": c["name"], "manager_id": c["manager_id"]}
+
+
+def feed(user: str, role: str, manager_id: Optional[str]) -> dict:
+    """The simulation notes meant for this role (managers only see their own joiners), newest first."""
+    with _LOCK:
+        notes = []
+        for sim in list(_SIMS.values()):
+            if not sim.get("jid") or store.get_joiner(sim["jid"]) is None:
+                continue
+            _detect(sim)
+            for e in sim["events"]:
+                note = _notes_for(sim, e)
+                if not note:
+                    continue
+                if role != "OPS" and role not in note["roles"]:
+                    continue
+                if role == "MANAGER" and manager_id and note["manager_id"] != manager_id:
+                    continue
+                note["mine"] = sim.get("user") == user
+                notes.append(note)
+        notes.sort(key=lambda x: -x["seq"])
+        mine = _SIMS.get(user) or {}
+        return {"seq": _SEQ["n"], "notes": notes[:20],
+                "mine": {"run": mine.get("run"), "step": "done" if mine.get("done") else
+                         (STEP_NAMES[mine["step"]] if mine else None)},
+                "joiners": sorted({n["joiner_id"] for n in notes}), "synthetic": True}
 
 
 # --- what the simulation screen shows -----------------------------------------------------------

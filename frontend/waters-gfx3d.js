@@ -275,7 +275,7 @@
   function drawCylinder(R, a, b, r, opts = {}) {
     const {
       color = STEEL, alpha: alpha0 = 1, segments = 26, glass = false, caps = true,
-      capColor = null, emissive = null, rim = 0.5,
+      capColor = null, emissive = null, rim = 0.5, lift = 0,
     } = opts;
     const axis = sub(b, a);
     const top = circlePts(b, axis, r, segments);
@@ -295,7 +295,7 @@
       if (alpha < 0.01) continue;
       const lam = clamp(dot(nrm, LIGHT), 0, 1);
       const spec = Math.pow(clamp(dot(norm(add(LIGHT, toCam)), nrm), 0, 1), 26);
-      const z = Math.max(R.project(center).z, clip.minZ);
+      const z = Math.max(R.project(center).z, clip.minZ) - lift;
       const fres = Math.pow(1 - clamp(facing, 0, 1), 2);
       R.push(z, (ctx) => {
         facePath(ctx, pts, 0);
@@ -339,7 +339,7 @@
         if (alpha < 0.01) return;
         const lam = clamp(dot(nrm, LIGHT), 0, 1);
         const col = capColor || shade(color, 0.9);
-        const z = Math.max(R.project(c).z, clip.minZ) - 0.002;
+        const z = Math.max(R.project(c).z, clip.minZ) - 0.002 - lift;
         R.push(z, (ctx) => {
           facePath(ctx, ring, 0);
           const g = ctx.createLinearGradient(ring[0].x, ring[0].y, ring[(ring.length / 2) | 0].x, ring[(ring.length / 2) | 0].y);
@@ -356,12 +356,12 @@
   }
 
   function drawSphere(R, c, r, color, opts = {}) {
-    const { alpha = 1, glow = 0, glass = false } = opts;
+    const { alpha = 1, glow = 0, glass = false, lift = 0 } = opts;
     const p = R.project(c);
     if (!p.vis) return;
     const rr = r * p.s;
     if (rr < 0.4) return;
-    R.push(p.z, (ctx) => {
+    R.push(p.z - lift, (ctx) => {
       if (glow > 0) {
         const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr * 3.4);
         g.addColorStop(0, rgba(color, alpha * glow * 0.6));
@@ -397,7 +397,7 @@
   }
 
   function drawTube(R, pts, r, opts = {}) {
-    const { color = STEEL, alpha: alpha0 = 1, glass = true, fluid = null } = opts;
+    const { color = STEEL, alpha: alpha0 = 1, glass = true, fluid = null, lift = 0 } = opts;
     const { f } = R.basis;
     for (let i = 0; i < pts.length - 1; i += 1) {
       let a = pts[i];
@@ -412,7 +412,7 @@
       const pa = R.project(a);
       const pb = R.project(b);
       const center = mix3(a, b, 0.5);
-      const z = R.project(center).z;
+      const z = R.project(center).z - lift;
       const dx = pb.x - pa.x;
       const dy = pb.y - pa.y;
       const l = Math.hypot(dx, dy) || 1;
@@ -445,6 +445,11 @@
         if (glass) {
           ctx.strokeStyle = rgba([235, 245, 255], alpha * 0.28);
           ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(quad[0].x, quad[0].y);
+          ctx.lineTo(quad[1].x, quad[1].y);
+          ctx.moveTo(quad[3].x, quad[3].y);
+          ctx.lineTo(quad[2].x, quad[2].y);
           ctx.stroke();
           ctx.strokeStyle = rgba([255, 255, 255], alpha * 0.5);
           ctx.lineWidth = Math.max(0.6, wa * 0.3);
@@ -470,7 +475,7 @@
   }
 
   function drawDisc(R, c, axis, r, color, opts = {}) {
-    let { alpha = 1, segments = 30, ring = false } = opts;
+    let { alpha = 1, segments = 30, ring = false, lift = 0 } = opts;
     const clip = R.clipProject(circlePts(c, axis, r, segments).map((p) => p.p));
     if (!clip) return;
     const pts = clip.pts;
@@ -479,7 +484,7 @@
     alpha *= R.nearAlpha(clip.minZ);
     if (alpha < 0.01) return;
     const lam = clamp(Math.abs(dot(norm(axis), LIGHT)), 0.2, 1);
-    R.push(p.z, (ctx) => {
+    R.push(p.z - lift, (ctx) => {
       facePath(ctx, pts, 0);
       if (ring) {
         ctx.strokeStyle = rgba(color, alpha);

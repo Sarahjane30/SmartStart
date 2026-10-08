@@ -28,6 +28,12 @@ class DataStore:
         self.documents[joiner.id] = documents
         self.it_tickets[it_ticket.ticket_id] = it_ticket
 
+    def remove(self, joiner_id: str) -> None:
+        self.joiners.pop(joiner_id, None)
+        self.documents.pop(joiner_id, None)
+        for tid in [t for t, ticket in self.it_tickets.items() if ticket.joiner_id == joiner_id]:
+            self.it_tickets.pop(tid)
+
     def list_joiners(self) -> list[Joiner]:
         return sorted(self.joiners.values(), key=lambda j: (j.joining_date, j.id))
 

@@ -39,7 +39,7 @@ from backend.employee_experience import (
     remove_skill,
     skills_for,
 )
-from backend import ira_profile, manager_assistant, nia, onboarding_cases, resolutions, waters_explorer
+from backend import ira_profile, manager_assistant, nia, onboarding_cases, resolutions, simulation, waters_explorer
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -352,6 +352,7 @@ def regenerate(
     clear_feedback()
     resolutions.clear()
     onboarding_cases.clear()
+    simulation.clear_all()
     return {
         "status": "regenerated",
         "total_joiners": len(store.list_joiners()),
@@ -662,6 +663,50 @@ def nia_manager_send(body: SendMessageRequest, session: EmployerSession) -> dict
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from None
     return {"sent": entry, "synthetic": True}
+
+
+def _sim_user(session: dict) -> str:
+    return session.get("username") or "employer"
+
+
+class SimActRequest(BaseModel):
+    choice: str = Field(max_length=20)
+
+
+@app.get("/api/sim")
+def sim_state(session: EmployerSession) -> dict:
+    """The live new-hire simulation, as the caller sees it (which steps wait on them)."""
+    return simulation.state(_sim_user(session), build_role_context(session).role)
+
+
+@app.post("/api/sim/start")
+def sim_start(session: EmployerSession) -> dict:
+    """Hire a brand-new synthetic joiner (replacing any earlier simulated one) and open their case."""
+    ctx = build_role_context(session)
+    return simulation.start(_sim_user(session), ctx.role, ctx.manager_id)
+
+
+@app.post("/api/sim/tick")
+def sim_tick(session: EmployerSession) -> dict:
+    """Advance one step: the world moves, or another team acts. Does nothing while waiting on the caller."""
+    return simulation.tick(_sim_user(session), build_role_context(session).role)
+
+
+@app.post("/api/sim/act")
+def sim_act(body: SimActRequest, session: EmployerSession) -> dict:
+    """The caller's decision on the step that's waiting on them."""
+    try:
+        return simulation.act(_sim_user(session), build_role_context(session).role, _actor(session), body.choice)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from None
+
+
+@app.post("/api/sim/end")
+def sim_end(session: EmployerSession) -> dict:
+    """Remove the simulated joiner so the cohort is back to its seeded state."""
+    build_role_context(session)
+    simulation.end(_sim_user(session))
+    return {"active": False, "synthetic": True}
 
 
 class ResolveRequest(BaseModel):

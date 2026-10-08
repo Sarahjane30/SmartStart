@@ -317,6 +317,13 @@ function actionCard(s, compact = false) {
   </article>`;
 }
 
+/* The live simulation's new hire goes to the top of whatever queue they're in. */
+function pinSimulated(list) {
+  const id = window.ssSimJoinerId;
+  if (!id) return list;
+  return [...list].sort((a, b) => (b.id === id) - (a.id === id));
+}
+
 function renderActions() {
   const ws = state.workspace;
   const list = document.getElementById("actions-list");
@@ -326,7 +333,7 @@ function renderActions() {
   document.getElementById("actions-count").textContent =
     `${ws.action_queue.length} joiner(s) · sorted by urgency`;
   list.innerHTML = ws.action_queue.length
-    ? ws.action_queue.map((s) => actionCard(s)).join("")
+    ? pinSimulated(ws.action_queue).map((s) => actionCard(s)).join("")
     : `<p class="muted">Nothing waiting on you right now.</p>`;
   revealAll(list, ".action-card", 28);
 }
@@ -579,7 +586,7 @@ function renderDashboard() {
   document.getElementById("dash-extra").hidden = ops;
   if (!ops) {
     const ws = state.workspace;
-    const top = ws.action_queue.slice(0, 4);
+    const top = pinSimulated(ws.action_queue).slice(0, 4);
     document.getElementById("needs-now-title").textContent =
       state.userRole === "IT" ? "IT requests needing you" : "Needs you now";
     document.getElementById("needs-now-more").hidden = ws.action_queue.length <= top.length;

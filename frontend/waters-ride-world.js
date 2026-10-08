@@ -482,8 +482,8 @@
   const TUBES = [
     { id: "t1", from: "reservoir", to: "pump", pts: smoothP([[0, 1.84, -0.38], [0, 2.12, -0.38], [0.8, 2.1, -0.1], [1.65, 1.15, 0.35], [2.1, 0.45, 0.62]]) },
     { id: "t1b", from: "reservoir", to: "pump", pts: smoothP([[0, 1.84, 0.38], [0, 2.02, 0.38], [0.85, 1.95, 0.5], [1.7, 1.05, 0.55], [2.1, 0.45, 0.62]]), side: true },
-    { id: "t2", from: "pump", to: "injector", pts: smoothP([[3.25, 0.4, 0.62], [3.8, 0.6, 0.78], [4.45, 0.66, 0.72], [5.0, 0.65, 0.66]]) },
-    { id: "t3", from: "injector", to: "column", pts: smoothP([[5.4, 0.65, 0.66], [5.85, 0.68, 0.6], [6.2, 0.66, 0.3], [6.36, 0.65, 0.15]]) },
+    { id: "t2", from: "pump", to: "injector", pts: smoothP([[3.25, 0.4, 0.62], [3.8, 0.6, 0.78], [4.45, 0.66, 0.72], [4.85, 0.65, 0.68], [5.0, 0.65, 0.66]]) },
+    { id: "t3", from: "injector", to: "column", pts: smoothP([[5.1, 0.823, 0.66], [5.08, 1.0, 0.7], [5.3, 1.14, 0.72], [5.8, 1.06, 0.6], [6.15, 0.8, 0.34], [6.36, 0.65, 0.15]]) },
     { id: "t4", from: "column", to: "detector", pts: smoothP([[8.86, 0.65, 0.15], [9.22, 0.62, 0.3], [9.52, 0.6, 0.26], [9.8, 0.6, 0.14]]) },
   ];
   const tubeById = (id) => TUBES.find((t) => t.id === id);
@@ -493,7 +493,7 @@
       { id: "t1", pts: tubeById("t1").pts },
       { id: "pump", pts: [v(2.1, 0.45, 0.62), v(2.7, 0.4, 0.66), v(3.25, 0.4, 0.62)] },
       { id: "t2", pts: tubeById("t2").pts },
-      { id: "injector", pts: [v(5.0, 0.65, 0.66), v(5.2, 0.65, 0.7), v(5.4, 0.65, 0.66)] },
+      { id: "injector", pts: [v(5.0, 0.65, 0.66), v(5.12, 0.62, 0.6), v(5.16, 0.74, 0.6), v(5.1, 0.823, 0.66)] },
       { id: "t3", pts: tubeById("t3").pts },
       { id: "column", pts: [v(6.36, 0.65, 0.15), v(8.86, 0.65, 0.15)] },
       { id: "t4", pts: tubeById("t4").pts },
@@ -638,44 +638,88 @@
     });
   }
 
+  /* A real 6-port rotary valve, plumbed the standard way. Ports clockwise from the pump:
+     1 pump · 2 column · 3 loop · 4 needle · 5 waste · 6 loop. In LOAD the rotor grooves join
+     1–2, 3–4, 5–6; a 60° turn to INJECT joins 2–3, 4–5, 6–1 and puts the loop in the flow. */
+  const VALVE = { r: 0.3, port: 0.2, z0: 0.44, z1: 0.58, lever: 0.44 };
+  const PORT_DEG = { pump: 180, column: 120, loopA: 60, needle: 0, waste: 300, loopB: 240 };
+  const GRAPHITE = [62, 72, 100];
+
   function drawInjector(R, o, a, time, st) {
     const c = add(v(5.2, 0.65, 0), o);
-    G.drawBox(R, null, c, v(0.5, 0.5, 0.4), { color: PEARL, alpha: a, radius: 14 });
-    G.decal(R, add(c, v(-0.28, 0.38, 0.41)), "INJECTOR", { size: 0.05, mono: true, weight: 600, color: [96, 112, 150], alpha: a, lift: 0.5 });
     const out = (st.rotorOut || 0) * 0.6;
-    const rp = add(c, v(0, 0, 0.4 + out));
-    G.drawCylinder(R, rp, add(rp, v(0, 0, 0.12)), 0.32, { color: STEEL, alpha: a, segments: 32, capColor: [206, 214, 230] });
-    const face = add(rp, v(0, 0, 0.125));
-    const rot = (st.rotor || 0) * (TAU / 6) + (st.spin || 0);
-    const ports = [];
-    for (let i = 0; i < 6; i += 1) {
-      const ang = (i / 6) * TAU + Math.PI / 6;
-      ports.push(add(face, v(Math.cos(ang) * 0.21, Math.sin(ang) * 0.21, 0)));
-      G.drawDisc(R, ports[i], v(0, 0, 1), 0.036, [18, 26, 48], { alpha: a });
-    }
-    for (let i = 0; i < 3; i += 1) {
-      const ang0 = rot + (i * 2 / 6) * TAU + Math.PI / 6;
-      const ang1 = ang0 + TAU / 6;
+    const rot = (st.rotor || 0) + (st.spin || 0) / (TAU / 6);
+    const face = c.z + VALVE.z1 + out;
+    const at = (deg, r, z) => add(c, v(Math.cos((deg * Math.PI) / 180) * r, Math.sin((deg * Math.PI) / 180) * r, z - c.z));
+    const port = (name, dz = 0) => at(PORT_DEG[name], VALVE.port, face + dz);
+
+    G.drawBox(R, null, add(c, v(0, 0, 0.17)), v(0.44, 0.44, 0.03), { color: [44, 52, 78], alpha: a, radius: 18 });
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) =>
+      G.drawDisc(R, add(c, v(sx * 0.36, sy * 0.36, 0.205)), v(0, 0, 1), 0.026, [150, 162, 190], { alpha: a })
+    );
+    G.decal(R, add(c, v(-0.41, -0.41, 0.21)), "6-PORT", { size: 0.036, mono: true, weight: 600, color: [120, 136, 176], alpha: a, lift: 0.5, align: "left" });
+    G.drawCylinder(R, add(c, v(0, 0, 0.2)), add(c, v(0, 0, VALVE.z0 + out)), 0.25, { color: GRAPHITE, alpha: a, segments: 36, capColor: GRAPHITE });
+    G.drawCylinder(R, add(c, v(0, 0, VALVE.z0 + out)), add(c, v(0, 0, VALVE.z1 + out)), VALVE.r, { color: STEEL, alpha: a, segments: 44, capColor: [214, 220, 234] });
+    /* Face details sit on the stator cap; `lift` keeps the cap from sorting over them. */
+    G.drawDisc(R, at(0, 0, face + 0.003), v(0, 0, 1), 0.255, [24, 30, 54], { alpha: a, lift: 0.05, segments: 40 });
+    G.drawDisc(R, at(0, 0, face + 0.004), v(0, 0, 1), 0.255, [170, 196, 236], { alpha: a * 0.55, ring: true, lift: 0.055, segments: 40 });
+    G.drawDisc(R, at(0, 0, face + 0.004), v(0, 0, 1), 0.16, [90, 110, 160], { alpha: a * 0.35, ring: true, lift: 0.055, segments: 32 });
+
+    const loopLive = rot > 0.5;
+    const flowCol = [120, 210, 255];
+    [0, 120, 240].forEach((base) => {
+      const a0 = base - rot * 60;
       const arc = [];
-      for (let s = 0; s <= 6; s += 1) {
-        const an = lerp(ang0, ang1, s / 6);
-        arc.push(add(face, v(Math.cos(an) * 0.21, Math.sin(an) * 0.21, 0.004)));
-      }
-      G.drawTube(R, arc, 0.018, { glass: false, color: i === 0 ? VIOLET : [70, 96, 150], alpha: a });
-    }
-    const loopC = add(c, v(0.66, 0.05, 0.25));
+      for (let s = 0; s <= 10; s += 1) arc.push(at(a0 + (s / 10) * 60, VALVE.port, face + 0.008));
+      const mid = (((a0 + 30) % 360) + 360) % 360;
+      const flows = loopLive ? Math.abs(mid - 90) < 31 || Math.abs(mid - 210) < 31 : Math.abs(mid - 150) < 31;
+      G.drawTube(R, arc, 0.024, {
+        glass: false, color: flows ? [70, 150, 210] : [70, 84, 120], alpha: a, lift: 0.09,
+        fluid: flows ? { color: flowCol, alpha: 0.85 } : null,
+      });
+    });
+    Object.keys(PORT_DEG).forEach((name, i) => {
+      const p0 = port(name, 0.004);
+      G.drawCylinder(R, p0, add(p0, v(0, 0, 0.05)), 0.05, { color: [200, 208, 226], alpha: a, segments: 6, capColor: [232, 236, 246], lift: 0.13 });
+      G.drawCylinder(R, add(p0, v(0, 0, 0.05)), add(p0, v(0, 0, 0.075)), 0.02, { color: [130, 142, 170], alpha: a, segments: 12, lift: 0.15 });
+      G.decal(R, at(PORT_DEG[name], 0.276, face + 0.006), String(i + 1), { size: 0.036, mono: true, weight: 700, color: [70, 84, 120], alpha: a, lift: 0.1 });
+    });
+
+    const hub = at(0, 0, face + 0.004);
+    G.drawCylinder(R, hub, add(hub, v(0, 0, 0.06)), 0.075, { color: [176, 184, 206], alpha: a, segments: 28, capColor: [230, 234, 244], lift: 0.16 });
+    const hd = 90 - rot * 60;
+    const root = at(hd, 0.05, face + 0.07);
+    const tip = at(hd, VALVE.lever, face + 0.085);
+    G.drawCylinder(R, root, mix3(root, tip, 0.55), 0.03, { color: [66, 78, 112], alpha: a, segments: 14, lift: 0.2 });
+    G.drawCylinder(R, mix3(root, tip, 0.5), tip, 0.024, { color: [66, 78, 112], alpha: a, segments: 14, lift: 0.2 });
+    G.drawSphere(R, tip, 0.05, [92, 106, 150], { alpha: a, lift: 0.22 });
+    G.drawSphere(R, hub, 0.03, [220, 226, 240], { alpha: a, lift: 0.22 });
+
+    const peek = { glass: false, color: [92, 108, 150], alpha: a };
+    const P = (name) => port(name, 0.08);
+    const loopC = add(c, v(0.78, -0.12, 0.42));
     const coil = [];
     for (let s = 0; s <= 48; s += 1) {
       const an = (s / 48) * TAU * 3;
-      coil.push(add(loopC, v(Math.cos(an) * 0.13, -0.24 + (s / 48) * 0.48, Math.sin(an) * 0.13)));
+      coil.push(add(loopC, v(Math.cos(an) * 0.12, -0.22 + (s / 48) * 0.44, Math.sin(an) * 0.12)));
     }
-    G.drawTube(R, coil, 0.022, { alpha: a, fluid: { color: VIOLET, alpha: 0.25 + (st.loop || 0) * 0.6 } });
-    const vial = add(c, v(0.25, 0.5, 0.12));
+    const sample = 0.25 + (st.loop || 0) * 0.6;
+    G.drawTube(R, coil, 0.02, { alpha: a, fluid: { color: VIOLET, alpha: sample } });
+    const top = coil[coil.length - 1];
+    const bot = coil[0];
+    G.drawTube(R, G.smoothPath([P("loopA"), add(P("loopA"), v(0.05, 0.12, 0.03)), add(c, v(0.62, 0.38, 0.6)), add(top, v(0, 0.06, 0.02)), top], 6), 0.016, { alpha: a, fluid: { color: VIOLET, alpha: sample * 0.8 } });
+    G.drawTube(R, G.smoothPath([P("loopB"), add(P("loopB"), v(-0.02, -0.12, 0.03)), add(c, v(0.3, -0.44, 0.62)), add(bot, v(0, -0.06, 0.02)), bot], 6), 0.016, { alpha: a, fluid: { color: VIOLET, alpha: sample * 0.8 } });
+    G.drawTube(R, G.smoothPath([P("waste"), add(P("waste"), v(0.04, -0.1, 0.02)), add(c, v(0.2, -0.62, 0.66))], 6), 0.014, peek);
+
+    const needle = add(c, v(0.44, 0.5, 0.62));
+    G.drawTube(R, G.smoothPath([P("needle"), add(P("needle"), v(0.1, 0.02, 0.02)), add(c, v(0.42, 0.22, 0.66)), add(needle, v(0, -0.08, 0)), needle], 6), 0.014, peek);
+    G.drawCylinder(R, add(needle, v(0, -0.02, 0)), add(needle, v(0, 0.06, 0)), 0.045, { color: [196, 204, 222], alpha: a, segments: 6 });
+    const vial = add(needle, v(0, 0.3, 0));
     G.drawCylinder(R, vial, add(vial, v(0, 0.26, 0)), 0.09, { glass: true, alpha: a, segments: 20 });
     G.drawCylinder(R, add(vial, v(0, 0.01, 0)), add(vial, v(0, 0.15, 0)), 0.078, { color: shade(VIOLET, 0.7), alpha: a * 0.7, segments: 18, emissive: [VIOLET, 0.6] });
     G.drawCylinder(R, add(vial, v(0, 0.26, 0)), add(vial, v(0, 0.31, 0)), 0.095, { color: [44, 58, 100], alpha: a, segments: 18 });
     const nd = 0.5 + 0.5 * Math.sin(time * 1.1);
-    G.drawCylinder(R, add(vial, v(0, 0.3 - nd * 0.12, 0)), add(vial, v(0, 0.62, 0)), 0.011, { color: [220, 228, 240], alpha: a, segments: 8 });
+    G.drawCylinder(R, add(needle, v(0, 0.06, 0)), add(vial, v(0, 0.3 - nd * 0.1, 0)), 0.01, { color: [220, 228, 240], alpha: a, segments: 8 });
   }
 
   function drawColumn(R, o, a, time, st) {
@@ -712,7 +756,7 @@
     { id: "reservoir", y: 2.16, hy: 0.05, name: "SOLVENT TRAY", to: v(0.44, 0.05, 0.84), delay: 0 },
     { id: "detector", y: 1.84, hy: 0.25, name: "PDA DETECTOR", to: v(0.58, 0.46, 0.42), delay: 0.12 },
     { id: "column", y: 1.42, hy: 0.15, name: "COLUMN MANAGER", to: v(1.25, 0.2, 0.22), delay: 0.24 },
-    { id: "injector", y: 0.95, hy: 0.3, name: "SAMPLE MANAGER", to: v(0.5, 0.5, 0.4), delay: 0.36 },
+    { id: "injector", y: 0.95, hy: 0.3, name: "SAMPLE MANAGER", to: v(0.44, 0.44, 0.12), delay: 0.36 },
     { id: "pump", y: 0.34, hy: 0.32, name: "BINARY SOLVENT MANAGER", to: v(0.62, 0.42, 0.45), delay: 0.48 },
   ];
   const towerSlot = (m) => add(TOWER.base, v(0, m.y, 0));

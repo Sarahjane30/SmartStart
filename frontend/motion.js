@@ -2,12 +2,25 @@
 
 const ssReduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* Last value shown per KPI label, so a re-render counts from the old number, not from zero. */
+const ssLastCount = new Map();
+
 function countUp(el) {
   const target = parseFloat(el.dataset.count);
   if (Number.isNaN(target)) return;
   const suffix = el.dataset.suffix || "";
   const decimals = el.dataset.decimals ? Number(el.dataset.decimals) : 0;
-  if (ssReduceMotion) {
+  const card = el.closest(".kpi");
+  const key = card?.querySelector(".label")?.textContent || null;
+  const from = key != null && ssLastCount.has(key) ? ssLastCount.get(key) : 0;
+  if (key != null) {
+    if (ssLastCount.has(key) && from !== target && card) {
+      card.classList.add("kpi-bump", target > from ? "kpi-up" : "kpi-down");
+      setTimeout(() => card.classList.remove("kpi-bump", "kpi-up", "kpi-down"), 1600);
+    }
+    ssLastCount.set(key, target);
+  }
+  if (ssReduceMotion || from === target) {
     el.textContent = `${target.toFixed(decimals)}${suffix}`;
     return;
   }
@@ -16,7 +29,7 @@ function countUp(el) {
   function step(now) {
     const p = Math.min(1, (now - start) / duration);
     const eased = 1 - Math.pow(1 - p, 3);
-    el.textContent = `${(target * eased).toFixed(decimals)}${suffix}`;
+    el.textContent = `${(from + (target - from) * eased).toFixed(decimals)}${suffix}`;
     if (p < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
@@ -28,6 +41,10 @@ function countUpAll(root) {
 
 function revealAll(root, selector, stepMs = 34) {
   const nodes = (root || document).querySelectorAll(selector);
+  if (window.ssQuietRender) {
+    nodes.forEach((node) => node.classList.add("reveal", "in"));
+    return;
+  }
   nodes.forEach((node, i) => {
     node.classList.add("reveal");
     const delay = ssReduceMotion ? 0 : Math.min(i * stepMs, 520);

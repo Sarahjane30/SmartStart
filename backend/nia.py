@@ -1761,11 +1761,13 @@ def joiner_record(f: JoinerFacts):
 
 def grounded_reply(ctx: RoleContext, text: str, target: Optional[JoinerFacts], *, strict: bool) -> Optional[Reply]:
     """Answer from approved playbooks and policies (plus the scoped joiner's record), or None."""
+    from backend import knowledge_insights
     from backend.grounded import answer
 
     g = answer(text, ctx.role, extra=[joiner_record(target)] if target else [], strict=strict)
     if not g["grounded"] and strict:
         return None
+    knowledge_insights.record(text, ctx.role, "NIA", g)
     r = Reply(ctx, "grounded" if g["grounded"] else "unknown", g["answer"] if g["grounded"] else NO_DATA)
     r.blocks.append({"type": "grounding", **g})
     r.sources = list(dict.fromkeys(c["title"] for c in g["citations"])) or ["SmartStart"]

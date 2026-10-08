@@ -1,7 +1,10 @@
 /* Knowledge library — the approved sources NIA and IRA answer from.
    Drafts never change answers; Onboarding Ops approval does. */
 (() => {
-  const K = { lib: null, filter: "all", q: "", sel: null, detail: null, mode: "view", view: "draft", test: null, testing: false };
+  const K = {
+    lib: null, filter: "all", q: "", sel: null, detail: null, mode: "view", view: "draft", test: null, testing: false,
+    tab: "sources", ins: null, scope: null, prefill: null, note: null,
+  };
   const FILTERS = [
     ["all", "All"],
     ["drafts", "Drafts waiting"],
@@ -70,11 +73,27 @@
   /* ---------- data ---------- */
 
   async function load() {
-    K.lib = await fetchJSON("/api/knowledge");
+    [K.lib, K.ins] = await Promise.all([fetchJSON("/api/knowledge"), fetchJSON("/api/knowledge/insights")]);
+    if (K.scope === null) K.scope = K.ins.counts.mine ? "mine" : "all";
+    syncNavCount(K.ins.counts.mine);
     const ids = new Set(K.lib.sources.map((s) => s.id));
     if (!K.sel || !ids.has(K.sel)) K.sel = (K.lib.sources.find((s) => s.has_draft) || K.lib.sources[0])?.id || null;
     if (K.sel && K.mode === "view") K.detail = await fetchJSON(`/api/knowledge/sources/${encodeURIComponent(K.sel)}`);
     paint();
+  }
+
+  function syncNavCount(n) {
+    const btn = document.querySelector('.nav-btn[data-section="knowledge"]');
+    if (!btn) return;
+    let badge = btn.querySelector(".nav-count");
+    if (!n) return badge?.remove();
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "nav-count";
+      badge.title = "Unanswered questions and flagged answers for your team";
+      btn.append(" ", badge);
+    }
+    badge.textContent = n;
   }
 
   async function select(id) {
@@ -97,6 +116,7 @@
   window.ssOpenSource = (id) => {
     setSection("knowledge");
     K.mode = "view";
+    K.tab = "sources";
     select(id).catch(() => showToast("That source isn't in the library any more."));
   };
 
@@ -136,6 +156,8 @@
           <div class="kb-stat kb-engine" title="Set OPENAI_API_KEY or ANTHROPIC_API_KEY on the server to let a language model write answers from the same cited passages.">${engine}</div>
         </div>
       </div>
+      ${tabsHtml()}
+      ${K.tab === "insights" ? `<div class="kb-ins">${insightsHtml()}</div>` : `
       <div class="kb-grid">
         <aside class="card kb-list">
           <div class="kb-list-head">
@@ -154,8 +176,215 @@
           <div class="card kb-detail">${K.mode === "view" ? detailHtml() : editorHtml()}</div>
           <div class="card kb-test">${testHtml()}</div>
         </div>
-      </div>`;
+      </div>`}`;
     wire();
+  }
+
+  /* ---------- questions we couldn't answer & flagged answers ---------- */
+
+  function tabsHtml() {
+    const n = K.ins.counts;
+    const open = n.gaps + n.reviews;
+    return `<div class="kb-tabs" role="tablist">
+      <button type="button" role="tab" aria-selected="${K.tab === "sources"}" class="${K.tab === "sources" ? "on" : ""}" data-tab="sources">Sources</button>
+      <button type="button" role="tab" aria-selected="${K.tab === "insights"}" class="${K.tab === "insights" ? "on" : ""}" data-tab="insights">
+        Questions &amp; flags${open ? ` <span class="kb-dot">${open}</span>` : ""}</button>
+    </div>`;
+  }
+
+  function day(iso) {
+    try {
+      return new Date(iso).toLocaleDateString([], { day: "numeric", month: "short" });
+    } catch {
+      return "";
+    }
+  }
+
+  function noteForm(kind, id, placeholder, label) {
+    return `<form class="kb-note" data-note="${kind}:${esc(id)}">
+      <input name="note" maxlength="200" placeholder="${esc(placeholder)}" aria-label="Note" />
+      <button type="submit" class="btn-primary">${esc(label)}</button>
+      <button type="button" class="btn-secondary" data-ins="note-cancel">Cancel</button>
+    </form>`;
+  }
+
+  function gapHtml(g) {
+    const pills = [
+      g.refused ? `<i class="kb-pill rose">Refused ×${g.refused}</i>` : "",
+      g.weak ? `<i class="kb-pill amber">Weak answer ×${g.weak}</i>` : "",
+      g.flagged ? `<i class="kb-pill blue">Asker wants this ×${g.flagged}</i>` : "",
+    ].join("");
+    const who = g.audiences.map((a) => `${esc(a.label)}${g.audiences.length > 1 ? ` (${a.count})` : ""}`).join(", ");
+    const c = g.closest;
+    const editable = K.lib.can_edit && g.can_act;
+    const acts =
+      K.note === `gap:${g.id}`
+        ? noteForm("gap", g.id, "Why isn't this in scope? (optional)", "Dismiss")
+        : `<div class="kb-ins-acts">
+            ${editable ? `<button type="button" class="btn-primary" data-ins="write" data-id="${esc(g.id)}">Write a source</button>` : ""}
+            ${editable && c ? `<button type="button" class="btn-secondary" data-ins="extend" data-src="${esc(c.source_id)}">Add to “${esc(c.title)}”</button>` : ""}
+            <button type="button" class="btn-secondary" data-ins="test" data-id="${esc(g.id)}">Test it</button>
+            ${editable ? `<button type="button" class="btn-secondary" data-ins="dismiss" data-id="${esc(g.id)}">Dismiss</button>` : ""}
+            ${!g.can_act ? `<span class="muted tiny">${esc(g.team)} owns this${g.team === "HR" || g.team === "IT" ? "" : " · Onboarding Ops routes it"}</span>` : ""}
+          </div>`;
+    return `<article class="kb-gap">
+      <div class="kb-gap-q">“${esc(g.question)}”${pills}</div>
+      <p class="muted tiny">Asked ${g.count}× by ${who} · via ${esc(g.assistants.join(" & "))} · last ${esc(day(g.last_seen))}</p>
+      ${g.variants.length ? `<p class="kb-gap-var">Also asked as ${g.variants.map((v) => `“${esc(v)}”`).join(", ")}</p>` : ""}
+      ${
+        c
+          ? `<p class="kb-gap-near">Closest approved source <button type="button" class="kb-link" data-ins="open" data-src="${esc(c.source_id)}">${esc(c.title)} › ${esc(c.section)}</button> · ${esc(c.owner)}</p>`
+          : `<p class="kb-gap-near">No approved source comes close.</p>`
+      }
+      ${acts}
+    </article>`;
+  }
+
+  function reviewHtml(r) {
+    const flags = r.flags;
+    const one = (f) => `<li>
+        <div class="kb-flag-h"><i class="kb-pill ${f.reason === "out_of_date" ? "amber" : "rose"}">${esc(f.reason_label)}</i>
+          <span class="muted tiny">${esc(f.audience_label)} via ${esc(f.assistant)} · ${esc(day(f.at))}${f.section ? ` · cited › ${esc(f.section)}` : ""}${f.version ? ` · v${f.version}` : ""}</span></div>
+        <p class="kb-flag-q">“${esc(f.question)}”</p>
+        <p class="kb-flag-a">${refs(f.answer)}</p>
+        ${f.comment ? `<p class="kb-flag-c"><span>They said:</span> ${esc(f.comment)}</p>` : ""}
+      </li>`;
+    const editable = K.lib.can_edit && r.can_act;
+    const acts =
+      K.note === `rev:${r.id}`
+        ? noteForm("rev", r.id, "What did you check? (optional)", "Mark reviewed")
+        : `<div class="kb-ins-acts">
+            ${editable ? `<button type="button" class="btn-primary" data-ins="extend" data-src="${esc(r.source_id)}">Edit source</button>` : ""}
+            <button type="button" class="btn-secondary" data-ins="open" data-src="${esc(r.source_id)}">Open source</button>
+            ${editable ? `<button type="button" class="btn-secondary" data-ins="resolve" data-id="${esc(r.id)}">Mark reviewed · no change</button>` : ""}
+            ${!r.can_act ? `<span class="muted tiny">${esc(r.team)} owns this${r.team === "HR" || r.team === "IT" ? "" : " · Onboarding Ops routes it"}</span>` : ""}
+          </div>`;
+    return `<article class="kb-review">
+      <div class="kb-gap-q">${esc(r.title)}${r.reasons.map((x) => `<i class="kb-pill ${x.id === "out_of_date" ? "amber" : "rose"}">${esc(x.label)} ×${x.count}</i>`).join("")}</div>
+      <p class="muted tiny">Owner ${esc(r.owner)} · ${flags.length} flag${flags.length === 1 ? "" : "s"} since ${esc(day(r.created))} · closes by itself when a new version is approved</p>
+      <ol class="kb-flags">${flags.slice(0, 2).map(one).join("")}</ol>
+      ${flags.length > 2 ? `<details class="kb-more"><summary>${flags.length - 2} more</summary><ol class="kb-flags">${flags.slice(2).map(one).join("")}</ol></details>` : ""}
+      ${acts}
+    </article>`;
+  }
+
+  function insightsHtml() {
+    const ins = K.ins;
+    const n = ins.counts;
+    const teams = ins.teams.filter((t) => K.scope === "all" || t.mine);
+    const scope = ins.my_team
+      ? `<div class="kb-toggle">
+          <button type="button" class="${K.scope === "mine" ? "on" : ""}" data-scope="mine">${ins.my_team === "Onboarding Ops" ? "Ops & unowned teams" : `${esc(ins.my_team)} team`}${n.mine ? ` · ${n.mine}` : ""}</button>
+          <button type="button" class="${K.scope === "all" ? "on" : ""}" data-scope="all">All teams · ${n.gaps + n.reviews}</button>
+        </div>`
+      : "";
+    const body = teams.length
+      ? teams
+          .map(
+            (t) => `<section class="card kb-team">
+            <header class="kb-team-h"><h3>${esc(t.team)}</h3>${t.mine ? `<i class="kb-pill blue">Your queue</i>` : ""}
+              <span class="muted tiny">${t.gaps.length} unanswered · ${t.reviews.length} flagged</span></header>
+            ${t.gaps.length ? `<h4 class="kb-sub">Questions we couldn't answer</h4>${t.gaps.map(gapHtml).join("")}` : ""}
+            ${t.reviews.length ? `<h4 class="kb-sub">Flagged answers</h4>${t.reviews.map(reviewHtml).join("")}` : ""}
+          </section>`
+          )
+          .join("")
+      : `<div class="card kb-empty-ins"><strong>${K.scope === "mine" && n.gaps + n.reviews ? "Nothing for your team right now." : "Nothing waiting."}</strong>
+          <p class="muted">Every question NIA or IRA refuses or only weakly answers lands here, grouped with similar questions and routed to the team that owns the closest source.
+          Thumbs-down on an answer lands here too, with the asker's comment.</p></div>`;
+    const closed = [
+      ...ins.closed_gaps.map((g) => ({ at: g.resolution?.at, html: `“${esc(g.question)}” — ${
+        g.status === "answered" ? `<span class="kb-ok">answered</span> ${esc(g.resolution.note)}${g.resolution.version ? ` (v${g.resolution.version})` : ""}`
+          : `dismissed${g.resolution?.by ? ` by ${esc(g.resolution.by)}` : ""}: ${esc(g.resolution?.note || "")}`}` })),
+      ...ins.closed_reviews.map((r) => ({ at: r.resolution?.at, html: `${esc(r.title)} flags — <span class="kb-ok">closed</span>${r.resolution?.by ? ` by ${esc(r.resolution.by)}` : ""}: ${esc(r.resolution?.note || "")}` })),
+    ].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    return `
+      <div class="card kb-ins-head">
+        <div>
+          <h2>What people asked that we couldn't answer well</h2>
+          <p class="muted tiny">${n.gaps} question${n.gaps === 1 ? "" : "s"} refused or weakly answered · ${n.reviews} source${n.reviews === 1 ? "" : "s"} flagged by askers · ${n.answered} answered since by approved sources.
+            Only the question and the asker's audience are kept — never who asked.</p>
+        </div>
+        ${scope}
+      </div>
+      ${body}
+      ${closed.length ? `<details class="card kb-closed"><summary>Recently closed · ${closed.length}</summary><ul>${closed.map((c) => `<li>${c.html} <span class="muted tiny">${esc(day(c.at))}</span></li>`).join("")}</ul></details>` : ""}`;
+  }
+
+  async function insAct(btn) {
+    const kind = btn.dataset.ins;
+    const gap = () => K.ins.teams.flatMap((t) => t.gaps).find((g) => g.id === btn.dataset.id);
+    if (kind === "open" || kind === "extend") {
+      K.tab = "sources";
+      await select(btn.dataset.src);
+      if (kind === "extend") {
+        K.mode = "edit";
+        paint();
+      }
+      return;
+    }
+    if (kind === "write") {
+      const g = gap();
+      K.prefill = {
+        title: g.question.replace(/[?.!]+$/, "").slice(0, 120),
+        owner: g.closest?.owner && g.closest.owner !== "SmartStart" ? g.closest.owner : "",
+        category: "",
+        audience: g.audiences.map((a) => a.id),
+        keywords: [],
+        body: `## Answer\n`,
+        note: `Answers “${g.question}” (asked ${g.count}×)`.slice(0, 200),
+      };
+      K.tab = "sources";
+      K.mode = "new";
+      paint();
+      document.querySelector('.kb-form [name="body"]')?.focus();
+      return;
+    }
+    if (kind === "test") {
+      const g = gap();
+      K.tab = "sources";
+      paint();
+      runTest(g.question, g.audiences[0]?.id || "EMPLOYEE");
+      return;
+    }
+    if (kind === "dismiss") K.note = `gap:${btn.dataset.id}`;
+    else if (kind === "resolve") K.note = `rev:${btn.dataset.id}`;
+    else if (kind === "note-cancel") K.note = null;
+    paint();
+    document.querySelector(".kb-note input")?.focus();
+  }
+
+  async function insNote(form) {
+    const [kind, id] = form.dataset.note.split(/:(.+)/);
+    const note = new FormData(form).get("note") || "";
+    try {
+      if (kind === "gap") {
+        await send("POST", `/api/knowledge/gaps/${encodeURIComponent(id)}/dismiss`, { note });
+        showToast("Dismissed — it stays logged if people keep asking");
+      } else {
+        await send("POST", `/api/knowledge/reviews/${encodeURIComponent(id)}/resolve`, { note });
+        showToast("Marked reviewed");
+      }
+      K.note = null;
+      await load();
+    } catch (err) {
+      showToast(err.message);
+    }
+  }
+
+  function feedbackHtml(d) {
+    const fb = d.feedback;
+    if (!fb) return "";
+    const r = fb.review;
+    const parts = [];
+    if (fb.helpful || fb.not_helpful) parts.push(`<span><b>${fb.helpful}</b> helpful · <b>${fb.not_helpful}</b> not helpful</span>`);
+    if (fb.near_gaps) parts.push(`<span><b>${fb.near_gaps}</b> unanswered question${fb.near_gaps === 1 ? "" : "s"} point here</span>`);
+    const banner = r
+      ? `<div class="kb-banner rose"><div><strong>Flagged by ${r.flags.length} asker${r.flags.length === 1 ? "" : "s"}</strong>
+          <span>${r.reasons.map((x) => `${esc(x.label)} ×${x.count}`).join(" · ")}${r.flags[0]?.comment ? ` — “${esc(r.flags[0].comment)}”` : ""}</span></div>
+          <div class="kb-banner-acts"><button type="button" class="btn-secondary" data-tab="insights">See flags</button></div></div>`
+      : "";
+    return `${banner}${parts.length ? `<p class="kb-fb muted tiny">${parts.join("")}</p>` : ""}`;
   }
 
   function listRows() {
@@ -249,7 +478,7 @@
         </div>
         <div class="kb-d-acts">${acts.join("")}</div>
       </header>
-      ${retired}${banner}
+      ${retired}${feedbackHtml(d)}${banner}
       <div class="kb-secs">${sectionsHtml(shown, showDraft && d.approved ? live : null)}</div>
       ${
         history.length
@@ -268,7 +497,9 @@
 
   function editorHtml() {
     const d = K.mode === "edit" ? K.detail : null;
-    const src = d ? d.draft || d.approved : { title: "", owner: "", category: "", audience: ["EMPLOYEE"], keywords: [], body: "## Overview\n" };
+    const src = d
+      ? d.draft || d.approved
+      : K.prefill || { title: "", owner: "", category: "", audience: ["EMPLOYEE"], keywords: [], body: "## Overview\n" };
     return `
       <form class="kb-form" novalidate>
         <header class="kb-d-head"><div>
@@ -293,7 +524,7 @@
         <label class="kb-f">Text <span class="muted tiny">Start each section with “## Heading”. Each section is cited on its own.</span>
           <textarea name="body" rows="14" required>${esc(src.body)}</textarea></label>
         <label class="kb-f">What changed? <span class="muted tiny">shown to the approver</span>
-          <input name="note" maxlength="200" placeholder="e.g. FY27 meal allowance" /></label>
+          <input name="note" maxlength="200" placeholder="e.g. FY27 meal allowance" value="${esc(d ? "" : K.prefill?.note || "")}" /></label>
         <p class="kb-err" hidden></p>
         <div class="kb-form-acts">
           <button type="submit" class="btn-primary">Save draft</button>
@@ -359,6 +590,7 @@
       }
       if (kind === "cancel") {
         K.mode = "view";
+        K.prefill = null;
         return load();
       }
       if (kind === "approve") {
@@ -408,6 +640,7 @@
       K.sel = d.id;
       K.mode = "view";
       K.view = "draft";
+      K.prefill = null;
       showToast(K.lib.can_approve ? "Draft saved — approve it to publish" : "Draft saved — waiting for Ops approval");
       await load();
     } catch (e) {
@@ -451,6 +684,29 @@
 
   function wire() {
     const r = root();
+    r.querySelectorAll("[data-tab]").forEach((b) =>
+      b.addEventListener("click", () => {
+        K.tab = b.dataset.tab;
+        K.note = null;
+        if (K.tab === "insights") K.mode = "view";
+        paint();
+        if (K.tab === "insights") load().catch((err) => showToast(err.message));
+      })
+    );
+    if (K.tab === "insights") {
+      r.querySelectorAll("[data-ins]").forEach((b) => b.addEventListener("click", () => insAct(b)));
+      r.querySelectorAll("[data-scope]").forEach((b) =>
+        b.addEventListener("click", () => {
+          K.scope = b.dataset.scope;
+          paint();
+        })
+      );
+      r.querySelector(".kb-note")?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        insNote(e.target);
+      });
+      return;
+    }
     const search = r.querySelector(".kb-search");
     search.addEventListener("input", () => {
       K.q = search.value;
@@ -465,6 +721,7 @@
     );
     r.querySelector(".kb-new")?.addEventListener("click", () => {
       K.mode = "new";
+      K.prefill = null;
       paint();
       document.querySelector('.kb-form [name="title"]')?.focus();
     });

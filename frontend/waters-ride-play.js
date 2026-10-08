@@ -14,8 +14,13 @@
   const WHITE = [255, 255, 255];
   const INK = [200, 216, 245];
   const REST = 0.5;
-  const LAST = 3;
-  const NAMES = ["WHO ARE YOU", "THE INJECTOR", "INSIDE THE COLUMN", "YOUR PEAK"];
+  const LAST = 4;
+  const NAMES = ["WHO ARE YOU", "THE MACHINE", "THE INJECTOR", "INSIDE THE COLUMN", "YOUR PEAK"];
+  const S_PICK = 0;
+  const S_MACHINE = 1;
+  const S_INJECT = 2;
+  const S_COLUMN = 3;
+  const S_PEAK = 4;
 
   /* Retention follows the usual reversed-phase rule: log k falls linearly as the organic
      fraction rises, steeper for greasier molecules. */
@@ -65,7 +70,10 @@
     grabHover: false,
     camZ: 0,
     spd: 6.5,
+    breakT: null,
   };
+  const BREAK_SECS = 3.6;
+  const breakK = () => (PL.breakT == null ? 0 : clamp((S.time - PL.breakT) / BREAK_SECS, 0, 1));
 
   function resetRun() {
     PL.rotor = 0;
@@ -77,7 +85,11 @@
     PL.phi = 0.3;
   }
 
-  const done = (c) => (c === 0 ? PL.mol != null : c === 1 ? PL.injected : c === 2 ? PL.result != null : true);
+  const done = (c) =>
+    c === S_PICK ? PL.mol != null
+      : c === S_MACHINE ? breakK() >= 1
+        : c === S_INJECT ? PL.injected
+          : c === S_COLUMN ? PL.result != null : true;
   const firstOpen = () => {
     for (let c = 0; c < LAST; c += 1) if (!done(c)) return c;
     return LAST;
@@ -308,16 +320,122 @@
     if (chosen == null) hint("CLICK A MOLECULE TO BECOME IT", h * 0.9, ta);
   }
 
-  /* ---------- 1 · the injector ---------- */
+  /* ---------- 1 · the machine: one instrument that comes apart ---------- */
 
-  const C1_FAR = { pos: v(4.0, 2.4, 6.6), target: v(5.2, 0.7, 0.3), fov: 44 * DEG };
-  const C1_REST = { pos: v(5.5, 1.2, 3.4), target: v(4.82, 0.64, 0.38), fov: 36 * DEG };
+  const JOBS = { reservoir: "holds the solvents", detector: "sees what comes out", column: "where separation happens", injector: "where you're waiting", pump: "pushes the solvent" };
+  const T_ASM = v(5.2, 1.15, 0.2);
+  const T_LAID = v(5.55, 0.78, 0.2);
+
+  function machineCam(b) {
+    const narrow = S.w < 760;
+    const k = easeIO(b);
+    const d = lerp(narrow ? 10.5 : 8.2, narrow ? 17 : 13.4, k);
+    const yaw = lerp(-0.55 + Math.sin(S.time * 0.12) * 0.06, 0.18, k) + S.smx * 0.06;
+    const el = lerp(0.22, 0.2, k) - S.smy * 0.03;
+    const tg = G.mix3(T_ASM, T_LAID, k);
+    return { pos: v(tg.x + Math.sin(yaw) * Math.cos(el) * d, tg.y + Math.sin(el) * d, tg.z + Math.cos(yaw) * Math.cos(el) * d), target: tg, fov: 40 * DEG };
+  }
+  const machineShift = (b) => (S.w < 760 ? 0 : lerp(S.w * 0.12, S.w * 0.03, easeIO(b)));
+
+  /* Machine stage exit and injector stage intro are one camera move, eased as a whole. */
+  function flyIn(u) {
+    const k = easeIO(clamp(u, 0, 1));
+    return { cam: camMix(machineCam(1), C1_REST, k), shift: machineShift(1) * (1 - k) };
+  }
+
+  function openUp() {
+    if (PL.breakT != null) return;
+    PL.breakT = S.time;
+    PL.advanceAt = S.time + BREAK_SECS + 1.6;
+  }
+
+  function stageMachine(t) {
+    const w = S.w;
+    const h = S.h;
+    bgVoid();
+    stars(0.4);
+    const b = breakK();
+    let cam = machineCam(b);
+    let shift = machineShift(b);
+    if (t > 0.5) {
+      const f = flyIn(t - 0.5);
+      cam = f.cam;
+      shift = f.shift;
+    }
+    const c = cx();
+    c.save();
+    c.translate(shift, 0);
+    kit.setCam(cam);
+    W.drawTower(R, { break: b, time: S.clock, alpha: 1, detGlow: 0.35, loop: 1 });
+    c.globalCompositeOperation = "source-over";
+    R.flush(c);
+    c.restore();
+
+    const ua = sm(win(t, 0.34, 0.48)) * (1 - sm(win(t, 0.52, 0.6)));
+    const pre = ua * (1 - sm(b / 0.12));
+    W.STACK.forEach((m, i) => {
+      const q = R.project(G.add(W.towerSlot(m), v(W.TOWER.w + 0.02, m.id === "reservoir" ? 0.2 : 0, 0)));
+      if (!q.vis || pre <= 0.01) return;
+      const al = pre * sm(win(t, 0.36 + i * 0.02, 0.44 + i * 0.02));
+      const x0 = q.x + shift;
+      const lx = x0 + 46 + (i % 2) * 16;
+      c.save();
+      c.strokeStyle = rgba([200, 225, 255], 0.45 * al);
+      c.beginPath();
+      c.moveTo(x0, q.y);
+      c.lineTo(lx - 6, q.y);
+      c.stroke();
+      c.restore();
+      const mine = m.id === "injector";
+      txt(m.name, lx, q.y - 8, { size: 13, weight: 700, mono: true, track: 0.1, color: mine ? myColor() : WHITE, alpha: al });
+      txt(JOBS[m.id], lx, q.y + 11, { size: 14, alpha: al * 0.75 });
+    });
+    if (pre > 0.01) {
+      const q = R.project(G.add(W.towerSlot(W.STACK[3]), v(0, 0, W.TOWER.d)));
+      const ph = (S.time * 0.9) % 1;
+      halo(q.x + shift, q.y, 26, myColor(), 0.8 * pre);
+      c.save();
+      c.strokeStyle = rgba(myColor(), (1 - ph) * 0.8 * pre);
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.arc(q.x + shift, q.y, 8 + ph * 30, 0, TAU);
+      c.stroke();
+      c.restore();
+      tag(`YOU · ${MOLS[PL.mol == null ? 0 : PL.mol].name.toUpperCase()}`, q.x + shift - 90, q.y + 34, pre, myColor());
+    }
+    const post = ua * sm((b - 0.9) / 0.1);
+    W.COMP_IDS.forEach((id, i) => {
+      if (post <= 0.01) return;
+      const q = R.project(W.COMP[id].c);
+      if (!q.vis) return;
+      const ly = q.y - W.COMP[id].r * q.s * 0.95 - (i % 2) * 26;
+      tag(`0${i + 1}  ${W.COMP[id].label}`, q.x + shift, ly, post * (id === "injector" ? 1 : 0.85), id === "injector" ? myColor() : WHITE);
+    });
+
+    if (PL.breakT == null) {
+      card("STAGE 1 · THE MACHINE", "This is where you are.", "A complete LC system, as it sits on a lab bench: a tower of stacked modules. You're in a tiny vial inside the sample manager. Open it up to see the path you're about to take.", ua, { accent: myColor() });
+      button("Open it up", w / 2, h - 64, { a: ua, primary: true, color: myColor(), act: openUp });
+    } else if (b < 1) {
+      card("STAGE 1 · THE MACHINE", "Coming apart.", "Each module lifts off and becomes the part inside it: solvents, pump, injector, column, detector.", ua, { accent: myColor() });
+    } else {
+      card("STAGE 1 · THE MACHINE", "Five parts, one path.", "Laid out in the order the liquid flows. Your first stop: the injector, where you'll enter the stream.", ua, { accent: myColor() });
+    }
+  }
+
+  /* ---------- 2 · the injector ---------- */
+
+  const C1_REST = { pos: v(5.6, 1.3, 3.9), target: v(5.08, 0.8, 0.5), fov: 36 * DEG };
   const C1_OUT = { pos: v(6.55, 0.86, 1.05), target: v(7.7, 0.65, 0.15), fov: 52 * DEG };
-  const ROTOR = v(5.2, 0.65, 0.525);
+  const ROTOR = v(5.2, 0.65, 0.6);
   const U_INJ = W.PATH.piece("injector").u0;
   const U_COL = W.PATH.piece("column").u0;
-  const A0 = (Math.PI * 5) / 6;
   const SWEEP = Math.PI / 3;
+  const LEVER = 0.44;
+  /* Matches drawInjector: the lever sits at 90° − 60°·rotor on the stator face. */
+  const onValve = (k, rad) => {
+    const an = (Math.PI / 180) * (90 - 60 * k);
+    return v(ROTOR.x + Math.cos(an) * rad, ROTOR.y + Math.sin(an) * rad, 0.665);
+  };
 
   function inject() {
     if (PL.injected) return;
@@ -333,7 +451,8 @@
     const h = S.h;
     bgVoid();
     stars(0.3);
-    let cam = camMix(C1_FAR, C1_REST, easeIO(win(t, 0, 0.5)));
+    const fly = flyIn(0.5 + Math.min(t, 0.5));
+    let cam = fly.cam;
     if (t > 0.5) cam = camMix(C1_REST, C1_OUT, easeIO(win(t, 0.5, 1)));
     cam = {
       ...cam,
@@ -349,25 +468,34 @@
         dots.push({ u: lerp(U_INJ, U_COL + 0.02, k) - (i - 1) * 0.005, color: m.color, size: mine ? 0.05 : 0.03, alpha: mine ? 1 : 0.75 });
       });
     }
+    const shift = t < 0.5 ? fly.shift : 0;
+    cx().save();
+    cx().translate(shift, 0);
     instrument(cam, { rotor: PL.rotor, loop: PL.injected ? 1 - clamp(since / 0.6, 0, 1) : 1, dots, colGlow: PL.injected ? 0.6 : 0.2, detGlow: 0.3 });
+    cx().restore();
 
-    const p = R.project(ROTOR);
-    const rr = Math.max(46, 0.32 * p.s * 1.25);
+    const p0 = R.project(ROTOR);
+    const p = { ...p0, x: p0.x + shift };
+    const lever = (k, rad = LEVER) => {
+      const q = R.project(onValve(k, rad));
+      return { x: q.x + shift, y: q.y };
+    };
+    const knob = lever(PL.rotor);
     PL.grabHover = false;
     if (live) {
+      const hit = (x, y) => Math.hypot(x - p.x, y - p.y) < LEVER * p.s * 1.25 || Math.hypot(x - knob.x, y - knob.y) < 44;
       if (S.down && S.down.grab == null) {
-        S.down.grab = Math.hypot(S.down.x - p.x, S.down.y - p.y) < rr * 1.8 ? "rotor" : false;
+        S.down.grab = hit(S.down.x, S.down.y) ? "rotor" : false;
         if (S.down.grab) {
           S.down.ang0 = Math.atan2(S.down.y - p.y, S.down.x - p.x);
           S.down.r0 = PL.rotor;
         }
       }
-      const near = Math.hypot(S.mx - p.x, S.my - p.y) < rr * 1.8;
-      PL.grabHover = near;
+      PL.grabHover = hit(S.mx, S.my);
       if (S.down && S.down.grab === "rotor") {
         let d = Math.atan2(S.my - p.y, S.mx - p.x) - S.down.ang0;
         d = Math.atan2(Math.sin(d), Math.cos(d));
-        PL.rotor = clamp(S.down.r0 - d / SWEEP, 0, 1);
+        PL.rotor = clamp(S.down.r0 + d / SWEEP, 0, 1);
       } else {
         const goal = PL.tap || PL.rotor > 0.55 ? 1 : 0;
         PL.rotor += (goal - PL.rotor) * Math.min(1, dt * (PL.tap ? 3.5 : 7));
@@ -378,53 +506,62 @@
     const ua = sm(win(t, 0.36, 0.48)) * (1 - sm(win(t, 0.52, 0.62)));
     if (ua > 0.01) {
       const c = cx();
-      const ar = rr * 1.45;
       const col = myColor();
+      const path = (k0, k1, rad) => {
+        c.beginPath();
+        for (let i = 0; i <= 24; i += 1) {
+          const q = lever(lerp(k0, k1, i / 24), rad);
+          if (i) c.lineTo(q.x, q.y);
+          else c.moveTo(q.x, q.y);
+        }
+      };
       c.save();
       c.lineCap = "round";
-      c.strokeStyle = rgba(WHITE, 0.16 * ua);
-      c.lineWidth = 6;
-      c.beginPath();
-      c.arc(p.x, p.y, ar, A0 - SWEEP, A0);
+      c.setLineDash([2, 9]);
+      c.strokeStyle = rgba(WHITE, 0.4 * ua);
+      c.lineWidth = 2.5;
+      path(0, 1, LEVER * 1.32);
       c.stroke();
-      c.strokeStyle = rgba(col, 0.9 * ua);
-      c.lineWidth = 6;
+      c.setLineDash([]);
+      c.strokeStyle = rgba(col, 0.95 * ua);
+      c.lineWidth = 4;
+      if (PL.rotor > 0.01) {
+        path(0, PL.rotor, LEVER * 1.32);
+        c.stroke();
+      }
+      const end = lever(1, LEVER * 1.32);
+      const pre = lever(0.93, LEVER * 1.32);
+      const an = Math.atan2(end.y - pre.y, end.x - pre.x);
+      c.fillStyle = rgba(PL.rotor > 0.5 ? col : WHITE, 0.7 * ua);
       c.beginPath();
-      c.arc(p.x, p.y, ar, A0 - SWEEP * PL.rotor, A0, false);
-      c.stroke();
+      c.moveTo(end.x + Math.cos(an) * 10, end.y + Math.sin(an) * 10);
+      c.lineTo(end.x + Math.cos(an + 2.4) * 9, end.y + Math.sin(an + 2.4) * 9);
+      c.lineTo(end.x + Math.cos(an - 2.4) * 9, end.y + Math.sin(an - 2.4) * 9);
+      c.fill();
       c.restore();
-      const ka = A0 - SWEEP * PL.rotor;
-      const kx = p.x + Math.cos(ka) * ar;
-      const ky = p.y + Math.sin(ka) * ar;
       if (!PL.injected) {
         const ph = (S.time * 0.8) % 1;
         c.save();
         c.strokeStyle = rgba(col, (1 - ph) * 0.7 * ua);
         c.lineWidth = 1.5;
         c.beginPath();
-        c.arc(kx, ky, 12 + ph * 26, 0, TAU);
+        c.arc(knob.x, knob.y, 14 + ph * 24, 0, TAU);
         c.stroke();
         c.restore();
       }
-      halo(kx, ky, 34, col, 0.5 * ua);
-      c.save();
-      c.fillStyle = rgba(WHITE, ua);
-      c.beginPath();
-      c.arc(kx, ky, 10, 0, TAU);
-      c.fill();
-      c.restore();
-      const lx = (a, r) => p.x + Math.cos(a) * r;
-      const ly = (a, r) => p.y + Math.sin(a) * r;
-      tag("LOAD", lx(A0, ar + 34), ly(A0, ar + 34), ua * (PL.rotor < 0.5 ? 1 : 0.55), WHITE);
-      tag("INJECT", lx(A0 - SWEEP, ar + 30), ly(A0 - SWEEP, ar + 30), ua * (PL.rotor > 0.5 ? 1 : 0.7), PL.rotor > 0.5 ? col : WHITE);
+      halo(knob.x, knob.y, 30 + PL.grabHover * 10, col, (0.35 + PL.grabHover * 0.25) * ua);
+      const l0 = lever(-0.12, LEVER * 1.62);
+      const l1 = lever(1.12, LEVER * 1.62);
+      tag("LOAD", l0.x, l0.y, ua * (PL.rotor < 0.5 ? 1 : 0.55), WHITE);
+      tag("INJECT", l1.x, l1.y, ua * (PL.rotor > 0.5 ? 1 : 0.7), PL.rotor > 0.5 ? col : WHITE);
     }
 
     const ca = sm(win(t, 0.34, 0.48)) * (1 - sm(win(t, 0.52, 0.64)));
     if (!PL.injected) {
-      card("STAGE 1 · THE INJECTOR", "Turn the valve.", "You're waiting in the sample loop, the coil beside the valve, with the other molecules. Drag the rotor from LOAD to INJECT to put the loop in the solvent's path.", ca, { accent: myColor() });
-      hint("DRAG THE ROTOR  ·  OR CLICK IT", h - 30, ca);
+      card("STAGE 2 · THE INJECTOR", "Turn the valve.", "You're waiting in the sample loop, the coil beside the valve, with the other molecules. Turn the handle from LOAD to INJECT: the rotor's grooves re-route the solvent through the loop.", ca, { accent: myColor() });
+      hint("DRAG THE HANDLE ROUND  ·  OR CLICK THE VALVE", h - 30, ca);
     } else {
-      card("STAGE 1 · THE INJECTOR", "Injected.", "The solvent stream, pushed by the pump at around 600 bar, sweeps the whole sample, you included, toward the column.", ca, { accent: myColor() });
+      card("STAGE 2 · THE INJECTOR", "Injected.", "The solvent stream, pushed by the pump at around 600 bar, sweeps the whole sample, you included, toward the column.", ca, { accent: myColor() });
     }
     void w;
   }
@@ -565,7 +702,7 @@
     if (PL.mol == null) return;
     if (!PL.sim) simReset();
     const s = PL.sim;
-    const running = atRest(2) && !PL.result;
+    const running = atRest(S_COLUMN) && !PL.result;
     if (running) simStep(dt);
     const me = MOLS[PL.mol];
     const target = !PL.result && running ? (s.stuck ? 0.12 : 6.5) : t > 0.5 ? 11 : 6.5;
@@ -649,7 +786,7 @@
     let body = me.column;
     const stuckFor = s.stuck ? S.time - s.stuckT : 0;
     if (stuckFor > 2.5 || (PL.mol === 2 && s.t > 8 && PL.phi < 0.45)) body = "Taking a while? Slide the solvent strength up. A stronger solvent pulls you off the beads sooner.";
-    if (!PL.result) card("STAGE 2 · INSIDE THE COLUMN", "Get through the column.", body, ua * (w < 760 ? 0 : 1), { x: w < 760 ? 18 : 96, accent: me.color });
+    if (!PL.result) card("STAGE 3 · INSIDE THE COLUMN", "Get through the column.", body, ua * (w < 760 ? 0 : 1), { x: w < 760 ? 18 : 96, accent: me.color });
 
     if (PL.result) {
       const k = sm((S.time - PL.doneAt) / 0.5) * (1 - sm(win(t, 0.52, 0.62)));
@@ -843,7 +980,7 @@
     PL.mol = i;
     resetRun();
     PL.camZ = 0;
-    autopilot(1 + REST, 0, true);
+    autopilot(S_INJECT + REST, 0, true);
   }
 
   /* ---------- wiring ---------- */
@@ -856,8 +993,8 @@
         c.fillStyle = rgba([0, 0, 0], k);
         c.fillRect(0, 0, S.w, S.h);
       }
-    } else veil(1 - sm(win(t, 0, 0.32)));
-    if (i < LAST) veil(sm(win(t, 0.68, 1)));
+    } else if (i !== S_INJECT) veil(1 - sm(win(t, 0, 0.32)));
+    if (i < LAST && i !== S_MACHINE) veil(sm(win(t, 0.68, 1)));
   }
 
   const staged = (i, fn) => (t, dt) => {
@@ -877,12 +1014,13 @@
     names: NAMES,
     lo: 0,
     hi: LAST + 1,
-    draw: [staged(0, stagePick), staged(1, stageInject), staged(2, stageColumn), staged(3, stagePeak)],
+    draw: [staged(S_PICK, stagePick), staged(S_MACHINE, stageMachine), staged(S_INJECT, stageInject), staged(S_COLUMN, stageColumn), staged(S_PEAK, stagePeak)],
     limit: () => firstOpen() + REST,
     step,
     go,
     enter: () => {
       PL.mol = null;
+      PL.breakT = null;
       PL.advanceAt = null;
       PL.camZ = 0;
       resetRun();
@@ -890,9 +1028,10 @@
     cue: (c, t, idle) => done(c) && c < LAST && atRest(c) && !PL.advanceAt && idle,
     grab: () => PL.grabHover,
     click: (c) => {
-      if (c === 1 && !PL.injected) {
+      if (c === S_MACHINE && PL.breakT == null) openUp();
+      if (c === S_INJECT && !PL.injected) {
         const p = R.project(ROTOR);
-        if (Math.hypot(S.mx - p.x, S.my - p.y) < Math.max(46, 0.32 * p.s * 1.25) * 1.8) PL.tap = true;
+        if (Math.hypot(S.mx - p.x, S.my - p.y) < LEVER * p.s * 1.6) PL.tap = true;
       }
     },
   });

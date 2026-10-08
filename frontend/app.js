@@ -216,7 +216,9 @@ function applyRoleShell() {
         `<button class="nav-btn ${n.id === state.section ? "active" : ""}" data-section="${esc(n.id)}">${esc(n.label)}${
           n.id === "actions" && ws.actionable_joiners.length
             ? ` <span class="nav-count">${ws.actionable_joiners.length}</span>`
-            : ""
+            : n.count
+              ? ` <span class="nav-count" title="Unanswered questions and flagged answers for your team">${n.count}</span>`
+              : ""
         }</button>`
     )
     .join("");

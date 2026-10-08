@@ -670,33 +670,30 @@ def _sim_user(session: dict) -> str:
 
 
 class SimActRequest(BaseModel):
-    choice: str = Field(max_length=20)
+    choice: str = Field(max_length=30)
+    detail: dict[str, str] = Field(default_factory=dict)
 
 
 @app.get("/api/sim")
 def sim_state(session: EmployerSession) -> dict:
-    """The live new-hire simulation, as the caller sees it (which steps wait on them)."""
-    return simulation.state(_sim_user(session), build_role_context(session).role)
+    """The caller's connected-enterprise simulation run, if one is in progress."""
+    build_role_context(session)
+    return simulation.state(_sim_user(session))
 
 
 @app.post("/api/sim/start")
 def sim_start(session: EmployerSession) -> dict:
-    """Hire a brand-new synthetic joiner (replacing any earlier simulated one) and open their case."""
-    ctx = build_role_context(session)
-    return simulation.start(_sim_user(session), ctx.role, ctx.manager_id)
-
-
-@app.post("/api/sim/tick")
-def sim_tick(session: EmployerSession) -> dict:
-    """Advance one step: the world moves, or another team acts. Does nothing while waiting on the caller."""
-    return simulation.tick(_sim_user(session), build_role_context(session).role)
+    """Open a fresh run at the mock iCIMS offer (replacing any earlier simulated hire)."""
+    build_role_context(session)
+    return simulation.start(_sim_user(session))
 
 
 @app.post("/api/sim/act")
 def sim_act(body: SimActRequest, session: EmployerSession) -> dict:
-    """The caller's decision on the step that's waiting on them."""
+    """Take the next human action in the journey; the consequence is written to the shared store."""
+    build_role_context(session)
     try:
-        return simulation.act(_sim_user(session), build_role_context(session).role, _actor(session), body.choice)
+        return simulation.act(_sim_user(session), body.choice, body.detail)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from None
 

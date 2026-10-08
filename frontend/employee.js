@@ -912,6 +912,7 @@ function renderChat() {
       return `<div class="bubble ${t.role} has-draft"><div class="bubble-meta">${label}</div><p>${esc(intro)}</p>
         ${draftCard(t.draft, i)}</div>`;
     }
+    if (t.grounding) return groundedBubble(t, i);
     return `<div class="bubble ${t.role}"><div class="bubble-meta">${label}</div><p>${esc(
       t.text
     )}</p></div>`;
@@ -945,9 +946,102 @@ function renderChat() {
   });
   wireDraftCards();
   wireCoachCards();
+  wireGrounded();
   renderCoachBanner();
   const log = document.getElementById("chat-log");
   log.scrollTop = log.scrollHeight;
+}
+
+/* ---------- grounded answers (citations) ---------- */
+
+function askOwnerTarget(owner) {
+  const o = String(owner || "").toLowerCase();
+  if (/\bit\b|identity|security|soc|service desk|engineering/.test(o)) return "IT";
+  if (/hr|people|payroll|rewards|finance|legal|compliance|learning/.test(o)) return "HR";
+  return "my manager";
+}
+
+function groundedBubble(t, i) {
+  const g = t.grounding;
+  const cites = g.citations || [];
+  const answer = esc(g.answer).replace(/\s?\[(\d+)\]/g, '<sup class="gr-ref" data-n="$1">$1</sup>');
+  const extra = t.text
+    .split("\n")
+    .filter((ln) => ln.trim() && !ln.startsWith("Source:") && !g.text.includes(ln));
+  const badge = g.grounded
+    ? `<span class="gr-badge ok" title="${esc(g.notice)}">From ${cites.length} approved passage${cites.length === 1 ? "" : "s"}${
+        g.engine === "model" ? " · written by AI" : ""
+      }</span>`
+    : `<span class="gr-badge none">No approved source · IRA didn't guess</span>`;
+  const asked = [...state.chatTurns.slice(0, i)].reverse().find((x) => x.role === "user")?.text || "";
+  const acts = (g.actions || [])
+    .map((a) => {
+      if (a.kind === "ask_owner" && asked) {
+        const who = askOwnerTarget(a.owner);
+        return `<button type="button" class="wx-mini" data-gr-ask="${esc(`Draft an email to ${who} about ${asked.replace(/[?.!]+$/, "")}`)}">Draft a question to ${esc(who === "my manager" ? "your manager" : who)}</button>`;
+      }
+      if (a.kind === "next_step") return `<span class="gr-next">Next step: <strong>${esc(a.label)}</strong></span>`;
+      return "";
+    })
+    .join("");
+  return `<div class="bubble assistant gr-bubble" data-gr-turn="${i}">
+    <div class="bubble-meta">IRA ${badge}</div>
+    <p>${answer}</p>
+    ${extra.length ? `<p class="gr-extra">${esc(extra.join(" "))}</p>` : ""}
+    ${cites
+      .map(
+        (c) => `<details class="gr-cite" data-n="${c.n}">
+          <summary><b class="gr-n">${c.n}</b><span class="gr-t">${esc(c.title)}</span><span class="gr-s">› ${esc(c.section)}</span></summary>
+          <blockquote>${esc(c.excerpt)}</blockquote>
+          <div class="gr-meta">${esc(c.origin_label)} · ${esc(c.owner)}${c.updated && c.kind !== "record" ? ` · Updated ${esc(c.updated)}` : ""}
+            ${c.kind !== "record" ? `<button type="button" class="wx-mini" data-gr-open="${esc(c.source_id)}" data-gr-sec="${esc(c.section)}">Read the full source</button>` : ""}
+          </div>
+        </details>`
+      )
+      .join("")}
+    ${acts ? `<div class="gr-acts">${acts}</div>` : ""}
+  </div>`;
+}
+
+function wireGrounded() {
+  document.querySelectorAll("#chat-log [data-gr-turn]").forEach((card) => {
+    card.querySelectorAll("sup.gr-ref").forEach((sup) =>
+      sup.addEventListener("click", () => {
+        const d = card.querySelector(`.gr-cite[data-n="${sup.dataset.n}"]`);
+        if (d) d.open = !d.open;
+      })
+    );
+    card.querySelectorAll("[data-gr-open]").forEach((btn) =>
+      btn.addEventListener("click", () =>
+        openDrawer((body) => renderSourceDrawer(body, btn.dataset.grOpen, btn.dataset.grSec))
+      )
+    );
+    card.querySelectorAll("[data-gr-ask]").forEach((btn) => btn.addEventListener("click", () => askChat(btn.dataset.grAsk)));
+  });
+}
+
+async function renderSourceDrawer(body, id, section) {
+  body.innerHTML = `<p class="muted">Loading source…</p>`;
+  try {
+    const p = await fetchJSON(`/api/sources/${encodeURIComponent(id)}`);
+    body.innerHTML = `
+      <header class="wx-dr-head">
+        <span class="muted tiny">${esc(p.origin_label)} · Owner: ${esc(p.owner)}${p.updated ? ` · Updated ${esc(p.updated)}` : ""} · version ${esc(p.version)}</span>
+        <h2 id="wx-drawer-title">${esc(p.title)}</h2>
+      </header>
+      <div class="wx-policy">
+        ${p.sections
+          .map(
+            (s) => `<section class="${s.heading === section ? "gr-hit" : ""}"><h3>${esc(s.heading)}${
+              s.heading === section ? ` <span class="gr-badge ok">IRA quoted this</span>` : ""
+            }</h3><p>${esc(s.body)}</p></section>`
+          )
+          .join("")}
+      </div>`;
+    body.querySelector(".gr-hit")?.scrollIntoView({ block: "center" });
+  } catch (err) {
+    body.innerHTML = `<p class="muted">Couldn't load this source: ${esc(err.message)}</p>`;
+  }
 }
 
 async function askChat(query) {

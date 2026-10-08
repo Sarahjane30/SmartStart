@@ -176,9 +176,16 @@ def test_ops_demo_scenario():
 
 def test_unknown_questions_do_not_hallucinate():
     with TestClient(app) as client:
-        r = _ask(client, _headers(client, "OPS"), "What is the company leave policy?")
+        r = _ask(client, _headers(client, "OPS"), "What is the capital of France?")
         assert r["intent"] == "unknown"
         assert r["text"] == NO_DATA
+        g = _blocks(r, "grounding")[0]
+        assert g["grounded"] is False and g["citations"] == []
+
+        r = _ask(client, _headers(client, "OPS"), "What is the company leave policy?")
+        assert r["intent"] == "grounded"
+        cites = _blocks(r, "grounding")[0]["citations"]
+        assert cites and all(c["title"] == "Leave & Attendance Policy" for c in cites)
 
 
 def test_consequential_actions_need_confirmation_and_refusals_hold():

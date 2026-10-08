@@ -123,6 +123,34 @@ function niaJoinerCards(b) {
   </div>`;
 }
 
+function niaGrounding(b) {
+  const cites = b.citations || [];
+  const badge = b.grounded
+    ? `<span class="gr-badge ok" title="${esc(b.notice)}">Grounded · ${cites.length} approved passage${cites.length === 1 ? "" : "s"}${
+        b.engine === "model" ? " · written by AI" : ""
+      }</span>`
+    : `<span class="gr-badge none">No approved source · NIA didn't guess</span>`;
+  return `<div class="nia-block gr-block">
+    ${badge}
+    ${cites
+      .map(
+        (c) => `<details class="gr-cite" data-n="${c.n}">
+          <summary><b class="gr-n">${c.n}</b><span class="gr-t">${esc(c.title)}</span><span class="gr-s">› ${esc(c.section)}</span></summary>
+          <blockquote>${esc(c.excerpt)}</blockquote>
+          <div class="gr-meta">${esc(c.origin_label)} · ${esc(c.owner)}${c.updated && c.kind !== "record" ? ` · Updated ${esc(c.updated)}` : ""}
+            ${c.kind !== "record" && typeof window.ssOpenSource === "function"
+              ? `<button type="button" class="nia-mini" data-gr-open="${esc(c.source_id)}">Open in Knowledge</button>` : ""}
+          </div>
+        </details>`
+      )
+      .join("")}
+    ${(b.actions || [])
+      .filter((a) => a.kind === "next_step")
+      .map((a) => `<p class="gr-next">Next step for a person: <strong>${esc(a.label)}</strong> · ${esc(a.owner)}</p>`)
+      .join("")}
+  </div>`;
+}
+
 function niaLink(b) {
   return `<a class="nia-source-btn" href="${esc(niaSourceUrl(b))}" target="_blank" rel="noopener"
       title="Opens the independent ${esc(b.system)} mock app in a new tab">
@@ -641,15 +669,20 @@ function niaRenderReply(reply) {
       if (b.type === "mgr_agenda") return niaMgrAgenda(b);
       if (b.type === "mgr_tasks") return niaMgrTasks(b);
       if (b.type === "mgr_action") return niaMgrAction(b, i);
+      if (b.type === "grounding") return niaGrounding(b);
       return "";
     })
     .join("");
   const sources = (reply.sources || [])
     .map((s) => `<span class="nia-src">${esc(s)}</span>`)
     .join("");
+  const grounded = reply.blocks.some((b) => b.type === "grounding" && b.grounded);
+  const text = grounded
+    ? niaRich(reply.text).replace(/\s?\[(\d+)\]/g, '<sup class="gr-ref" data-n="$1">$1</sup>')
+    : niaRich(reply.text);
   const el = niaAppend(
     "bot",
-    `<div class="nia-text">${niaRich(reply.text)}</div>
+    `<div class="nia-text">${text}</div>
      ${body}
      ${links.length ? `<div class="nia-links">${links.map(niaLink).join("")}</div>` : ""}
      <div class="nia-sources"><span>Sources</span>${sources}</div>`
@@ -663,6 +696,15 @@ function niaRenderReply(reply) {
     });
   });
   ncWire(el, reply);
+  el.querySelectorAll("[data-gr-open]").forEach((btn) =>
+    btn.addEventListener("click", () => window.ssOpenSource(btn.dataset.grOpen))
+  );
+  el.querySelectorAll("sup.gr-ref").forEach((sup) =>
+    sup.addEventListener("click", () => {
+      const d = el.querySelector(`.gr-cite[data-n="${sup.dataset.n}"]`);
+      if (d) d.open = !d.open;
+    })
+  );
   if (reply.focus_joiner_id) nia.focus = reply.focus_joiner_id;
   niaSuggest(reply.suggestions || []);
 }

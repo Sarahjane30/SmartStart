@@ -9,7 +9,8 @@ Never invents employee facts. Never takes autonomous production actions.
 from __future__ import annotations
 
 import re
-from typing import Optional
+from contextvars import ContextVar
+from typing import Callable, Optional
 
 from ira import coach, workplace_basics
 from ira.email_draft import directory_reply, draft_reply, is_draft_request
@@ -44,6 +45,26 @@ except ImportError:  # pragma: no cover - offline desktop without backend packag
     explain_entity = None  # type: ignore
     find_entities = None  # type: ignore
     role_recommended_apps = None  # type: ignore
+
+
+# Installed by the SmartStart backend: (query, ctx, refuse) -> grounded answer dict or None.
+# When set, general knowledge comes from the editable approved-source library instead of
+# the policy and FAQ text bundled with this package.
+GROUNDED_HOOK: Optional[Callable[[str, Optional[dict], bool], Optional[dict]]] = None
+_LAST_GROUNDED: ContextVar[Optional[dict]] = ContextVar("ira_last_grounded", default=None)
+
+
+def _grounded(query: str, ctx: Optional[dict], *, refuse: bool = False) -> Optional[str]:
+    if GROUNDED_HOOK is None:
+        return None
+    try:
+        g = GROUNDED_HOOK(query, ctx, refuse)
+    except Exception:  # noqa: BLE001 — never break IRA on a retrieval fault
+        return None
+    if not g:
+        return None
+    _LAST_GROUNDED.set(g)
+    return g["text"]
 
 
 SUGGESTIONS_DEFAULT = [
@@ -327,7 +348,8 @@ def respond(
     t = traits(profile)
     raw = query.strip()
     q = _norm(raw)
-    out: dict = {"text": "", "mode": "ask", "coach": None, "basics": None, "flavour": False}
+    out: dict = {"text": "", "mode": "ask", "coach": None, "basics": None, "flavour": False, "grounding": None}
+    _LAST_GROUNDED.set(None)
 
     chip = coach.scenario_from_chip(raw)
     start = chip or (None if is_draft_request(raw) else coach.detect_start(raw))
@@ -376,6 +398,7 @@ def respond(
         text = f"{text}\n{flavour}" if "Source:" not in text else text.replace("\nSource:", f"\n{flavour}\nSource:", 1)
         out["flavour"] = True
     out["text"] = text
+    out["grounding"] = _LAST_GROUNDED.get()
     return out
 
 
@@ -541,6 +564,8 @@ def answer_core(
                 )
 
         policy = answer_from_policies(q, strict=True)
+        if policy and GROUNDED_HOOK is not None:
+            return _grounded(query, ctx, refuse=True) or policy
         if policy:
             mgr = ((ctx or {}).get("employee") or {}).get("manager_name")
             if mgr and "Your manager on record" in policy:
@@ -889,6 +914,8 @@ def answer_core(
             if hits and personalize_knowledge_answer is not None:
                 return personalize_knowledge_answer(hits[0], ctx)
 
+        if GROUNDED_HOOK is not None:
+            return _grounded(raw, ctx, refuse=True) or _NO_SOURCE
         policy = answer_from_policies(raw, strict=False)
         if policy:
             return policy
@@ -898,6 +925,11 @@ def answer_core(
         return _NO_SOURCE
 
     # Offline / no context
+    if GROUNDED_HOOK is not None and online:
+        return _grounded(raw, None) or (
+            "Sign in so I can answer from your role-aware record. "
+            "Until then I answer from approved sources about apps, processes, policies and docs."
+        )
     policy = answer_from_policies(q, strict=True)
     if policy:
         return policy

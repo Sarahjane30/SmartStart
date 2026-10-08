@@ -1737,6 +1737,52 @@ REFUSE = re.compile(
 )
 
 
+PROCESS_RE = re.compile(
+    r"\b(policy|policies|playbook|guideline|standard kit|our process|the process|process for|"
+    r"who approves|who grants|approv\w* (access|requests?)|how long (does|should|do)|"
+    r"(are|am) (we|i|managers?|interns?) allowed|least privilege|what does the .*(policy|guide|standard) say|"
+    r"what('s| is) (the|our) (it )?(provisioning )?(sla|target)|sla (target|policy|for))\b"
+)
+QUESTION_RE = re.compile(r"^(who|what|when|how|which|why|is|are|can|could|does|do|should|may)\b")
+
+
+def joiner_record(f: JoinerFacts):
+    from backend.grounded import record_chunk
+
+    j = f.joiner
+    lines = [
+        f"{j.name} is a {j.role_type.value} in {j.department} who {start_phrase(f)}.",
+        f"{j.name} is at the {STAGE_LABELS[j.current_state]} stage and is {health_phrase(f)}.",
+        f"{j.name}'s hiring manager is {j.manager_name}.",
+        f"{blocker_sentence(f)}.",
+    ]
+    return record_chunk(f"record:{j.id}", f"SmartStart record · {j.name}", lines, heading="Onboarding record")
+
+
+def grounded_reply(ctx: RoleContext, text: str, target: Optional[JoinerFacts], *, strict: bool) -> Optional[Reply]:
+    """Answer from approved playbooks and policies (plus the scoped joiner's record), or None."""
+    from backend.grounded import answer
+
+    g = answer(text, ctx.role, extra=[joiner_record(target)] if target else [], strict=strict)
+    if not g["grounded"] and strict:
+        return None
+    r = Reply(ctx, "grounded" if g["grounded"] else "unknown", g["answer"] if g["grounded"] else NO_DATA)
+    r.blocks.append({"type": "grounding", **g})
+    r.sources = list(dict.fromkeys(c["title"] for c in g["citations"])) or ["SmartStart"]
+    if target:
+        r.focus = target.id
+    if not g["grounded"]:
+        if g["owner_hint"]:
+            r.text = f"{NO_DATA} The closest approved material is owned by {g['owner_hint']}."
+        r.bullets([
+            "Ask about a joiner by name (\"Why is Sarah at risk?\", \"Give me a complete picture of Sarah\")",
+            "Ask for your priorities, briefing, or a list (SLA breaches, pending documents, no project)",
+            "Ask about an approved process (\"Who approves Confluence access?\", \"What is the IT provisioning SLA?\")",
+        ], "Here's what I can help with")
+        r.suggestions = SUGGESTIONS[ctx.role]
+    return r
+
+
 def ask(ctx: RoleContext, message: str, focus_joiner_id: Optional[str] = None) -> dict:
     text = (message or "").strip()
     low = text.lower()
@@ -1771,6 +1817,11 @@ def ask(ctx: RoleContext, message: str, focus_joiner_id: Optional[str] = None) -
     case_reply = case_intent(ctx, text, low, named)
     if case_reply is not None:
         return case_reply.to_dict()
+
+    if PROCESS_RE.search(low) and QUESTION_RE.search(low) and not assign_m:
+        process = grounded_reply(ctx, text, named, strict=True)
+        if process is not None:
+            return process.to_dict()
 
     if REFUSE.search(low):
         r = Reply(ctx, "refuse", (
@@ -1828,12 +1879,10 @@ def ask(ctx: RoleContext, message: str, focus_joiner_id: Optional[str] = None) -
                 continue
             return list_answer(ctx, key, label, pick(ctx, c), text).to_dict()
     if re.search(r"attention|priorit|first|urgent|needs? me|need my|what should i|today|work on|focus|top|most important|fix first", low):
+        if target is None and not re.search(r"priorit|urgent|needs? me|need my|attention|today|fix first|work on|what should i|focus|\btop\b|most important", low):
+            process = grounded_reply(ctx, text, None, strict=True)
+            if process is not None:
+                return process.to_dict()
         return priorities(ctx).to_dict()
 
-    r = Reply(ctx, "unknown", NO_DATA)
-    r.bullets([
-        "Ask about a joiner by name (\"Why is Sarah at risk?\", \"Give me a complete picture of Sarah\")",
-        "Ask for your priorities, briefing, or a list (SLA breaches, pending documents, no project)",
-    ], "Here's what I can help with")
-    r.suggestions = SUGGESTIONS[ctx.role]
-    return r.to_dict()
+    return grounded_reply(ctx, text, named, strict=False).to_dict()

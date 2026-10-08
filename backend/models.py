@@ -441,6 +441,7 @@ class ChatTurn(BaseModel):
     role: str  # user | assistant
     text: str
     matched_faq_id: Optional[str] = None
+    grounding: Optional[dict] = None
     synthetic: bool = True
 
 
@@ -465,7 +466,7 @@ class ChatbotResponse(BaseModel):
     coach: Optional[dict] = None
     basics: Optional[str] = None
     synthetic: bool = True
-    note: str = "IRA — knows Waters from approved synthetic sources (not a live LLM; no production actions)."
+    note: str = "IRA — answers only from approved SmartStart sources, with citations; no production actions."
 
 
 class PredictiveAlert(BaseModel):

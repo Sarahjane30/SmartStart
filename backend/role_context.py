@@ -74,6 +74,7 @@ NAV = {
         {"id": "joiners", "label": "Joiners"},
         {"id": "alerts", "label": "Alerts"},
         {"id": "analytics", "label": "Analytics"},
+        {"id": "knowledge", "label": "Knowledge"},
     ],
     ROLE_IT: [
         {"id": "dashboard", "label": "Dashboard"},
@@ -81,6 +82,7 @@ NAV = {
         {"id": "joiners", "label": "Joiners"},
         {"id": "alerts", "label": "Alerts"},
         {"id": "analytics", "label": "Analytics"},
+        {"id": "knowledge", "label": "Knowledge"},
     ],
     ROLE_MANAGER: [
         {"id": "dashboard", "label": "Dashboard"},
@@ -88,12 +90,14 @@ NAV = {
         {"id": "actions", "label": "My Actions"},
         {"id": "learning", "label": "Learning"},
         {"id": "alerts", "label": "Alerts"},
+        {"id": "knowledge", "label": "Knowledge"},
     ],
     ROLE_OPS: [
         {"id": "dashboard", "label": "Dashboard"},
         {"id": "alerts", "label": "Alerts"},
         {"id": "analytics", "label": "Analytics"},
         {"id": "roles", "label": "Roles & systems"},
+        {"id": "knowledge", "label": "Knowledge"},
     ],
 }
 

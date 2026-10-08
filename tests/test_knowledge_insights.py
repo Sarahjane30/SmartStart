@@ -48,6 +48,7 @@ def test_refusals_are_grouped_and_routed_to_the_closest_owner():
         assert work and work["mine"] and len(work["gaps"]) == 1
         gap = work["gaps"][0]
         assert gap["count"] == 2 and gap["refused"] == 2
+        assert gap["question"] == "Is there a gym in the office?" and gap["variants"] == ["is there a gym at the office"]
         assert gap["closest"]["owner"] == "Workplace Services"
         assert gap["audiences"][0]["id"] == "EMPLOYEE" and gap["assistants"] == ["IRA"]
 

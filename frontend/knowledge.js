@@ -75,10 +75,25 @@
   async function load() {
     [K.lib, K.ins] = await Promise.all([fetchJSON("/api/knowledge"), fetchJSON("/api/knowledge/insights")]);
     if (K.scope === null) K.scope = K.ins.counts.mine ? "mine" : "all";
+    syncNavCount(K.ins.counts.mine);
     const ids = new Set(K.lib.sources.map((s) => s.id));
     if (!K.sel || !ids.has(K.sel)) K.sel = (K.lib.sources.find((s) => s.has_draft) || K.lib.sources[0])?.id || null;
     if (K.sel && K.mode === "view") K.detail = await fetchJSON(`/api/knowledge/sources/${encodeURIComponent(K.sel)}`);
     paint();
+  }
+
+  function syncNavCount(n) {
+    const btn = document.querySelector('.nav-btn[data-section="knowledge"]');
+    if (!btn) return;
+    let badge = btn.querySelector(".nav-count");
+    if (!n) return badge?.remove();
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "nav-count";
+      badge.title = "Unanswered questions and flagged answers for your team";
+      btn.append(" ", badge);
+    }
+    badge.textContent = n;
   }
 
   async function select(id) {

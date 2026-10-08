@@ -175,8 +175,7 @@ def _note_gap(question: str, audience: str, assistant: str, g: dict, kind: str, 
         gaps.append(gap)
     elif gap["status"] == "answered":
         gap.update(status="open", resolution=None)
-    gap["question"] = question
-    if question not in gap["variants"]:
+    if question != gap["question"] and question not in gap["variants"]:
         gap["variants"] = ([question] + gap["variants"])[:MAX_VARIANTS]
     gap["count"] += 1
     for field, value in (("kinds", kind), ("audiences", audience), ("assistants", assistant)):
@@ -351,7 +350,7 @@ def _sync() -> None:
 def _gap_view(gap: dict, role: str) -> dict:
     kinds = gap["kinds"]
     return {
-        "id": gap["id"], "question": gap["question"], "variants": gap["variants"][1:],
+        "id": gap["id"], "question": gap["question"], "variants": gap["variants"],
         "count": gap["count"], "refused": kinds.get("refused", 0), "weak": kinds.get("weak", 0),
         "flagged": gap.get("flagged", 0),
         "audiences": [{"id": a, "label": AUDIENCE_LABELS.get(a, a), "count": n}

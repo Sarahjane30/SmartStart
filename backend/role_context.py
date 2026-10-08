@@ -337,9 +337,23 @@ def role_actions(f: JoinerFacts, role: str) -> list[dict]:
         return out
     if role == ROLE_MANAGER:
         state = j.current_state
-        if state == OnboardingState.IT_PROVISIONED:
+        from backend import onboarding_cases
+
+        prep = onboarding_cases._CASES.get(j.id, {}).get("mgr", {})
+        if state == OnboardingState.IT_PROVISIONED and prep.get("day1"):
+            day1 = prep["day1"]
+            mentor = (prep.get("mentor") or {}).get("name") or j.mentor_name
+            out.append(_action("Day 1 booked", f"{day1['date']} at {day1['time']} · mentor {mentor}", kind="info",
+                               severity="low"))
+            if prep.get("project"):
+                out.append(_action("First project ready", prep["project"]["name"], kind="done", severity="low"))
+            else:
+                out.append(_action("Plan the first project", "Ready for after Day 1", kind="secondary", severity=sev))
+        elif state == OnboardingState.IT_PROVISIONED:
             out.append(_action("Run Day-1 orientation", "Laptop is ready — book the welcome session", severity=sev))
-            out.append(_action(f"Confirm mentor {j.mentor_name}", "Introduce the mentor before Day 1", kind="secondary", severity=sev))
+            if not prep.get("mentor"):
+                out.append(_action(f"Confirm mentor {j.mentor_name}", "Introduce the mentor before Day 1", kind="secondary",
+                                   severity=sev))
         elif state == OnboardingState.DAY1_ORIENTED:
             out.append(_action("Assign Jira project", "Day 1 is done — the joiner needs a first project", severity=sev))
         elif state == OnboardingState.PROJECT_READY:

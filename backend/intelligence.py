@@ -103,7 +103,10 @@ def build_blockers(joiner_id: str, db: DataStore | None = None) -> list[dict[str
             }
         )
 
-    if joiner.current_state != OnboardingState.PROJECT_READY:
+    from backend import onboarding_cases
+
+    project_assigned = bool(onboarding_cases._CASES.get(joiner.id, {}).get("mgr", {}).get("project"))
+    if joiner.current_state != OnboardingState.PROJECT_READY and not project_assigned:
         if joiner.current_state in {
             OnboardingState.DAY1_ORIENTED,
             OnboardingState.IT_PROVISIONED,

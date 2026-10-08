@@ -451,7 +451,12 @@ def alerts(
     """Synthetic SLA / pending-task alerts, worded and scoped for the caller's role."""
     ctx = build_role_context(session)
     view = ctx.resolve_view(role_view)
-    return present_alerts(ctx, build_alerts(), view)
+    payload = present_alerts(ctx, build_alerts(), view)
+    live = simulation.alerts_for(ctx.role, ctx.manager_id)
+    if not live:
+        return payload
+    out = payload.model_dump(mode="json")
+    return {**out, "alerts": live + out["alerts"], "total": out["total"] + len(live)}
 
 
 @app.get("/api/analytics")
@@ -670,33 +675,37 @@ def _sim_user(session: dict) -> str:
 
 
 class SimActRequest(BaseModel):
-    choice: str = Field(max_length=20)
+    choice: str = Field(max_length=30)
+    detail: dict[str, str] = Field(default_factory=dict)
 
 
 @app.get("/api/sim")
 def sim_state(session: EmployerSession) -> dict:
-    """The live new-hire simulation, as the caller sees it (which steps wait on them)."""
-    return simulation.state(_sim_user(session), build_role_context(session).role)
+    """The caller's connected-enterprise simulation run, if one is in progress."""
+    build_role_context(session)
+    return simulation.state(_sim_user(session))
 
 
 @app.post("/api/sim/start")
 def sim_start(session: EmployerSession) -> dict:
-    """Hire a brand-new synthetic joiner (replacing any earlier simulated one) and open their case."""
+    """Open a fresh run at the mock iCIMS offer (replacing any earlier simulated hire)."""
+    build_role_context(session)
+    return simulation.start(_sim_user(session))
+
+
+@app.get("/api/sim/feed")
+def sim_feed(session: EmployerSession) -> dict:
+    """Simulation notes for the caller's role, so every open Command Center reflects the run live."""
     ctx = build_role_context(session)
-    return simulation.start(_sim_user(session), ctx.role, ctx.manager_id)
-
-
-@app.post("/api/sim/tick")
-def sim_tick(session: EmployerSession) -> dict:
-    """Advance one step: the world moves, or another team acts. Does nothing while waiting on the caller."""
-    return simulation.tick(_sim_user(session), build_role_context(session).role)
+    return simulation.feed(_sim_user(session), ctx.role, getattr(ctx, "manager_id", None))
 
 
 @app.post("/api/sim/act")
 def sim_act(body: SimActRequest, session: EmployerSession) -> dict:
-    """The caller's decision on the step that's waiting on them."""
+    """Take the next human action in the journey; the consequence is written to the shared store."""
+    build_role_context(session)
     try:
-        return simulation.act(_sim_user(session), build_role_context(session).role, _actor(session), body.choice)
+        return simulation.act(_sim_user(session), body.choice, body.detail)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from None
 

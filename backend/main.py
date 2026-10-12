@@ -6,7 +6,7 @@ from collections import Counter
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
-from typing import Annotated, AsyncIterator, Optional
+from typing import Annotated, AsyncIterator, Literal, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,7 +39,7 @@ from backend.employee_experience import (
     remove_skill,
     skills_for,
 )
-from backend import grounded, ira_profile, knowledge_sources, manager_assistant, nia, onboarding_cases, resolutions, simulation, waters_explorer
+from backend import grounded, ira_profile, knowledge_insights, knowledge_sources, manager_assistant, nia, onboarding_cases, resolutions, simulation, waters_explorer
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -1123,6 +1123,7 @@ def knowledge_library(session: EmployerSession) -> dict:
     return {
         **knowledge_sources.library(),
         "assistant": grounded.status(),
+        "insights": knowledge_insights.overview(role)["counts"],
         "can_edit": role in knowledge_sources.EDIT_ROLES,
         "can_approve": role in knowledge_sources.APPROVE_ROLES,
         "audiences": list(knowledge_sources.AUDIENCES),
@@ -1132,7 +1133,46 @@ def knowledge_library(session: EmployerSession) -> dict:
 
 @app.get("/api/knowledge/sources/{source_id}")
 def knowledge_source(source_id: str, session: EmployerSession) -> dict:
-    return _kb_call(knowledge_sources.detail, source_id)
+    out = _kb_call(knowledge_sources.detail, source_id)
+    out["feedback"] = knowledge_insights.source_feedback(source_id)
+    return out
+
+
+class AnswerFeedback(BaseModel):
+    vote: Literal["up", "down"]
+    reason: Optional[Literal["not_helpful", "out_of_date", "wrong", "missing"]] = None
+    comment: str = Field(default="", max_length=300)
+
+
+class InsightNote(BaseModel):
+    note: str = Field(default="", max_length=200)
+
+
+@app.post("/api/answers/{answer_id}/feedback")
+def answer_feedback(answer_id: str, body: AnswerFeedback) -> dict:
+    """Thumbs up / down on an NIA or IRA answer. A thumbs-down becomes a review task for the cited sources' owners."""
+    try:
+        return knowledge_insights.vote(answer_id, body.vote, body.reason, body.comment)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="That answer has expired — ask again to rate it.") from None
+
+
+@app.get("/api/knowledge/insights")
+def knowledge_insights_view(session: EmployerSession) -> dict:
+    """Questions NIA and IRA couldn't answer (or answered weakly) and flagged answers, by owning team."""
+    return knowledge_insights.overview(role_for_session(session))
+
+
+@app.post("/api/knowledge/gaps/{gap_id}/dismiss")
+def knowledge_dismiss_gap(gap_id: str, body: InsightNote, session: EmployerSession) -> dict:
+    return _kb_call(knowledge_insights.dismiss_gap, gap_id, role=role_for_session(session),
+                    user=session["display_name"], note=body.note)
+
+
+@app.post("/api/knowledge/reviews/{review_id}/resolve")
+def knowledge_resolve_review(review_id: str, body: InsightNote, session: EmployerSession) -> dict:
+    return _kb_call(knowledge_insights.resolve_review, review_id, role=role_for_session(session),
+                    user=session["display_name"], note=body.note)
 
 
 @app.post("/api/knowledge/sources")

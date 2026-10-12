@@ -4844,3 +4844,87 @@ sup.gr-ref:hover { background: var(--blue-600); color: #fff; }
   .kb-list { position: static; max-height: 420px; }
   .kb-ans-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- answer feedback (NIA + IRA) ---------- */
+.fb {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.6rem; padding-top: 0.5rem;
+  border-top: 1px dashed var(--line); font-size: 0.74rem; color: var(--muted);
+}
+.fb-q { font-weight: 600; }
+.fb-thumb {
+  display: inline-grid; place-items: center; width: 28px; height: 26px; border-radius: 8px;
+  border: 1px solid var(--line); background: #fff; color: var(--muted); cursor: pointer;
+}
+.fb-thumb:hover { color: var(--blue-600); border-color: var(--blue-100); background: var(--blue-50); }
+.fb-btn {
+  font: inherit; font-size: 0.72rem; font-weight: 650; padding: 0.28rem 0.6rem; border-radius: 8px;
+  border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
+}
+.fb-btn.primary { background: var(--blue-500); border-color: var(--blue-500); color: #fff; }
+.fb-link { font: inherit; font-size: 0.72rem; border: 0; background: none; color: var(--blue-500); cursor: pointer; text-decoration: underline; padding: 0; }
+.fb-done { color: #047857; font-weight: 600; }
+.fb-form { display: grid; gap: 0.4rem; width: 100%; }
+.fb-reasons { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.fb-chip {
+  font: inherit; font-size: 0.72rem; padding: 0.22rem 0.6rem; border-radius: 999px;
+  border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
+}
+.fb-chip.on { background: #ffe4e8; border-color: #fecdd3; color: #be123c; font-weight: 650; }
+.fb-comment {
+  font: inherit; font-size: 0.78rem; padding: 0.4rem 0.6rem; border-radius: 8px;
+  border: 1px solid var(--line); background: #fff; color: var(--ink);
+}
+.fb-form-acts { display: flex; gap: 0.6rem; align-items: center; }
+
+/* ---------- knowledge: questions & flags ---------- */
+.kb-tabs { display: flex; gap: 0.3rem; margin: 0 0 1rem; border-bottom: 1px solid var(--line); }
+.kb-tabs button {
+  font: inherit; font-size: 0.86rem; font-weight: 650; padding: 0.55rem 0.9rem; border: 0; background: none;
+  color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.kb-tabs button.on { color: var(--ink); border-bottom-color: var(--blue-500); }
+.kb-ins { display: grid; gap: 1rem; }
+.kb-ins-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem 1.2rem; }
+.kb-ins-head h2 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.kb-ins-head p { margin: 0; max-width: 64ch; }
+.kb-ins-head .kb-toggle { margin: 0; flex: none; }
+.kb-team { padding: 1rem 1.2rem; }
+.kb-team-h { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+.kb-team-h h3 { margin: 0; font-size: 1rem; }
+.kb-team-h .muted { margin-left: auto; }
+.kb-sub { margin: 0.9rem 0 0.4rem; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.kb-gap, .kb-review { padding: 0.75rem 0.85rem; border: 1px solid var(--line); border-radius: 12px; background: #fbfcff; margin-bottom: 0.55rem; }
+.kb-gap-q { font-weight: 700; font-size: 0.9rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.kb-gap-q .kb-pill { margin-left: 0; }
+.kb-gap p { margin: 0.25rem 0 0; }
+.kb-review > p { margin: 0.25rem 0 0; }
+.kb-gap-var { font-size: 0.76rem; color: var(--muted); }
+.kb-gap-near { font-size: 0.78rem; }
+.kb-link { font: inherit; border: 0; background: none; padding: 0; color: var(--blue-500); font-weight: 650; cursor: pointer; text-decoration: underline; }
+.kb-ins-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.6rem; }
+.kb-ins-acts button, .kb-note button { font-size: 0.76rem; padding: 0.35rem 0.7rem; }
+.kb-note { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+.kb-note input { flex: 1; min-width: 0; font: inherit; font-size: 0.8rem; padding: 0.4rem 0.6rem; border: 1px solid var(--line); border-radius: 8px; }
+.kb-flags { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.45rem; }
+.kb-flags li { padding: 0.55rem 0.65rem; border-radius: 10px; background: #fff; border: 1px solid var(--line-soft); }
+.kb-flag-h { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.kb-flag-h .kb-pill { margin-left: 0; }
+.kb-flag-q { margin: 0.35rem 0 0; font-weight: 650; font-size: 0.82rem; }
+.kb-flag-a { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--muted); }
+.kb-flag-c { margin: 0.3rem 0 0; font-size: 0.8rem; padding: 0.35rem 0.5rem; border-left: 3px solid #f59e0b; background: #fffaf0; }
+.kb-flag-c span { font-weight: 700; }
+.kb-more { margin-top: 0.4rem; font-size: 0.78rem; }
+.kb-more summary { cursor: pointer; color: var(--blue-500); }
+.kb-empty-ins { padding: 1.4rem 1.2rem; }
+.kb-empty-ins p { margin: 0.4rem 0 0; max-width: 70ch; }
+.kb-closed { padding: 0.8rem 1.2rem; font-size: 0.82rem; }
+.kb-closed summary { cursor: pointer; font-weight: 650; }
+.kb-closed ul { margin: 0.6rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; }
+.kb-ok { color: #047857; font-weight: 650; }
+.kb-banner.rose { background: #fff1f3; border-color: #fecdd3; }
+.kb-banner.rose span { color: #9f1239; }
+.kb-fb { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0 0 0.6rem; }
+@media (max-width: 760px) {
+  .kb-ins-head { flex-direction: column; }
+}

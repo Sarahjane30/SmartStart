@@ -1000,6 +1000,7 @@ function groundedBubble(t, i) {
       )
       .join("")}
     ${acts ? `<div class="gr-acts">${acts}</div>` : ""}
+    ${window.ssFeedbackHtml ? window.ssFeedbackHtml(g) : ""}
   </div>`;
 }
 

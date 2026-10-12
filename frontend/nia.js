@@ -148,6 +148,7 @@ function niaGrounding(b) {
       .filter((a) => a.kind === "next_step")
       .map((a) => `<p class="gr-next">Next step for a person: <strong>${esc(a.label)}</strong> · ${esc(a.owner)}</p>`)
       .join("")}
+    ${window.ssFeedbackHtml ? window.ssFeedbackHtml(b) : ""}
   </div>`;
 }
 

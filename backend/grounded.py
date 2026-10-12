@@ -352,6 +352,15 @@ def _plain(marked: str) -> str:
     return re.sub(r"\s*\[\d+\]", "", marked).strip()
 
 
+def _closest(idx: Index, q: set[str], hits: list[tuple[float, Chunk]]) -> Optional[dict]:
+    """Best approved (non-record) passage, however weak — used to route unanswered questions."""
+    for s, c in hits:
+        if c.kind != "record" and idx.coverage(c, q) > 0:
+            return {"source_id": c.source_id, "title": c.title, "section": c.heading, "owner": c.owner,
+                    "score": round(s, 2), "coverage": round(idx.coverage(c, q), 2)}
+    return None
+
+
 def _refusal(idx: Index, q: set[str], hits: list[tuple[float, Chunk]], audience: str) -> dict:
     owner = None
     if hits:
@@ -374,6 +383,8 @@ def _refusal(idx: Index, q: set[str], hits: list[tuple[float, Chunk]], audience:
         "owner_hint": owner,
         "engine": "retrieval",
         "model": None,
+        "strength": "none",
+        "closest": _closest(idx, q, hits),
         "notice": "No approved source covers this question.",
     }
 
@@ -432,6 +443,8 @@ def answer(
         "engine": engine,
         "model": model,
         "confidence": round(min(1.0, cov), 2),
+        "strength": "strong" if top_s >= STRICT[0] and cov >= STRICT[1] else "weak",
+        "closest": _closest(idx, q, hits),
         "notice": f"Answered only from {n_src} approved source{'s' if n_src != 1 else ''}.",
     }
 
@@ -466,10 +479,12 @@ def employee_record(ctx: Optional[dict]) -> Optional[Chunk]:
 
 
 def ira_hook(query: str, ctx: Optional[dict], refuse: bool) -> Optional[dict]:
+    from backend import knowledge_insights
+
     g = answer(query, "EMPLOYEE", extra=[employee_record(ctx)])
     if not g["grounded"] and not refuse:
         return None
-    return g
+    return knowledge_insights.record(query, "EMPLOYEE", "IRA", g)
 
 
 def install() -> None:

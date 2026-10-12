@@ -639,6 +639,13 @@ def joiner_summary(f: JoinerFacts, role: str) -> dict:
     }
 
 
+def _nav(role: str) -> list[dict]:
+    from backend.knowledge_insights import pending_for
+
+    waiting = pending_for(role)
+    return [dict(n, count=waiting) if n["id"] == "knowledge" and waiting else n for n in NAV[role]]
+
+
 def build_workspace(ctx: RoleContext) -> dict:
     role = ctx.role
     scope_label = (
@@ -650,7 +657,7 @@ def build_workspace(ctx: RoleContext) -> dict:
         **ctx.to_dict(),
         "question": ROLE_QUESTIONS[role],
         "scope": {"label": scope_label, "visible": len(ctx.visible), "cohort_total": ctx.cohort_total},
-        "nav": NAV[role],
+        "nav": _nav(role),
         "can_switch_queues": ctx.permissions["switch_queues"],
         "cards": build_cards(ctx),
         "action_queue": [joiner_summary(f, role) for f in ctx.actionable],

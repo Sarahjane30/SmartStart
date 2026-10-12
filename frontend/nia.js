@@ -320,7 +320,7 @@ async function ncPublishPack(btn) {
     btn.textContent = "Refresh";
   } catch (err) {
     tab?.close();
-    niaAppend("bot", `<div class="nia-text">${esc(err.message)} Start it with <code>python -m uvicorn preboarding.backend.main:app --port 8500</code>.</div>`);
+    niaAppend("bot", `<div class="nia-text">${esc(err.message)}</div>`);
   } finally {
     btn.disabled = false;
   }

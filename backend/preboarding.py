@@ -18,6 +18,7 @@ import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -264,7 +265,8 @@ def publish(f: JoinerFacts, actor: str) -> dict:
         res.raise_for_status()
         out = res.json()
     except (httpx.HTTPError, ValueError):
-        return {"ok": False, "error": "The pre-boarding portal isn't reachable right now."}
+        return {"ok": False, "error": f"The pre-boarding portal isn't reachable at {portal_url()}. Start it with: "
+                f"python -m uvicorn preboarding.backend.main:app --reload --port {urlsplit(portal_url()).port or 80}"}
     first_time = f.id not in _LINKS
     link = _LINKS.setdefault(f.id, {"opened": False, "opened_at": None, "confirmed": None, "questions": 0,
                                     "question_list": []})

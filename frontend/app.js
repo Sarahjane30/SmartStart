@@ -1178,7 +1178,7 @@ async function paintDrawerPreboarding(id, name) {
       paintDrawerPreboarding(id, name);
     } catch (err) {
       tab?.close();
-      showToast(`${err.message} Start it with: python -m uvicorn preboarding.backend.main:app --port 8400`);
+      showToast(`${err.message} Start it with: python -m uvicorn preboarding.backend.main:app --port 8500`);
       btn.disabled = false;
     }
   });

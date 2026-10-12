@@ -1,6 +1,6 @@
 """Pre-boarding — HR publishes a joiner's Day-1 pack to the separate welcome portal.
 
-The portal (``preboarding/``, port 8400) is its own app, like mock iCIMS / ServiceNow /
+The portal (``preboarding/``, port 8500) is its own app, like mock iCIMS / ServiceNow /
 Jira. SmartStart builds the pack from the live record and pushes it there when HR
 publishes it or sends the welcome / Day-1 email; the email carries the joiner's link.
 What the joiner does in the portal (opened it, confirmed Day 1, asked HR something)
@@ -61,7 +61,7 @@ _SEEN: set[str] = set()
 
 
 def portal_url() -> str:
-    return (os.environ.get("NIA_PREBOARDING_URL") or "http://127.0.0.1:8400").rstrip("/")
+    return (os.environ.get("NIA_PREBOARDING_URL") or "http://127.0.0.1:8500").rstrip("/")
 
 
 def publish_key() -> str:
@@ -305,8 +305,11 @@ def _apply(e: dict) -> None:
                 else f"Said Day 1 may not work: “{payload.get('note') or 'no details'}”")
         cases._log(jid, "preboarding", text, audience="HR", by="Pre-boarding portal", topic="preboarding")
     elif kind == "QUESTION_ASKED":
-        link["questions"] += 1
-        link["question_list"] = ([{"text": payload.get("question", ""), "at": e["created_at"]}] + link["question_list"])[:10]
+        q = {"text": payload.get("question", ""), "at": e["created_at"]}
+        if q in link["question_list"]:
+            return
+        link["question_list"] = ([q] + link["question_list"])[:20]
+        link["questions"] = max(link["questions"], len(link["question_list"]))
         cases._log(jid, "preboarding", f"Asked HR: “{payload.get('question', '')}”", audience="HR",
                    by="Pre-boarding portal", topic="preboarding")
 

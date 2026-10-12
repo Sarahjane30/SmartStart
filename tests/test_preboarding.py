@@ -87,6 +87,13 @@ def test_hr_publishes_and_joiner_activity_lands_on_the_case(portal):
         again = client.post(f"/api/nia/cases/{jid}/preboarding", headers=h).json()["preboarding"]
         assert again["url"] == link["url"]
 
+        # SmartStart restarts while the portal keeps its data: replayed events don't double-count.
+        preboarding.clear()
+        client.post(f"/api/nia/cases/{jid}/preboarding", headers=h)
+        preboarding.sync(force=True)
+        back = preboarding.link_for(jid)
+        assert back["questions"] == 1 and back["confirmed"]["attending"] and back["opened"]
+
 
 def test_welcome_email_carries_the_pack_link(portal):
     with TestClient(app) as client:

@@ -1137,6 +1137,12 @@ def case_plan(ctx: RoleContext, f: JoinerFacts) -> Reply:
     return r
 
 
+def _preboarding(f: JoinerFacts) -> Optional[dict]:
+    from backend import preboarding
+
+    return preboarding.link_for(f.id)
+
+
 def case_status(ctx: RoleContext, f: JoinerFacts) -> Reply:
     r = Reply(ctx, "case:status")
     r.focus = f.id
@@ -1156,7 +1162,7 @@ def case_status(ctx: RoleContext, f: JoinerFacts) -> Reply:
     followups = [
         {"text": e["text"], "to": e["to"], "at": e["at"], "kind": e["kind"]}
         for e in reversed(cases.log_for(f.id))
-        if e["kind"] in ("reminder", "routed", "message", "prep") and not (manager and e["audience"] == "Manager")
+        if e["kind"] in ("reminder", "routed", "message", "prep", "preboarding") and not (manager and e["audience"] == "Manager")
     ][:4]
     r.blocks.append({
         "type": "case_status",
@@ -1172,6 +1178,7 @@ def case_status(ctx: RoleContext, f: JoinerFacts) -> Reply:
         "steps": cases.journey_steps(f),
         "attention": att,
         "followups": followups,
+        "preboarding": _preboarding(f),
         "viewer": "manager" if manager else "hr",
     })
     r.source("iCIMS")

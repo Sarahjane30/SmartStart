@@ -1100,6 +1100,7 @@ async function openJoinerDrawer(id) {
           <a class="btn-link" href="/?need=employee">View as this joiner (portal) →</a>
         </div>
       </section>
+      <section class="drawer-section" id="drawer-preboard" hidden></section>
       <section class="drawer-section">
         <h3>Timeline</h3>
         <ol class="timeline">${timeline}</ol>
@@ -1115,10 +1116,72 @@ async function openJoinerDrawer(id) {
       </section>
     `;
     window.paintDrawerLearning?.(id);
+    paintDrawerPreboarding(id, j.name);
     renderDashboard();
   } catch (err) {
     body.innerHTML = `<p class="load-error">Failed to load joiner: ${esc(err.message)}</p>`;
   }
+}
+
+/* Day-1 pack on the separate pre-boarding portal — HR publishes it; it opens in its own tab. */
+function preboardState(p) {
+  const bits = [p.opened ? "Opened" : "Not opened yet"];
+  if (p.confirmed) bits.push(p.confirmed.attending ? "Confirmed for Day 1" : "Day 1 may not work");
+  if (p.questions) bits.push(`${p.questions} question${p.questions === 1 ? "" : "s"} for HR`);
+  return bits.join(" · ");
+}
+
+async function paintDrawerPreboarding(id, name) {
+  const box = document.getElementById("drawer-preboard");
+  if (!box) return;
+  let s;
+  try {
+    s = await fetchJSON(`/api/preboarding/${encodeURIComponent(id)}`);
+  } catch {
+    return;
+  }
+  if (state.selectedId !== id) return;
+  const p = s.link;
+  if (!p && !s.can_publish) {
+    if (!s.started) return;
+    box.hidden = false;
+    box.innerHTML = `<h3>Day-1 pack</h3><p class="muted tiny">${esc(name)} has already started — the pack is for the days before Day 1.</p>`;
+    return;
+  }
+  const first = name.split(" ")[0];
+  const note = p?.confirmed && !p.confirmed.attending && p.confirmed.note ? `<p class="pb-hr-note">“${esc(p.confirmed.note)}”</p>` : "";
+  const asked = (p?.question_list || [])
+    .slice(0, 2)
+    .map((q) => `<li>“${esc(q.text)}”</li>`)
+    .join("");
+  box.hidden = false;
+  box.innerHTML = `
+    <h3>Day-1 pack <span class="muted tiny">· separate pre-boarding portal</span></h3>
+    <p class="muted tiny">${
+      p
+        ? `${esc(preboardState(p))} · published by ${esc(p.by)}`
+        : `Not sent yet. It goes out with the welcome email, or publish it now. ${first} starts in ${s.days_to_start} day${s.days_to_start === 1 ? "" : "s"}.`
+    }</p>
+    ${note}${asked ? `<ul class="drawer-tasks">${asked}</ul>` : ""}
+    <div class="row-actions drawer-acts">
+      ${p ? `<a class="btn-mini" href="${esc(p.url)}" target="_blank" rel="noopener">Open ${esc(first)}'s pack ↗</a>` : ""}
+      ${s.can_publish ? `<button type="button" class="btn-mini ${p ? "" : "primary"}" data-pb-publish="${esc(id)}">${p ? "Refresh pack" : "Publish &amp; open ↗"}</button>` : ""}
+    </div>`;
+  box.querySelector("[data-pb-publish]")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const tab = p ? null : window.open("about:blank", "_blank");
+    btn.disabled = true;
+    try {
+      const out = await postJSON(`/api/nia/cases/${encodeURIComponent(id)}/preboarding`, {});
+      if (tab) tab.location.href = out.preboarding.url;
+      showToast(p ? "Day-1 pack refreshed with the latest record" : `Day-1 pack published for ${first}`);
+      paintDrawerPreboarding(id, name);
+    } catch (err) {
+      tab?.close();
+      showToast(`${err.message} Start it with: python -m uvicorn preboarding.backend.main:app --port 8400`);
+      btn.disabled = false;
+    }
+  });
 }
 
 function applyCardFilter(filter) {

@@ -4928,3 +4928,4 @@ sup.gr-ref:hover { background: var(--blue-600); color: #fff; }
 @media (max-width: 760px) {
   .kb-ins-head { flex-direction: column; }
 }
+.pb-hr-note { margin: 0.35rem 0 0; padding: 0.4rem 0.6rem; border-left: 3px solid #f59e0b; background: #fffbeb; color: #78350f; font-size: 0.85rem; border-radius: 4px; }

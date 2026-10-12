@@ -283,6 +283,54 @@ function niaCasePlan(b, idx) {
   </div>`;
 }
 
+/* Day-1 pack on the separate pre-boarding portal (opens in its own tab). */
+function ncPackState(p) {
+  const bits = [p.opened ? "Opened" : "Not opened yet"];
+  if (p.confirmed) bits.push(p.confirmed.attending ? "Confirmed for Day 1" : "May not make Day 1");
+  if (p.questions) bits.push(`${p.questions} question${p.questions === 1 ? "" : "s"}`);
+  return bits.join(" · ");
+}
+
+function ncPack(b) {
+  const p = b.preboarding;
+  if (p?.url)
+    return `<div class="nc-pack">
+      <span><strong>Day-1 pack</strong> ${esc(ncPackState(p))}</span>
+      <a class="nia-mini" href="${esc(p.url)}" target="_blank" rel="noopener" title="Opens the separate pre-boarding portal">Open pack ↗</a>
+      ${b.viewer === "hr" ? `<button type="button" class="nia-mini" data-nc-pack="${esc(b.joiner_id)}">Refresh</button>` : ""}
+    </div>`;
+  if (b.viewer !== "hr") return "";
+  return `<div class="nc-pack">
+    <span><strong>Day-1 pack</strong> Not sent yet — it goes out with the welcome email, or publish it now.</span>
+    <button type="button" class="nia-mini" data-nc-pack="${esc(b.joiner_id)}">Publish &amp; open ↗</button>
+  </div>`;
+}
+
+async function ncPublishPack(btn) {
+  // Open the tab inside the click so the browser doesn't block it, then point it at the pack.
+  const tab = window.open("about:blank", "_blank");
+  btn.disabled = true;
+  try {
+    const res = await niaPost(`/api/nia/cases/${encodeURIComponent(btn.dataset.ncPack)}/preboarding`, {});
+    if (tab) tab.location.href = res.preboarding.url;
+    const box = btn.closest(".nc-pack");
+    box.querySelector("span").innerHTML = `<strong>Day-1 pack</strong> ${esc(ncPackState(res.preboarding))} · published just now`;
+    if (!box.querySelector("a"))
+      btn.insertAdjacentHTML("beforebegin", `<a class="nia-mini" href="${esc(res.preboarding.url)}" target="_blank" rel="noopener">Open pack ↗</a>`);
+    btn.textContent = "Refresh";
+  } catch (err) {
+    tab?.close();
+    niaAppend("bot", `<div class="nia-text">${esc(err.message)} Start it with <code>python -m uvicorn preboarding.backend.main:app --port 8400</code>.</div>`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-nc-pack]");
+  if (btn) ncPublishPack(btn);
+});
+
 function niaCaseStatus(b) {
   const a = b.attention;
   return `<div class="nc-case">
@@ -302,6 +350,7 @@ function niaCaseStatus(b) {
             .join("")}</ul></div>`
         : ""
     }
+    ${ncPack(b)}
     <div class="nc-acts">
       <button type="button" class="nia-mini" data-nia-q="Show ${esc(b.name)}'s onboarding plan" data-nia-focus="${esc(b.joiner_id)}">View plan</button>
       ${
@@ -565,12 +614,19 @@ async function ncSend(card, b) {
   const body = card.querySelector(".nc-body").value;
   card.querySelectorAll("button, input, textarea").forEach((el) => (el.disabled = true));
   try {
-    await niaPost(b.endpoint || "/api/nia/comms/send", { joiner_id: b.joiner_id, kind: b.kind, subject, body });
+    const res = await niaPost(b.endpoint || "/api/nia/comms/send", { joiner_id: b.joiner_id, kind: b.kind, subject, body });
+    const p = res.preboarding;
+    const pack = !p
+      ? ""
+      : p.ok
+        ? `<div class="nc-pack"><span><strong>Day-1 pack</strong> published to the pre-boarding portal — the link is in the email.</span>
+            <a class="nia-mini" href="${esc(p.url)}" target="_blank" rel="noopener">Open ${esc(b.joiner_name.split(" ")[0])}'s pack ↗</a></div>`
+        : `<div class="nc-pack warn"><span><strong>Day-1 pack not published</strong> ${esc(p.error)} The email says the link will follow.</span></div>`;
     ncDone(
       card,
       `<div class="nia-text">Sent — <strong>${esc(b.label)}</strong> to ${esc(b.to.name)}. It's logged on ${esc(
         b.joiner_name
-      )}'s onboarding${b.to.audience === "Employee" ? " and shows in their SmartStart notifications" : ""}. (Simulated delivery — no real email.)</div>`
+      )}'s onboarding${b.to.audience === "Employee" ? " and shows in their SmartStart notifications" : ""}. (Simulated delivery — no real email.)</div>${pack}`
     );
   } catch (err) {
     ncFail(card, err);

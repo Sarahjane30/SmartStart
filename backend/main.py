@@ -39,7 +39,7 @@ from backend.employee_experience import (
     remove_skill,
     skills_for,
 )
-from backend import grounded, ira_profile, knowledge_insights, knowledge_sources, manager_assistant, nia, onboarding_cases, resolutions, simulation, waters_explorer
+from backend import grounded, ira_profile, knowledge_insights, knowledge_sources, manager_assistant, nia, onboarding_cases, preboarding, resolutions, simulation, waters_explorer
 from backend.integrations import build_integrations
 from backend.ira_api import (
     IraSessionRequest,
@@ -115,6 +115,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     clear_feedback()
     resolutions.clear()
     onboarding_cases.clear()
+    preboarding.clear()
     yield
 
 
@@ -355,6 +356,7 @@ def regenerate(
     clear_feedback()
     resolutions.clear()
     onboarding_cases.clear()
+    preboarding.clear()
     simulation.clear_all()
     return {
         "status": "regenerated",
@@ -382,6 +384,7 @@ def dashboard(
 ) -> DashboardResponse:
     """Employer Command Center table: joiners + states, scoped by role context."""
     onboarding_cases.sync_icims()
+    preboarding.sync()
     ctx = build_role_context(session)
     effective_view = ctx.resolve_view(role_view)
     actionable = {f.id for f in ctx.actionable}
@@ -488,6 +491,7 @@ class NiaAskRequest(BaseModel):
 def _nia_ctx(session: dict):
     """Pick up new iCIMS offers and due follow-ups before NIA reads the role context."""
     onboarding_cases.sync_icims()
+    preboarding.sync()
     onboarding_cases.run_followups()
     return build_role_context(session)
 
@@ -549,8 +553,36 @@ def nia_case(joiner_id: str, session: EmployerSession) -> dict:
         "attention": onboarding_cases.hr_attention(f),
         "documents": onboarding_cases.documents(f) if ctx.permissions.get("view_documents") == "full" else None,
         "log": onboarding_cases.log_for(joiner_id),
+        "preboarding": preboarding.link_for(joiner_id),
         "synthetic": True,
     }
+
+
+@app.get("/api/preboarding/{joiner_id}")
+def preboarding_status(joiner_id: str, session: EmployerSession) -> dict:
+    """Whether the joiner's Day-1 pack is published, opened and confirmed (HR / Ops can publish it)."""
+    preboarding.sync()
+    ctx = build_role_context(session)
+    f = ctx.require_joiner(joiner_id)
+    return {
+        "joiner_id": joiner_id,
+        "link": preboarding.link_for(joiner_id),
+        "can_publish": bool(ctx.permissions.get("manage_cases")) and not preboarding.started(f),
+        "started": preboarding.started(f),
+        "days_to_start": preboarding.days_to_start(f),
+        "portal": preboarding.portal_url(),
+        "synthetic": True,
+    }
+
+
+@app.post("/api/nia/cases/{joiner_id}/preboarding")
+def nia_publish_preboarding(joiner_id: str, session: EmployerSession) -> dict:
+    """Publish (or refresh) the joiner's Day-1 pack on the separate pre-boarding portal."""
+    _, f = _case_ctx(session, joiner_id)
+    link = preboarding.publish(f, _actor(session))
+    if not link["ok"]:
+        raise HTTPException(status_code=503, detail=link["error"])
+    return {"preboarding": link, "synthetic": True}
 
 
 @app.post("/api/nia/cases/{joiner_id}/approve")
@@ -590,11 +622,14 @@ class BulkSendRequest(BaseModel):
 def nia_send_message(body: SendMessageRequest, session: EmployerSession) -> dict:
     """Send a message HR reviewed in NIA (simulated delivery: logged on the case + employee notification)."""
     _, f = _case_ctx(session, body.joiner_id)
+    actor = _actor(session)
+    link = preboarding.publish(f, actor) if body.kind in preboarding.SENDS_PACK else None
+    text = preboarding.with_link(body.body, link) if link else body.body
     try:
-        entry = onboarding_cases.send(f, body.kind, body.subject, body.body, _actor(session))
+        entry = onboarding_cases.send(f, body.kind, body.subject, text, actor)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from None
-    return {"sent": entry, "synthetic": True}
+    return {"sent": entry, "preboarding": link, "synthetic": True}
 
 
 @app.post("/api/nia/comms/send-bulk")
@@ -609,7 +644,10 @@ def nia_send_bulk(body: BulkSendRequest, session: EmployerSession) -> dict:
         f = ctx.require_joiner(jid)
         try:
             d = onboarding_cases.draft(f, body.kind, actor)
-            sent.append(onboarding_cases.send(f, body.kind, d["subject"], d["body"], actor))
+            text = d["body"]
+            if body.kind in preboarding.SENDS_PACK:
+                text = preboarding.with_link(text, preboarding.publish(f, actor))
+            sent.append(onboarding_cases.send(f, body.kind, d["subject"], text, actor))
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from None
     return {"sent": sent, "count": len(sent), "synthetic": True}
@@ -854,6 +892,7 @@ def employer_remove_course(joiner_id: str, module_id: str, session: EmployerSess
 def employer_workspace(session: EmployerSession) -> dict:
     """Role workspace: nav, cards, action queue and per-joiner journeys for the signed-in role."""
     onboarding_cases.sync_icims()
+    preboarding.sync()
     return build_workspace(build_role_context(session))
 
 

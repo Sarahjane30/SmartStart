@@ -158,3 +158,16 @@ def test_thumbs_down_on_a_refusal_marks_the_gap_as_wanted():
         assert out["routed_to"] == ["Workplace Services"]
         gap = _team(client.get("/api/knowledge/insights", headers=_h(client, "OPS")).json(), "Workplace")["gaps"][0]
         assert gap["flagged"] == 1
+
+
+def test_small_talk_is_answered_not_refused_or_logged():
+    with TestClient(app) as client:
+        for q in ("hello", "Hi!", "how are you?", "thanks", "ok", "bye"):
+            turn = _ira(client, q)
+            assert "won't guess" not in turn["text"] and turn["grounding"] is None, q
+        mgr = _h(client, "MANAGER")
+        for q in ("hello", "thanks", "how are you", "bye"):
+            r = client.post("/api/nia/ask", json={"message": q}, headers=mgr).json()
+            assert r["intent"] in ("welcome", "small_talk"), q
+            assert not any(b["type"] == "grounding" for b in r["blocks"])
+        assert client.get("/api/knowledge/insights", headers=_h(client, "OPS")).json()["counts"]["gaps"] == 0

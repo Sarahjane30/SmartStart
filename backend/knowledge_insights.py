@@ -29,7 +29,7 @@ MAX_ANSWERS = 500
 MAX_VARIANTS = 5
 MAX_FLAGS = 50
 MERGE_JACCARD = 0.75
-MIN_TOKENS = 2
+MIN_TOKENS = 1
 
 TEAMS = ("HR", "IT", "Finance", "Legal & Security", "Workplace", "Onboarding Ops")
 TEAM_ROLE = {"HR": "HR", "IT": "IT"}
@@ -203,6 +203,8 @@ def record(question: str, audience: str, assistant: str, g: dict) -> dict:
         elif g.get("strength") == "weak" and not only_record:
             kind = "weak"
         gap_id = _note_gap(question, audience, assistant, g, kind, at) if kind else None
+        if kind == "refused" and gap_id is None:
+            return g
         aid = _id("ans")
         d["answers"][aid] = {
             "question": question, "audience": audience, "assistant": assistant,

@@ -1785,11 +1785,36 @@ def grounded_reply(ctx: RoleContext, text: str, target: Optional[JoinerFacts], *
     return r
 
 
+def small_talk(ctx: RoleContext, low: str) -> Optional[dict]:
+    """Greetings get the briefing; thanks / goodbyes get a short reply — never a refusal."""
+    from ira.brain import _SMALL_TALK
+
+    plain = re.sub(r"\s+", " ", re.sub(r"[^\w' ]+", " ", low)).strip()
+    kind = next((k for k, rx in _SMALL_TALK if rx.fullmatch(plain)), None)
+    if kind is None:
+        return None
+    if kind == "greet":
+        return welcome(ctx)
+    name = (ctx.user.get("display_name") or "").split()[0] if ctx.user.get("display_name") else ""
+    text = {
+        "how": "Doing well, thanks — ready when you are. Ask for your priorities, a joiner by name, or an approved process.",
+        "thanks": "You're welcome. Anything else on your onboarding queue?",
+        "bye": f"Bye{' ' + name if name else ''} — I'll keep watching your queue.",
+        "ack": "Anything else I can help with?",
+    }[kind]
+    r = Reply(ctx, "small_talk", text)
+    r.suggestions = SUGGESTIONS[ctx.role]
+    return r.to_dict()
+
+
 def ask(ctx: RoleContext, message: str, focus_joiner_id: Optional[str] = None) -> dict:
     text = (message or "").strip()
     low = text.lower()
     if not text:
         return welcome(ctx)
+    chat = small_talk(ctx, low)
+    if chat:
+        return chat
 
     assign_m = re.search(r"\bassign\b(.*?)(?:\bto\b\s+(.+))?$", low)
     owner_q = ""

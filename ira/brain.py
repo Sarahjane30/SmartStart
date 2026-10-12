@@ -297,6 +297,36 @@ _NERVOUS = re.compile(
     r"|how to adult|don'?t know how (corporate|office|work) (life )?works|imposter|first job jitters|i don'?t know what i'?m doing",
     re.I,
 )
+_SMALL_TALK = [
+    ("greet", re.compile(r"(hi+|hey+|hello+|hiya|yo|howdy|good (morning|afternoon|evening)|namaste)( there| ira| nia)?")),
+    ("how", re.compile(r"(hi |hey |hello )?(how are you( doing)?|how's it going|how are things|what's up|sup)( ira| nia)?")),
+    ("thanks", re.compile(r"(ok(ay)? |great |cool |perfect )?(thanks?( you)?( so much| a lot)?|thx|ty|cheers|much appreciated)( ira| nia)?")),
+    ("bye", re.compile(r"(ok(ay)? )?(bye+|goodbye|see you|see ya|later|good night|that's all|that is all)( ira| nia)?")),
+    ("ack", re.compile(r"(ok(ay)?|k|cool|great|nice|got it|alright|sure|perfect|awesome|understood|noted)")),
+]
+
+
+def small_talk(q: str, ctx: Optional[dict]) -> Optional[str]:
+    """Greetings, thanks and goodbyes — conversation, not questions to answer from a source."""
+    text = re.sub(r"[^\w' ]+", " ", q).strip()
+    text = re.sub(r"\s+", " ", text)
+    kind = next((k for k, rx in _SMALL_TALK if rx.fullmatch(text)), None)
+    if kind is None:
+        return None
+    name = first_name(ctx) if ctx and ctx.get("employee") else ""
+    hi = f"Hi {name}" if name else "Hi"
+    if kind == "greet":
+        nxt = "Ask me about your laptop, your manager, what to do today, or any policy — I'll show where each answer comes from."
+        return f"{hi} — I'm IRA. {nxt}"
+    if kind == "how":
+        return "Doing well, thanks for asking — and ready to help. What do you need for your onboarding today?"
+    if kind == "thanks":
+        return "You're welcome. Ask me anything else whenever you need it."
+    if kind == "bye":
+        return f"Bye{' ' + name if name else ''} — I'm here whenever you need me."
+    return "Anything else I can help with?"
+
+
 _MORE = {"more detail", "more details", "tell me more", "full answer", "full version", "explain more", "go on", "elaborate"}
 
 
@@ -451,6 +481,10 @@ def answer_core(
         if ctx and ctx.get("employee"):
             return _first_day_welcome(ctx)
         return _what_is_ira()
+
+    chat = small_talk(q, ctx)
+    if chat:
+        return chat
 
     if any(k in q for k in ("govern", "permission", "authorized", "sensitive", "autonomous", "replace")):
         return (

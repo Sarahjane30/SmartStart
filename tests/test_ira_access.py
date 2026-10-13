@@ -56,3 +56,17 @@ def test_generic_ticket_question_explains_request_vs_incident():
         assert _ask("raise ticket for laptop issue", ctx).index("Something broken") < _ask(
             "raise ticket for laptop issue", ctx).index("Something new")
         assert "iCIMS" in _ask("How do I submit documents?", ctx)
+
+
+def test_desktop_bubble_gives_the_same_steps_online_and_offline():
+    from ira.desktop_flow import DesktopConversation
+
+    with TestClient(app):
+        ctx = _ctx()
+        d = DesktopConversation()
+        d.offered = True
+        hist = [("user", "what is jira"), ("assistant", "Project and work tracking.")]
+        online = d.handle("how to raise ticket for jira access", ctx, online=True, history=hist).reply
+        assert ctx["employee"]["manager_name"] in online and "ServiceNow" in online
+        offline = d.handle("how to raise ticket for jira access", None, online=False, history=[]).reply
+        assert "Your manager / PM confirms" in offline and "project-ready" not in offline

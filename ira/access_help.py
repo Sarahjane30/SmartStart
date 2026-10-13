@@ -96,7 +96,8 @@ def _sign_in_help(system: str, it: dict) -> str:
 
 
 def _jira_help(mgr: str, ready: dict) -> str:
-    ready_line = (
+    mgr_line = "Your manager / PM" if mgr == "your manager" else f"{mgr} (your manager / PM)"
+    ready_line = "" if not ready else (
         "Your record shows you're project-ready, so your board access should already be set up. "
         f"If you can't see your team's board, ask {mgr} to check you're on the project."
         if ready.get("project_ready")
@@ -104,12 +105,12 @@ def _jira_help(mgr: str, ready: dict) -> str:
     )
     return (
         "Jira access is tied to your project, so it works a little differently:\n"
-        f"1. {mgr} (your manager / PM) confirms which project you're on.\n"
+        f"1. {mgr_line} confirms which project you're on.\n"
         "2. Board access is then requested through the IT access process in ServiceNow — your manager raises it, "
         "or you raise it and they approve it. Name the board and the access level (Viewer or Editor).\n"
         "3. IT Service Desk grants it, usually within 1 working day.\n\n"
-        f"{ready_line}\n"
-        f"Want a head start? Say “Draft an email to {mgr} asking for Jira access”.\n"
+        + (f"{ready_line}\n" if ready_line else "")
+        + f"Want a head start? Say “Draft an email to {mgr} asking for Jira access”.\n"
         "Source: Jira Project Access · Project Manager · Updated: Sep 2026"
     )
 
@@ -118,7 +119,7 @@ def _access_steps(system: str, mgr: str, intern: bool) -> str:
     level = "Viewer or Editor (interns get Viewer or Editor only)" if intern else "Viewer, Editor or Admin (Admin needs a written reason)"
     return (
         f"Here's how to get {system} access:\n"
-        f"1. Check with {mgr}, your manager — they confirm you need it and justify the request.\n"
+        f"1. Check with {mgr if mgr == 'your manager' else mgr + ', your manager'} — they confirm you need it and justify the request.\n"
         "2. Raise an access request in ServiceNow (IT Access Request) — your manager raises it, or you raise it and they approve it. Include:\n"
         f"   • the system: {system}\n"
         f"   • the access level: {level}\n"

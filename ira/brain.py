@@ -13,6 +13,7 @@ from contextvars import ContextVar
 from typing import Callable, Optional
 
 from ira import coach, workplace_basics
+from ira.access_help import access_reply
 from ira.email_draft import directory_reply, draft_reply, is_draft_request
 from ira.faq import match_faq
 from ira.persona import first_name, flavour_line, traits
@@ -485,6 +486,10 @@ def answer_core(
     chat = small_talk(q, ctx)
     if chat:
         return chat
+
+    access = access_reply(q, ctx)
+    if access:
+        return access
 
     if any(k in q for k in ("govern", "permission", "authorized", "sensitive", "autonomous", "replace")):
         return (

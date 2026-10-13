@@ -3,7 +3,7 @@ title: Access Requests & Approvals Policy
 category: IT
 owner: IT Identity
 updated: Sep 2026
-audience: HR, IT, MANAGER, OPS
+audience: EMPLOYEE, HR, IT, MANAGER, OPS
 keywords: access request, extra access, confluence, github, figma, approval, approve access, who approves, least privilege, permissions, justification
 actions: Open ServiceNow
 ---

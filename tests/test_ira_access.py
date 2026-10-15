@@ -70,3 +70,21 @@ def test_desktop_bubble_gives_the_same_steps_online_and_offline():
         assert ctx["employee"]["manager_name"] in online and "ServiceNow" in online
         offline = d.handle("how to raise ticket for jira access", None, online=False, history=[]).reply
         assert "Your manager / PM confirms" in offline and "project-ready" not in offline
+
+
+def test_access_ticket_answers_link_the_it_portal_and_attach_the_draft():
+    from ira.desktop_flow import DesktopConversation
+    from ira.ticket_draft import form_url
+
+    with TestClient(app) as client:
+        ctx = _ctx()
+        r = client.get(f"/api/chatbot/{ctx['employee']['id']}", params={"q": "how to raise ticket for access"}).json()
+        text = r["turns"][-1]["text"]
+        assert form_url("access") in text and "ServiceNow" in text and "Submit yourself" in text
+        assert r["ticket"]["item_id"] == "access" and r["ticket"]["form_url"] == form_url("access")
+
+        d = DesktopConversation()
+        d.offered = True
+        turn = d.handle("how do i get access to figma", ctx, online=True, history=[])
+        assert "Check with" in turn.reply and form_url("access") in turn.reply
+        assert turn.ticket and turn.ticket["item_id"] == "access"

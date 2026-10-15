@@ -1,7 +1,8 @@
 """How to get access to a system, or raise an IT ticket — answered from the joiner's IT record.
 
 Steps follow the approved Access Requests & Approvals Policy and the IT Access Request
-catalog entry: the manager requests or approves, IT grants, ServiceNow holds the ticket.
+catalog entry: the manager requests or approves, IT grants, and the ticket is raised on the
+Waters IT Service Portal (ServiceNow self-service).
 IRA explains and drafts; it never raises the ticket itself.
 """
 
@@ -9,6 +10,8 @@ from __future__ import annotations
 
 import re
 from typing import Optional
+
+from ira.ticket_draft import PORTAL_NAME, form_url
 
 POLICY_ID = "playbook:access-requests-and-approvals"
 
@@ -72,9 +75,11 @@ def _on_record(system: str, it: dict) -> bool:
 
 def _ticket_help(q: str, it: dict) -> str:
     hardware = any(h in q for h in _HARDWARE)
-    lines = ["All IT tickets live in ServiceNow. Pick the type that fits:"]
-    broken = "• Something broken (an incident) — e.g. your laptop won't start or you can't sign in. Say what you were doing, the exact error and add a screenshot."
-    new = "• Something new (a request) — access to a system, extra software or hardware. Name the system, the access level and one line on why."
+    lines = [f"IT tickets are raised on the {PORTAL_NAME} (ServiceNow). Pick the type that fits:"]
+    broken = ("• Something broken (an incident) — e.g. your laptop won't start or you can't sign in. Say what you were doing, "
+              f"the exact error and add a screenshot.\n  Report it here: {form_url('hardware-software')}")
+    new = ("• Something new (a request) — access to a system, extra software or hardware. Name the system, the access level "
+           f"and one line on why.\n  Request it here: {form_url('access')}")
     lines += [broken, new] if hardware or _PROBLEM.search(q) else [new, broken]
     tid, hw = it.get("ticket_id"), it.get("hardware_status")
     if tid:
@@ -89,8 +94,9 @@ def _sign_in_help(system: str, it: dict) -> str:
     tid = it.get("ticket_id")
     return (
         f"{system} is already on your IT record{f' (ServiceNow {tid})' if tid else ''}, so you don't need a new access request.\n"
-        f"If you can't get in, raise an incident in ServiceNow: say it's {system}, what you see (the exact error or a screenshot) "
-        "and when it started. Okta sign-in problems go to the IT Service Desk the same way.\n"
+        f"If you can't get in, raise an incident on the {PORTAL_NAME} (ServiceNow): say it's {system}, what you see "
+        "(the exact error or a screenshot) and when it started. Okta sign-in problems go to the IT Service Desk the same way.\n"
+        f"Report it here: {form_url('hardware-software')}\n"
         "Source: ServiceNow · IT Service Desk · Updated: Sep 2026"
     )
 
@@ -106,8 +112,9 @@ def _jira_help(mgr: str, ready: dict) -> str:
     return (
         "Jira access is tied to your project, so it works a little differently:\n"
         f"1. {mgr_line} confirms which project you're on.\n"
-        "2. Board access is then requested through the IT access process in ServiceNow — your manager raises it, "
+        f"2. Board access is then requested on the {PORTAL_NAME} (ServiceNow) — your manager raises it, "
         "or you raise it and they approve it. Name the board and the access level (Viewer or Editor).\n"
+        f"   Raise it here: {form_url('access')}\n"
         "3. IT Service Desk grants it, usually within 1 working day.\n\n"
         + (f"{ready_line}\n" if ready_line else "")
         + f"Want a head start? Say “Draft an email to {mgr} asking for Jira access”.\n"
@@ -120,7 +127,9 @@ def _access_steps(system: str, mgr: str, intern: bool) -> str:
     return (
         f"Here's how to get {system} access:\n"
         f"1. Check with {mgr if mgr == 'your manager' else mgr + ', your manager'} — they confirm you need it and justify the request.\n"
-        "2. Raise an access request in ServiceNow (IT Access Request) — your manager raises it, or you raise it and they approve it. Include:\n"
+        f"2. Raise an access request on the {PORTAL_NAME} (ServiceNow) — your manager raises it, or you raise it and they approve it.\n"
+        f"   Raise it here: {form_url('access')}\n"
+        "   Include:\n"
         f"   • the system: {system}\n"
         f"   • the access level: {level}\n"
         "   • one line on why you need it for your work\n"

@@ -2191,6 +2191,24 @@ button.module:focus-visible { outline: 2px solid var(--blue-500); outline-offset
 .wx-draft textarea { resize: vertical; line-height: 1.5; min-height: 160px; }
 .wx-draft-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
 
+/* ---------- IRA IT ticket draft card ---------- */
+.wx-ask .bubble.has-ticket { max-width: min(680px, 94%); }
+.wx-ticket { margin-top: 0.6rem; display: grid; gap: 0.55rem; padding: 0.75rem; border-radius: 12px; border: 1px solid var(--wx-line); background: var(--wx-surface); }
+.wx-ticket-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+.wx-ticket-head strong { display: block; font-size: 0.86rem; color: var(--navy-700); }
+.wx-ticket-head .tiny { display: block; }
+.wx-ticket-steps { margin: 0; padding-left: 1.2rem; font-size: 0.78rem; color: var(--wx-ink); display: grid; gap: 0.15rem; }
+.wx-ticket-field { display: grid; gap: 0.25rem; padding: 0.5rem 0.55rem; border-radius: 10px; border: 1px solid var(--wx-line); background: #fff; }
+.wx-ticket-field header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.74rem; font-weight: 700; color: var(--wx-muted); }
+.wx-ticket-field textarea {
+  font: inherit; font-size: 0.8rem; line-height: 1.5; color: var(--wx-ink); width: 100%; resize: vertical;
+  border: 0; padding: 0; background: transparent; min-height: 1.5em;
+}
+.wx-ticket-field textarea:focus { outline: none; }
+.wx-ticket-field:focus-within { border-color: var(--blue-500); }
+.wx-ticket-field .wx-mini.copied { background: #e7f5ee; border-color: #b7e0c8; color: #17663d; }
+.wx-ticket-note { font-size: 0.72rem; color: var(--wx-muted); }
+
 .wx-toast {
   position: fixed; left: 50%; bottom: 1.4rem; z-index: 70; transform: translateX(-50%);
   padding: 0.6rem 1rem; border-radius: 10px; background: var(--navy-800); color: #fff;

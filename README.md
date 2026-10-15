@@ -26,6 +26,7 @@ It recommends and navigates — humans keep approvals and production changes.
 | **Mock iCIMS** (standalone HR/ATS) | `8100` | `uvicorn icims.backend.main:app --reload --port 8100` |
 | **Mock ServiceNow** (standalone ITSM) | `8200` | `uvicorn servicenow.backend.main:app --reload --port 8200` |
 | **Mock Jira** (standalone boards) | `8300` | `uvicorn jira.backend.main:app --reload --port 8300` |
+| **Waters Welcome** (standalone pre-boarding, Day-1 pack) | `8500` | `uvicorn preboarding.backend.main:app --reload --port 8500` |
 | **IRA** (desktop companion — not a website) | — | See [`ira/README.md`](ira/README.md) — Windows: `git checkout cursor/ira-desktop-companion-76dd` then `python -m pip install -e ".[ira]"` and `python -m ira` |
 
 See [`icims/README.md`](icims/README.md), [`servicenow/README.md`](servicenow/README.md), [`jira/README.md`](jira/README.md), [`ira/README.md`](ira/README.md).

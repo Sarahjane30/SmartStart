@@ -183,7 +183,7 @@ def search_policies(query: str, *, limit: int = 1) -> list[PolicyHit]:
     return hits[:limit]
 
 
-def best_policy(query: str, *, strict: bool) -> PolicyHit | None:
+def best_policy(query: str, *, strict: bool, cover: bool = True) -> PolicyHit | None:
     """Return a confident hit, or None.
 
     ``strict`` — only when the query clearly asks about a policy topic, so personal
@@ -199,10 +199,27 @@ def best_policy(query: str, *, strict: bool) -> PolicyHit | None:
             return None
         if not (hit.multiword_match or has_policy_intent(query) or hit.score >= 9.0):
             return None
+        if cover and not hit.multiword_match and _coverage(hit, query) < 0.5:
+            return None
         return hit if hit.score >= 4.0 else None
     if hit.keyword_match or (set(_tokens(query)) & hit.section.head_tokens):
+        if cover and not hit.multiword_match and _coverage(hit, query) < 0.5:
+            return None
         return hit if hit.score >= 3.5 else None
     return None
+
+
+def _coverage(hit: PolicyHit, query: str) -> float:
+    """Share of the query's meaningful words (idf-weighted) that the matched policy actually talks about."""
+    q_set = set(_tokens(query))
+    if not q_set:
+        return 0.0
+    idf = _idf()
+    unseen = max(idf.values(), default=1.0)
+    known = set(hit.section.tokens) | set(_tokens(hit.doc.title)) | {t for kw in hit.doc.keyword_tokens for t in kw}
+    total = sum(idf.get(t, unseen) for t in q_set)
+    covered = sum(idf.get(t, unseen) for t in q_set if t in known)
+    return covered / total if total else 0.0
 
 
 def _first_sentences(text: str, n: int = 3) -> str:
@@ -230,6 +247,6 @@ def format_policy_answer(hit: PolicyHit, query: str = "") -> str:
     )
 
 
-def answer_from_policies(query: str, *, strict: bool) -> str | None:
-    hit = best_policy(query, strict=strict)
+def answer_from_policies(query: str, *, strict: bool, cover: bool = True) -> str | None:
+    hit = best_policy(query, strict=strict, cover=cover)
     return format_policy_answer(hit, query) if hit else None

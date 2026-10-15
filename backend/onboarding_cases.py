@@ -46,6 +46,8 @@ LAPTOP_TYPES = {
 DOC_PACKET = ("Offer Letter", "Identification", "NDA", "Tax Information", "Bank Information")
 IT_DESK = "IT Service Desk"
 IT_DESK_ADDRESS = "it-servicedesk@smartstart.example · #it-help"
+# Replaced with the joiner's pre-boarding portal link when the message is sent.
+PACK_LINK = "[your Day-1 pack link]"
 
 COMMS = {
     "welcome": "Welcome email",
@@ -618,7 +620,7 @@ def draft(f: JoinerFacts, kind: str, sender: str) -> dict:
             f"You start on {start}, your manager is {j.manager_name}, and {mentor(f)} will be your mentor "
             f"for the first few weeks.\n\nBefore you start:\n{docs_line}"
             "• IT is preparing your laptop and access — we'll let you know when it's on the way\n"
-            "• Your SmartStart workspace has your learning plan and first-week checklist\n\n"
+            f"• Open your Day-1 pack — countdown, what to bring, your first-day plan and who you'll meet: {PACK_LINK}\n\n"
             "If you have any questions, just reply to this email." + sign
         )
         return {"kind": kind, "to": to_employee, "subject": f"Welcome to the team, {n}!", "body": body}
@@ -640,7 +642,7 @@ def draft(f: JoinerFacts, kind: str, sender: str) -> dict:
             f"Hi {n},\n\nHere's what to expect on your first day, {start}:\n\n"
             f"• Day-1 orientation with {j.manager_name}\n• Meet your mentor, {mentor(f)}\n"
             f"• {laptop}\n• Sign in with Okta — you'll have {apps}\n"
-            "• Open SmartStart to start your learning plan\n\nSee you soon!" + sign
+            f"• Your full Day-1 plan, where to go and who you'll meet: {PACK_LINK}\n\nSee you soon!" + sign
         )
         return {"kind": kind, "to": to_employee, "subject": f"Your first day — {start}", "body": body}
     if kind == "mentor_intro":
@@ -689,7 +691,7 @@ def send(f: JoinerFacts, kind: str, subject: str, body: str, by: str) -> dict:
     if kind not in COMMS:
         raise ValueError(f"Unknown message type: {kind}")
     subject = (subject or "").strip()[:140]
-    body = (body or "").strip()[:4000]
+    body = (body or "").replace(PACK_LINK, "(we'll send your Day-1 pack link separately)").strip()[:4000]
     if not subject or not body:
         raise ValueError("A message needs a subject and a body.")
     to = draft(f, kind, by)["to"]

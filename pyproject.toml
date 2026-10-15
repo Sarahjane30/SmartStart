@@ -30,10 +30,10 @@ ira = [
 # Always launch with:  python -m ira
 
 [tool.hatch.build.targets.wheel]
-packages = ["backend", "icims", "servicenow", "jira", "ira"]
+packages = ["backend", "icims", "servicenow", "jira", "ira", "ithelp"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "icims/tests", "servicenow/tests", "jira/tests"]
+testpaths = ["tests", "icims/tests", "servicenow/tests", "jira/tests", "ithelp/tests"]
 pythonpath = ["."]
 
 [tool.ruff]

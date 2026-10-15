@@ -246,6 +246,8 @@ class IraApp:
                     history=list(self._history[-8:]),
                 )
             self.panel.add_message(turn.reply, role="ira")
+            if turn.ticket:
+                self.panel.add_ticket_card(turn.ticket)
             self._history.append(("ira", turn.reply))
             self.panel.set_suggestions(turn.chips, limit=turn.chip_limit)
             if self.online and self._session_id:

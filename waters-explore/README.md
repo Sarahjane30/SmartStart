@@ -1,19 +1,10 @@
 # What is Waters?
 
-A standalone, interactive introduction to Waters and the science behind it. Anyone can open it and explore. There is no login, no employee data and no dependency on the SmartStart backend.
+A standalone rebuild of the SmartStart “What is Waters?” experience — same interaction model and visual language, no login, no employee data, no backend.
 
-The experience has six chapters:
+It is a full-screen interactive machine. Move to look around, hover a part to light it up, click to open a chapter panel, or start the guided journey. Technology opens into the LC / MS ride (How it works · Become the sample / Ride the ions).
 
-| Chapter | What the visitor gets |
-| --- | --- |
-| Science | What Waters does (separate, identify, understand) and why analytical science matters |
-| Impact | Five real-world areas, each shown as question → measurement → decision |
-| Technology | A 3D LC-MS instrument to explore, and an 8-step sample journey through it |
-| World | Applications across six industries, plus a globe of selected locations |
-| People | The roles behind the science, arranged as an ecosystem |
-| You | A universal finale: the visitor picks what matters to them and sees where they fit |
-
-## Running it
+## Run
 
 ```bash
 cd waters-explore
@@ -21,65 +12,49 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-Other scripts:
-
 ```bash
-npm test           # science model + content checks (Vitest)
-npm run typecheck  # TypeScript project build
-npm run lint       # oxlint
+npm test
+npm run typecheck
 npm run build      # static site in dist/
-npm run preview    # serve the built site locally
 ```
 
-Requires Node 20 or newer.
+Requires Node 20+.
+
+## What mirrors the original
+
+| Original (HTML / CSS / JS) | This app |
+| --- | --- |
+| Full-screen `.wm` overlay | Same shell, fonts (Inter + IBM Plex Mono), grain, cyan rail, glass panel |
+| Intro: Start the journey / Explore freely | Same |
+| Six machine parts + side panels | Science, Impact, Technology, World, People, You |
+| Technology → How it works / Become the sample | Observe track + interactive sample journey (Three.js LC-MS) |
+| World sites, People nodes | Same public content |
+| Personalized You + IRA finale | Universal “where you fit” finale (no employee record) |
+
+Copy for the chapters comes from the same public Waters facts used in `backend/waters_explorer.py`.
 
 ## Stack
 
-- **React + TypeScript** (Vite) for the interface, content and navigation
-- **Three.js** through React Three Fiber, with a few drei helpers (orbit controls, HTML labels, rounded boxes)
-- **Plain CSS** in `src/styles.css`
-- **No backend.** All content is static TypeScript.
+- React + TypeScript (Vite)
+- Three.js via React Three Fiber
+- Plain CSS ported from the original `.wm` / `.wr` styles
+- No backend
 
-## How it is organised
+## Layout
 
 ```
 src/
-  content/            static educational content
-    index.ts          chapter list, company facts, sources
-    chapters.ts       science steps, impact stories, industries, sites, roles, finale
-    instrument.ts     instrument parts and the 8 journey steps
-  science/            pure, tested model behind the interactive parts
-    molecules.ts      paracetamol, caffeine, ibuprofen: real masses, 3D skeletons
-    chromatography.ts retention, column progress, chromatogram, resolution
-    massSpec.ts       quadrupole transmission, spectrum, identification, ppm error
-  three/              3D scenes
-    LazyCanvas.tsx    mounts WebGL near the viewport, pauses it off-screen, WebGL fallback
-    Instrument.tsx    LC stack + mass spectrometer, clickable parts
-    InstrumentScene.tsx camera fly-to, lighting, journey effects per step
-    JourneyEffects.tsx  solvent flow, separating bands, electrospray, quadrupole ions
-    GlobeScene.tsx    globe with selected locations
-    HeroScene.tsx     floating molecules on the landing screen
-    layout.ts         instrument geometry, tubing paths, camera goals
-  components/         chapter sections, technology panel, SVG plots
-  App.tsx             top bar, hero, chapter layout
+  content/machine.ts      chapters, sites, roles, part layout
+  content/instrument.ts   LC-MS parts + sample journey steps
+  science/                tested retention / m/z model
+  three/MachineScene.tsx  overview machine
+  three/Instrument*.tsx   LC-MS ride scene
+  components/Panels.tsx   chapter side panels
+  components/RideOverlay.tsx
+  App.tsx                 machine shell
+  styles.css              original wm/wr look
 ```
 
-The interactive science is driven by `src/science/`, which is plain TypeScript. The 3D scene and the side panel both read from it, so what the visitor sees in the column, on the chromatogram and on the spectrum always agrees. Masses are real monoisotopic values. Retention times and the instrument layout are simplified for teaching, and the UI says so.
+## Deploy
 
-## Deployment
-
-`npm run build` produces a fully static site in `dist/`. It uses relative asset paths (`base: './'`), so it can be served from any path on any static host: an internal web server, Azure Static Web Apps, S3 + CloudFront, SharePoint-hosted static files, and so on.
-
-Generic content does not have to mean public. If the experience should only be available to Waters employees, put the static site behind the company's existing single sign-on at the hosting layer (for example Entra ID in front of the static host). The app itself does not need to change for that.
-
-A backend can be added later if it becomes useful for centrally managed content, analytics or other dynamic features. A database is not needed just to render the experience.
-
-## Accessibility and performance
-
-- Every 3D interaction has a matching button in the HTML panel, so the experience works with a keyboard and without WebGL.
-- `prefers-reduced-motion` stops idle animation and smooth scrolling.
-- Three.js ships as its own chunk (about 330 KB gzipped), so it caches separately from app code. Canvases only start when they come near the viewport and stop rendering when they leave it.
-
-## Sources
-
-Company facts come from public Waters sources, listed in `src/content/index.ts` and linked at the end of the experience.
+`npm run build` writes a static `dist/` (relative asset paths). Host it anywhere. Keep it employee-only by putting company SSO in front of the static host — the app itself stays generic.

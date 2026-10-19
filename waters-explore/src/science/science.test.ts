@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHAPTERS } from '../content';
+import { ORDER } from '../content/machine';
 import { JOURNEY, PARTS } from '../content/instrument';
 import { RUN_MINUTES, chromatogram, columnProgress, elutionOrder, resolution, signalAt } from './chromatography';
 import { identify, passes, ppmError, spectrum, transmission } from './massSpec';
@@ -68,13 +68,13 @@ describe('mass spectrometry', () => {
       expect(iso.intensity).toBeLessThan(main.intensity);
     }
     expect(identify(170)).toBeUndefined();
-    expect(Math.abs(ppmError(195.0880, 195.0877))).toBeLessThan(5);
+    expect(Math.abs(ppmError(195.088, 195.0877))).toBeLessThan(5);
   });
 });
 
 describe('content', () => {
   it('covers the six chapters in order', () => {
-    expect(CHAPTERS.map((c) => c.id)).toEqual(['science', 'impact', 'technology', 'world', 'people', 'you']);
+    expect(ORDER).toEqual(['science', 'impact', 'technology', 'world', 'people', 'you']);
   });
 
   it('only focuses the journey camera on real parts', () => {

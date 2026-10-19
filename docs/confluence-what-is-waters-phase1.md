@@ -1,424 +1,456 @@
-# What is Waters? — Prototype Overview & Phase 1 Deployment
+# SmartStart & What is Waters? — Prototype Overview & Phase 1
 
-> **How to publish in Confluence:** Create a blank page, set the title to *What is Waters? — Prototype Overview & Phase 1*, then paste this document (Confluence Cloud accepts Markdown paste). Optionally wrap callout blocks in Info / Note / Warning macros.
+> **How to publish in Confluence:** Create a blank page, set the title to *SmartStart & What is Waters? — Prototype Overview & Phase 1*, then paste this document (Confluence Cloud accepts Markdown paste). Optionally wrap callout blocks in Info / Note / Warning macros.
 
 | Field | Value |
 | --- | --- |
-| **Product** | SmartStart — employee experience / onboarding |
-| **Experience** | *Waters // How it all connects* (“What is Waters?”) |
-| **Audience** | New joiners (Interns & FTEs), onboarding stakeholders, engineering |
-| **Phase** | **Phase 1** — deploy the machine, animations, and machinery explanation |
-| **Status** | Prototype complete (vanilla canvas experience); ready for Phase 1 hosting |
-| **Out of scope for this page** | Separate React/Vite `waters-explore` experiment — not the Phase 1 deliverable |
+| **Platform** | **SmartStart** — intelligent employee experience / onboarding orchestration |
+| **Experience (Phase 1)** | *Waters // How it all connects* (“What is Waters?”) |
+| **Audience** | New joiners (Interns & FTEs), HR / IT / Managers, onboarding stakeholders, engineering |
+| **Phase** | **Phase 1** — deploy What is Waters? (machine + animations + machinery explanation) |
+| **Status** | SmartStart Layers 1–4 + IRA prototype; Waters machine ready for Phase 1 hosting |
+| **Data rule** | **100% synthetic** — no real PII, production logs, or live HR/IT systems |
+| **Out of scope for Phase 1** | React/Vite `waters-explore` experiment — not the Phase 1 deliverable |
 
 ---
 
-## 1. Motive — why we built this
+# Part A — SmartStart (the platform)
 
-New joiners arrive at Waters with a practical question that slide decks rarely answer well:
+## A1. Motive — why we built SmartStart
 
-> *What does this company actually do — scientifically — and where do I fit?*
+Onboarding at a company like Waters is not one app and not one team. A joiner’s path crosses **HR (ATS / docs)**, **IT (laptop, access, tickets)**, **managers (Day 1, mentor, project)**, and a maze of **enterprise tools** they have never used. Today that path is fragmented:
 
-HR packets cover policies. Org charts cover reporting lines. Neither makes **liquid chromatography**, **mass spectrometry**, or the **ecosystem of roles** feel real. Joiners outside the lab (software, IT, data, operations, HR, finance) especially struggle to connect their day job to the instruments and decisions Waters enables.
-
-**Motive in one sentence:** give every joiner an interactive, memorable first encounter with Waters science, technology, global footprint, people, and *their own place* in the company — before Day 1 overwhelm sets in.
-
-### Problems we set out to solve
-
-| Problem | Consequence | Prototype response |
-| --- | --- | --- |
-| Company story is abstract | “Life sciences & diagnostics” stays a slogan | Six-chapter interactive **machine** that joiners can explore |
-| LC/MS is hard to explain with slides | Non-scientists tune out | Cinematic **How it works** films + optional **Become the sample** play |
-| Org context is buried in systems | Joiners don’t see their chain | Finale builds **Your place** from the joiner’s SmartStart record |
-| Public facts vs personal data mixed | Compliance risk | Company story from **public sources only**; personal chain from **synthetic onboarding record** |
-| Heavy frameworks slow demos | Hard to ship a first experience | Lightweight **Canvas 2D + custom 3D kit** — no WebGL required for the Phase 1 path |
-
-### Design principles
-
-1. **Motion is navigation** — hover lights a part, click isolates it, scroll travels the story.
-2. **Simple first, deeper on demand** — every chamber has a plain-language line and an optional deeper explanation.
-3. **Teach, then invite** — “How it works” (third person) before “Become the sample” (first person).
-4. **Grounded content** — public company facts cited; personal placement never invents HR data.
-5. **Accessible by default** — keyboard path, `prefers-reduced-motion`, works without WebGL.
-6. **IRA handoff** — the finale connects to the employee companion (meet team, understand role, explore tools).
-
----
-
-## 2. What we have built
-
-### 2.1 Experience name
-
-**Waters // How it all connects** — launched from the Employee Experience as **“What is Waters?”**.
-
-Entry points:
-
-- Employee nav button / teaser card: *Explore the machine*
-- Deep link: employee portal with `#waters`
-- Full-screen modal overlay (`#wm`) over the employee UI
-
-### 2.2 Feature inventory (all prototype capabilities)
-
-Phase 1 deploys the first three pillars; the rest are built and should be kept in the product vision.
-
-#### A. Interactive machine (chapter explorer) — **Phase 1**
-
-A full-screen interactive scene where six “parts” assemble into one machine:
-
-| Chapter | Label | What the joiner gets |
-| --- | --- | --- |
-| **01 Science** | What does Waters do? | Separate → identify → understand; LC, MS, informatics in plain language |
-| **02 Impact** | Why does it matter? | Real-world areas: medicines, food & water, diagnostics, antibiotic resistance |
-| **03 Technology** | Inside the chambers | LC and MS chambers with simple + deeper text; entries into the films / rides |
-| **04 World** | Waters around the world | ~16,000 colleagues framing; interactive globe with selected sites (e.g. Milford, Wilmslow, Wexford, Bengaluru GCC) |
-| **05 People** | Who works here? | Ecosystem network: scientists, engineers, software, data, operations, sales, service, business, HR |
-| **06 You** | Your place in the machine | Personal org chain ending in the joiner’s name, role, team, manager, mentor, site |
-
-**Machine interactions**
-
-- Look around (pointer parallax / camera yaw–pitch)
-- Hover → part lights up
-- Click → isolate chapter + side panel
-- Click again → zoom deeper
-- Scroll / arrow keys → travel chapter to chapter
-- Esc → step back
-- Mobile: scrollable chapter rail; scene above the content sheet
-- Intro screen → *Explore freely*
-- Finale → personal card + **Replay** + IRA action chips (Meet my team, Understand my role, Explore my tools, Ask IRA)
-- Sources footer listing public Waters references
-
-#### B. Animation & visual system — **Phase 1**
-
-- Assemble / disassemble of machine parts
-- Connecting “pipes” between chapters
-- Dust / particle atmosphere, glass spheres, glow, depth-aware strokes
-- Globe spin and site markers
-- People network (nodes + edges)
-- Finale “you” path animation into the core
-- Shared **WatersGfx3D** kit for instrument-scale scenes: perspective camera, painter’s-algorithm depth queue, Lambert + specular + Fresnel, glass, tubing — **Canvas 2D, no WebGL dependency**
-- Reduced-motion respect (`prefers-reduced-motion`)
-
-#### C. Explaining the machinery (“How it works”) — **Phase 1**
-
-From Technology, joiners open a dedicated film for the chosen instrument:
-
-| Track | Mode | Content |
-| --- | --- | --- |
-| **observe-lc** | How it works (LC) | Assembled LC tower → breaks into five modules → solvents → pump → injector (6-port rotary valve) → column → UV detector → reading peaks → handoff to “your turn” |
-| **observe-ms** | How it works (MS) | How MS works → ion source → quadrupole → counting ions → your turn |
-
-Teaching pattern per step:
-
-- One part on stage at a time
-- Kicker + numbered progress (e.g. `LC · 02 / 06`)
-- Only the **current** step’s lesson text
-- Drag to orbit; scroll to advance
-- Hairline progress rail + chapter whisper HUD
-
-#### D. Become the sample / Ride the ions — built (post–Phase 1 optional enablement)
-
-| Track | Mode | Content |
-| --- | --- | --- |
-| **ride-lc** | Become the sample | Staged play: pick a molecule → machine breakdown → turn injector LOAD→INJECT → steer through the column → read your peak |
-| **ride-ms** | Ride the ions | First-person continuation into electrospray / quadrupole / spectrum identification |
-
-Playable LC stages (gated — scroll does not skip unfinished work):
-
-1. **Pick a molecule** — e.g. water-loving vs greasy retention behaviour (teaching C18 interaction)
-2. **The machine** — tower comes apart into reservoir, pump, injector, column, detector
-3. **Injector** — plumbed 6-port rotary valve; handle follows the lever; sample loop
-4. **Column** — live separation simulation; retention ranking explained in plain language
-5. **Peak** — read your chromatogram peak; retry as another molecule or continue to MS
-
-Cross-links at LC outro: *Next: Ride the ions (MS)* · *How LC works* · *Back to the machine*.
-
-#### E. Content & personalization API
-
-`GET /api/employee/{joiner_id}/waters` returns:
-
-- Public company story (science, impact, technology chambers, world sites, people nodes, sources)
-- Joiner-specific **your place** chain: Company → business area → department → team → role → you
-- Home site configurable via `SMARTSTART_HOME_SITE` (default Bengaluru for GCC demos)
-
-**Invariant:** company facts are public; the personal chain comes only from the SmartStart joiner record (prototype uses 100% synthetic PII).
-
-#### F. IRA bridge
-
-Finale actions reuse the same org-chain vocabulary IRA uses for *“What does my role do?”*, so the machine and the companion stay consistent.
-
----
-
-## 3. How the prototype works (exactly)
-
-### 3.1 Runtime shape
-
-```
-Employee UI (vanilla HTML/JS)
-        │
-        ├─ openWaters()
-        │     └─ GET /api/employee/{id}/waters
-        │           └─ waters_explorer.build(joiner_id)
-        │
-        └─ watersMachine.open({ data, ira callbacks… })
-              │
-              ├─ Chapter machine (waters-machine.js)     ← Canvas 2D story world
-              │     └─ enterRide(kind, track)
-              │           └─ waters-ride.js orchestrator
-              │                 ├─ observe-*  (waters-ride-observe.js)  ← How it works
-              │                 ├─ ride-*     (waters-ride-play.js)     ← Become the sample
-              │                 └─ world assets (waters-ride-world.js)
-              │                       └─ WatersGfx3D (waters-gfx3d.js)
-              └─ Finale → IRA navigation hooks
-```
-
-### 3.2 End-to-end joiner path (happy path)
-
-1. Joiner signs into Employee Experience and selects their synthetic profile.
-2. They open **What is Waters?** (button, teaser, or `#waters`).
-3. Client fetches `/api/employee/{id}/waters`.
-4. Intro: *“An interactive machine…”* → **Explore freely**.
-5. Machine assembles; joiner explores Science → Impact → Technology → World → People.
-6. In Technology they choose **How it works →** for LC or MS (Phase 1 primary path).
-7. Observe film teaches parts one-by-one; optional mode switch to Become the sample / Ride the ions.
-8. Returning to the machine, they reach **You**; finale reveals their chain and IRA next steps.
-9. Sources remain visible; company claims stay tied to public references.
-
-### 3.3 Interaction model (machine)
-
-| Input | Behaviour |
+| What joiners / employers face | What breaks |
 | --- | --- |
-| Pointer move | Soft camera look + hover highlight |
-| Click part | Activate chapter; open panel |
-| Second click / zoom affordance | Deeper isolation |
-| Scroll / → | Next chapter along story order |
-| ← / Esc | Step back / overview |
-| Click site / people node | Soft focus + panel detail |
-| Ride enter buttons | Leave machine canvas; open LC/MS film |
+| Multiple systems of record (iCIMS, ServiceNow, Jira, …) | No single place to see “where is this person stuck?” |
+| Role-blind dashboards | HR sees IT noise; managers see other teams’ joiners |
+| Generic FAQ bots | Answers ignore *this* person’s stage, tickets, and blockers |
+| Slide-deck company intros | Science and “where I fit” never stick for non-lab joiners |
+| Fear of using real PII in demos / prototypes | Teams cannot iterate safely on UX or AI |
 
-Story order is fixed:  
-`science → impact → technology → world → people → you`
+**Motive in one sentence:** build a **safe, synthetic sandbox** where we can orchestrate the full intern/FTE journey, give employers a role-aware command center, give joiners a personal experience + AI companion, and — in Phase 1 — give every joiner an interactive answer to *What is Waters, and where do I fit?*
 
-### 3.4 Ride engine model
+### What SmartStart is (and is not)
 
-- Shared timeline with **tracks** (films), not one scrubbable mega-timeline.
-- Each track has chapter range `[lo, hi)` on that timeline.
-- **Observe** tracks: scroll advances the film; camera stays outside the instrument.
-- **Ride / play** tracks: **staged** — playhead capped at the first unfinished stage; transitions play themselves.
-- Mode switch mirrors teaching ↔ riding for the same instrument (`observe-lc` ↔ `ride-lc`, etc.).
-- Real-time dissolve between scene cuts; progress rail jumps via autopilot.
-
-### 3.5 Content rules
-
-| Layer | Source of truth | Notes |
-| --- | --- | --- |
-| Company narrative | `backend/waters_explorer.py` constants + `SOURCES` | Public Waters / IR / careers references only |
-| Sites & divisions | Same module | Home site via env |
-| Personal chain | Joiner record + team directory mapping | Synthetic IDs/emails in the sandbox |
-| Science teaching copy | Observe / play modules | Simplified for teaching; UI language stays honest about simplification |
-| Graphics primitives | `WatersGfx3D` | Shared by machine ride scenes |
-
-### 3.6 Key modules (Phase 1 codebase)
-
-| Module | Role |
+| SmartStart **is** | SmartStart **is not** |
 | --- | --- |
-| `backend/waters_explorer.py` | Story payload + personal chain builder |
-| `backend/main.py` → `GET /api/employee/{id}/waters` | API surface |
-| `frontend/waters-machine.js` | Full-screen machine, chapters, finale, ride entry |
-| `frontend/waters-ride.js` | Track orchestrator, HUD, scroll/key handling |
-| `frontend/waters-ride-observe.js` | How it works films (LC & MS) |
-| `frontend/waters-ride-play.js` | Become the sample staged play |
-| `frontend/waters-ride-world.js` | Instrument / column / molecule / quadrupole drawing |
-| `frontend/waters-gfx3d.js` | Shared Canvas 3D renderer kit |
-| `frontend/employee.html` / `employee.js` | Entry points, open/close, IRA wiring |
-| `tests/test_waters_explorer.py` | Story + personal chain tests |
+| An intelligent employee experience platform for onboarding orchestration | A replacement for production iCIMS / ServiceNow / Jira |
+| A sandboxed cohort with a real state machine and bottlenecks | A live HR system of record |
+| Role-aware employer tooling (HR / IT / Manager / Ops) + employee UX | One shared “manager of everyone” |
+| IRA — recommend & navigate; humans keep approvals | An agent that changes salaries, permissions, or closes real tickets |
+| 100% synthetic data for demos and product learning | Connected to real PII or production APIs |
 
-> **Not Phase 1:** the separate React + R3F app under `waters-explore/` (Vite/Three.js). Phase 1 ships the **vanilla SmartStart-integrated** experience above.
+### Design principles (platform)
 
----
-
-## 4. Current tech stack (prototype)
-
-| Layer | Choice | Why it fits the prototype |
-| --- | --- | --- |
-| Backend | Python 3.11+, FastAPI, Pydantic, Uvicorn | Already powers SmartStart Layers 1–4; same auth/session model |
-| Data | In-memory synthetic cohort (Faker, fixed seed) | No real PII; reproducible demos |
-| Employee UI shell | Vanilla HTML / CSS / JS | Fast iteration; no SPA build for the machine |
-| Machine & films | Canvas 2D + custom `WatersGfx3D` | Zero WebGL requirement; consistent look; small deploy surface |
-| Packaging | Hatch / `pyproject.toml` | `uvicorn backend.main:app` |
-| Quality | Pytest (explorer story/chain), ruff | Guards content contracts |
-| Companion | IRA (PySide6 desktop) over `/api/ira/*` | Optional handoff after finale — not required to view the machine |
-
-**What we deliberately did *not* put in the Phase 1 path**
-
-- React / Vite / React Three Fiber (`waters-explore`) — parallel experiment
-- Real iCIMS / ServiceNow / Jira calls — mocks only elsewhere in SmartStart
-- User-generated content or CMS — static governed copy in code for the prototype
+1. **Synthetic by default** — every record is flagged synthetic; fixed seed ⇒ reproducible demos.
+2. **One journey, many lenses** — same state machine; HR / IT / Manager / Ops only change *scope, actions, framing*.
+3. **Backend enforcement** — access is not “hidden UI”; APIs return 403/404 outside role scope.
+4. **Grounded assistance** — IRA / NIA answer from approved context; they do not invent HR facts.
+5. **Humans in the loop** — confirm gates for assign/resolve; no silent production writes.
+6. **Company story is separate from personal data** — public Waters facts vs joiner’s own chain.
 
 ---
 
-## 5. Proposed tech stack (production-minded)
+## A2. What SmartStart includes (layers)
 
-Phase 1 can deploy the prototype nearly as-is behind enterprise hosting. The stack below is the **recommended evolution** for scale, safety, operability, and content governance — without forcing a rewrite before first value.
+| Layer | Status | Role |
+| ---: | :---: | --- |
+| **1** | Done | Synthetic data + 5-stage onboarding state engine |
+| **2** | Done | Role-aware Employer Command Center (HR / IT / Manager / Ops) |
+| **3** | Done | Employee Experience (Intern / FTE dashboard, learning, workspace) |
+| **4** | Done | IRA intelligence (knowledge · context · action · predictive · orchestration) |
+| **IRA desktop** | Done | Independent PySide6 companion over `/api/ira/*` |
+| **Waters machine** | Done (Phase 1 ship) | “What is Waters?” interactive company / science orientation |
+| **NIA** | Done | Employer-side New-Hire Intelligence Assistant (Command Center copilot) |
+| **Mock enterprise apps** | Done | Standalone mock iCIMS / ServiceNow / Jira (+ optional pre-boarding portal) |
 
-### 5.1 Principles
+### Onboarding state machine
 
-| Principle | Implication |
+Every joiner moves through:
+
+`OFFER_ACCEPTED` → `DOCS_SUBMITTED` → `IT_PROVISIONED` → `DAY1_ORIENTED` → `PROJECT_READY`
+
+**Systems simulated (not called for real):**
+
+| System | What it represents in the sandbox |
 | --- | --- |
-| **Safety first** | Public company facts only in the open story; personalization from HR-approved attributes; no secrets in the browser bundle |
-| **Least privilege** | Machine API scoped to the signed-in joiner; no cohort leakage |
-| **Scalability** | Static assets on CDN; API only for personalization; cache public story aggressively |
-| **Observability** | Product analytics (chapter completion) ≠ PII logging |
-| **Accessibility** | Keep keyboard + reduced-motion paths; WCAG AA target |
-| **Content integrity** | Citations required; science simplifications labelled; legal/comms review gate |
+| **iCIMS** | Joiner identity, offer acceptance, document packet |
+| **ServiceNow** | Laptop / software tickets + SLA lead time |
+| **Jira** | Mentor, learning track, assigned tasks |
 
-### 5.2 Recommended architecture (Phase 1 → Phase 2)
+Journey strip (same for every role): **HR docs → IT laptop & access → Manager Day 1 & mentor → Project**.
+
+---
+
+## A3. How SmartStart works
+
+### A3.1 Big picture
 
 ```
-                    ┌─────────────────────────────┐
-   Joiner SSO       │  Edge / API gateway         │
-   (Entra ID etc.)  │  WAF · rate limits · TLS    │
-                    └──────────────┬──────────────┘
-                                   │
-              ┌────────────────────┼────────────────────┐
-              ▼                    ▼                    ▼
-     Static CDN / SWA      Experience API         Existing IRA APIs
-     machine JS/CSS/HTML   public story (cached)  (unchanged)
-                           + /me/waters (scoped)
-                                   │
-                                   ▼
-                           Content store (Git or CMS)
-                           reviewed public copy + sources
-                                   │
-                                   ▼
-                           Identity attributes (read-only)
-                           department, manager, site, role
+                    ┌──────────── Portal ────────────┐
+                    │  Employer sign-in  │  Employee  │
+                    └─────────┬──────────┴─────┬──────┘
+                              ▼                ▼
+                   Command Center          Employee Experience
+                   (HR/IT/Mgr/Ops)         (Intern / FTE)
+                              │                │
+                              │                ├─ Learning / notifications
+                              │                ├─ Workspace / team
+                              │                └─ What is Waters?  ← Phase 1
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+           NIA (employer)  Analytics      Resolve / learning APIs
+                              │
+                              ▼
+                    Layer 1 state engine + synthetic store
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+     Mock iCIMS          Mock ServiceNow       Mock Jira
+     (:8100)               (:8200)              (:8300)
+                              │
+                              ▼
+                    IRA desktop companion
+                    (calls /api/ira/* only)
 ```
 
-### 5.3 Stack proposal by concern
+### A3.2 Layer 1 — synthetic engine
 
-| Concern | Phase 1 (deploy now) | Next hardening |
+- Faker-based cohort (e.g. seed 42, ~30 joiners), in-memory store.
+- Each joiner has stage, docs, IT tickets, mentor, learning track, risk/bottleneck signals.
+- Invariants: `synthetic=true`, IDs like `SYN-J-*` / `SYN-IT-*`, emails `@synthetic.smartstart.example`.
+- **No network calls** to real HR/IT systems.
+
+### A3.3 Layer 2 — Employer Command Center
+
+One shared cohort and bottleneck engine. The signed-in role only changes:
+
+```text
+{ user, role, visible_joiners, actionable_joiners, relevant_bottlenecks, permissions, priorities }
+```
+
+| Role | Demo login (examples) | Scope | Focus |
+| --- | --- | --- | --- |
+| **HR** | `hr.jordan` | Whole cohort | Documents, rework, HR actions |
+| **IT** | `it.riley` | Whole cohort | Hardware, SLA, access requests |
+| **Manager** | `mgr.chen` / `mgr.park` / … | **Own team only** | Day 1, mentor, project, learning |
+| **Ops** | `ops.admin` | Cohort + lens filters | Route, unblock, regenerate |
+
+**Key behaviours**
+
+- Role-worded alerts (same event id/severity; different “action vs awareness”).
+- **Resolve** / **Still needs help** per owner queue (HR resolving does not hide IT’s work).
+- Manager **Learning**: view progress, add courses; appears on the joiner’s learning tab.
+- **NIA**: floating employer copilot — same role context as the dashboard; confirm-gated assign/resolve; source pills that open mock iCIMS / ServiceNow / Jira in a new tab.
+
+### A3.4 Layer 3 — Employee Experience
+
+After picking an Intern/FTE profile, the joiner gets:
+
+- Personal dashboard and next actions
+- Role-specific **learning track** (interns more mentor-focused; FTEs more dept/project-ready)
+- Notifications and feedback
+- Workspace: consult network + department roster
+- Entry to **What is Waters?** (Phase 1)
+
+Employees **cannot** open the Command Center.
+
+### A3.5 Layer 4 + IRA — employee companion
+
+IRA answers six joiner questions:
+
+1. **WHAT?** — What’s this application / term?
+2. **WHERE?** — Where do I do this?
+3. **WHO?** — Who can help me?
+4. **WHAT NEXT?** — What should I do now?
+5. **WHY?** — Why am I blocked?
+6. **WHAT IF?** — What happens if this isn’t completed?
+
+IRA reasons over personal onboarding context + a governed synthetic knowledge layer (apps, teams, processes, docs) + sandbox signals from mock iCIMS / ServiceNow / Jira. It **recommends and navigates**; it does **not** take production actions.
+
+Desktop IRA (PySide6) is a separate app that only calls SmartStart `/api/ira/*`.
+
+### A3.6 Companion mock apps (separate websites)
+
+| App | Port | Purpose |
 | --- | --- | --- |
-| **Hosting** | Internal static host or Azure Static Web Apps / App Service for SmartStart | Front with Entra ID; CDN caching for `/static/waters-*` |
-| **App runtime** | FastAPI (current) | Keep; split “public story” JSON from “me” personalization if traffic grows |
-| **AuthN/Z** | Demo employee picker (sandbox) | Enterprise SSO; API must only return *that* joiner’s chain |
-| **Frontend** | Vanilla machine + Canvas kit (current) | Keep for Phase 1; revisit WebGL/Three only if visual fidelity requires it |
-| **Content** | Python module + JS lesson copy | Move public narrative to versioned Markdown/JSON with review workflow; keep sources URLs mandatory |
-| **Science model** | Teaching-simplified animations | Optional shared science package with unit tests (retention, m/z teaching values) |
-| **Safety / abuse** | Synthetic data | Input length limits already; add rate limits; strip any free-text from analytics |
-| **Privacy** | Synthetic emails/IDs | In production: minimize attributes (role title, dept, site, manager display name only); no salary/performance |
-| **Secrets** | None in waters modules | Standard secret store for app config; no keys in frontend |
-| **Observability** | App logs | Structured events: `waters_open`, `chapter_view`, `observe_complete`, `finale_shown` — anonymous session id + role band, not name |
-| **Performance** | Canvas pauses when closed | Lazy-load ride modules; asset fingerprinting (`?v=`); CDN compression |
-| **Resilience** | Single process prototype | Multi-instance API + health checks; static story fallback if personalization fails (show machine without “You” card) |
-| **Compliance / brand** | Public sources listed in UI | Legal/comms sign-off checklist before each content release |
-| **Accessibility** | Keyboard + reduced motion | Automated axe checks in CI; transcript/captions for longer films if audio is added later |
-| **Testing** | Pytest on payload | Contract tests for API; visual smoke on machine open; Lighthouse CI budget |
-| **Delivery** | Manual / branch demos | CI → staging → prod; feature flag `WATERS_MACHINE_ENABLED`; flag for ride play vs observe-only |
+| SmartStart | `8000` | Main platform |
+| Mock iCIMS | `8100` | Standalone HR/ATS sandbox |
+| Mock ServiceNow | `8200` | Standalone ITSM sandbox |
+| Mock Jira | `8300` | Standalone boards sandbox |
+| Waters Welcome (pre-boarding) | `8500` | Day-1 pack portal (where present) |
+| IRA desktop | — | Not a website — `python -m ira` |
 
-### 5.4 Safety controls (explicit)
-
-1. **Content boundary** — marketing/science copy never pulled from model output; no LLM in the Phase 1 machine path.
-2. **Personalization boundary** — only attributes the joiner is already allowed to see in Employee Experience.
-3. **Failure mode** — if `/waters` personalization fails, still show chapters 01–05; degrade finale gracefully.
-4. **Citation** — every factual company claim maps to a `SOURCES` entry shown in the UI.
-5. **No production system writes** — the experience is read-only; IRA remains recommend/navigate, humans approve.
-6. **Supply chain** — pin dependency versions; SCA on Python deps; CSP on static host (`script-src` self).
-
-### 5.5 Scalability notes
-
-- Public story JSON is identical for all joiners → **cache at edge** (e.g. 1h–24h) with purge on content release.
-- Personalization payload is tiny (chain + highlight node) → cheap per-user; no WebSocket required.
-- Canvas work is client-side CPU/GPU; server cost stays API + static bytes.
-- Horizontal scale = more API replicas + CDN; no sticky sessions required for Waters.
+NIA/IRA deep-links open these mocks in a **new tab** — never embedded as if they were production.
 
 ---
 
-## 6. Phase 1 — deployment scope
+## A4. SmartStart tech stack (current prototype)
 
-### 6.1 In scope (ship)
-
-| # | Deliverable | Definition of done |
-| ---: | --- | --- |
-| 1 | **What is Waters?** machine | Employee entry → six chapters → finale with personal chain |
-| 2 | **Animation system** | Assemble/travel/hover/zoom motions; reduced-motion path; mobile chapter rail |
-| 3 | **Explaining machinery** | LC and MS **How it works** observe films from Technology |
-| 4 | **Hosting + access** | Reachable in the target environment (VPN/SSO as required) |
-| 5 | **Safety baseline** | Public sources visible; personalization scoped; no React app in the release train |
-| 6 | **Basic telemetry** | Open / chapter / observe-complete / finale events (non-PII) |
-
-### 6.2 Explicitly deferred (built, not required for Phase 1 gate)
-
-- Become the sample / Ride the ions playable tracks (can sit behind a feature flag)
-- React `waters-explore` standalone rebuild
-- CMS-driven content editing UI
-- Audio narration / captions pack
-- Multi-language
-
-### 6.3 Phase 1 acceptance checklist
-
-- [ ] Joiner can open **What is Waters?** from Employee Experience
-- [ ] Science, Impact, Technology, World, People panels render from API data
-- [ ] Technology offers **How it works** for LC and MS and both films complete
-- [ ] Animations run; with reduced-motion, experience remains usable
-- [ ] Finale shows the correct chain for the signed-in joiner
-- [ ] Sources list is visible
-- [ ] Works on current desktop Chrome/Edge and a representative mobile viewport
-- [ ] No dependency on the React `waters-explore` package for the release
-
-### 6.4 Suggested rollout
-
-1. **Internal demo** — SmartStart staging, synthetic cohort only  
-2. **Pilot** — one GCC / early-career cohort with feedback form  
-3. **Default on** — feature flag enabled for all new joiners in Employee Experience  
-4. **Phase 2** — enable Become the sample; content pipeline; SSO hardening metrics review  
-
----
-
-## 7. Demo script (for stakeholders)
-
-1. Sign in as an Intern or FTE in Employee Experience.  
-2. Click **What is Waters?**  
-3. Explore freely — hover Technology, open LC **How it works**.  
-4. Scroll the film through solvents → pump → injector → column → detector.  
-5. Return; open World (Bengaluru) and People (highlight the joiner’s node).  
-6. Finish on **You** — show chain + IRA next steps.  
-7. Point to Sources: public facts vs personal SmartStart record.
-
----
-
-## 8. Open questions / decisions
-
-| Topic | Options | Recommendation |
+| Layer | Choice | Why |
 | --- | --- | --- |
-| Phase 1 include playable ride? | Observe-only vs observe+ride | **Observe-only** for the gate; flag the ride |
-| Hosting | Inside SmartStart vs separate static site | **Inside SmartStart** for personalization; CDN for static JS |
-| Content ownership | Eng vs Comms/L&D | Eng ships; Comms/L&D approve copy + sources |
-| WebGL later? | Stay on Canvas kit vs adopt Three.js | Stay on Canvas for Phase 1; revisit only for fidelity gaps |
+| Language / runtime | Python **3.11+** | Team standard; fast API iteration |
+| API | **FastAPI** + **Pydantic** + **Uvicorn** | Typed contracts, OpenAPI (`/docs`), async-friendly |
+| Synthetic data | **Faker** + fixed seed | Reproducible cohort, no real PII |
+| Persistence (prototype) | In-memory store | Zero infra for demos; replace later with real DB if needed |
+| Employer / employee UI | **Vanilla HTML / CSS / JS** | Fast shipping; no SPA build tax for the sandbox |
+| Charts / motion | Lightweight front-end JS | Command Center analytics + Waters canvas |
+| AI surfaces | IRA APIs + NIA on role context; optional desktop **PySide6** | Grounded Q&A without replacing systems of record |
+| Mock enterprise | Separate FastAPI apps (iCIMS / ServiceNow / Jira) | Realistic deep-links without live credentials |
+| Packaging | Hatch / `pyproject.toml` | `pip install -e ".[dev]"` |
+| Quality | **Pytest**, Ruff | API + story/chain tests |
 
----
-
-## 9. Appendix — quick reference
-
-### API
-
-```http
-GET /api/employee/{joiner_id}/waters
-```
-
-Returns company story + `you` chain + `sources`.
-
-### Local run (sandbox)
+### Local run
 
 ```bash
 python -m pip install -e ".[dev]"
 uvicorn backend.main:app --reload --port 8000
-# Portal → Employee → What is Waters?
-# or open employee view with #waters
+# Portal: http://127.0.0.1:8000/
+# Employer Command Center / Employee Experience / AI Features / OpenAPI /docs
 ```
 
-### Related SmartStart context
+### Representative APIs
 
-SmartStart remains a **synthetic** onboarding platform (Layers 1–4 + IRA). Waters machine is the joiner-facing **company & science orientation** layer — complementary to Employer Command Center and NIA, not a replacement for HR systems.
+| Area | Examples |
+| --- | --- |
+| Employer | `/api/employer/context`, `/api/employer/workspace`, `/api/dashboard`, `/api/alerts`, `/api/analytics`, resolve/reopen, learning |
+| Employee | `/api/employee/{id}`, `/api/learningtrack/{id}`, `/api/notifications/{id}`, `/api/employee/{id}/workspace`, `/api/employee/{id}/waters` |
+| Intelligence | `/api/chatbot/{id}`, `/api/predict/{id}`, `/api/recommendations/{id}`, `/api/nia/*`, `/api/ira/*` |
+| Integrations | `/api/integrations` — mock connector snapshots |
 
 ---
 
-*Document purpose: Confluence source of truth for motive, scope, behaviour, current stack, proposed production stack, and Phase 1 deployment boundaries.*
+## A5. Proposed SmartStart production stack (scale, safety, ops)
+
+Phase 1 can host the prototype behind enterprise access. Longer-term hardening:
+
+| Concern | Recommendation |
+| --- | --- |
+| **AuthN** | Enterprise SSO (e.g. Entra ID); retire demo pickers outside sandbox |
+| **AuthZ** | Keep role_context model; enforce on every employer/employee API |
+| **Data** | Start from HR-approved attributes only; keep synthetic lane for demos; never mix real PII into prototype seeds |
+| **Persistence** | Managed Postgres (or equivalent) for joiner state, resolutions, learning adds |
+| **Hosting** | App Service / K8s for API; CDN for static UI; WAF + TLS + rate limits at edge |
+| **Mocks vs real** | Production SmartStart reads **approved** integrations via governed connectors; mocks stay for training/demo environments |
+| **IRA / NIA** | Grounded retrieval over approved knowledge; confirm gates; audit log of suggestions vs actions |
+| **Secrets** | Platform secret store; no keys in frontend |
+| **Observability** | Structured logs + product analytics **without** raw PII in event payloads |
+| **Privacy** | Minimize attributes; purpose limitation (onboarding only); retention policy |
+| **Delivery** | CI → staging → prod; feature flags per surface (`WATERS_MACHINE_ENABLED`, ride play, etc.) |
+
+---
+
+# Part B — What is Waters? (Phase 1 experience)
+
+Built **on top of** SmartStart Employee Experience. It does not replace Layers 1–4; it answers the company/science orientation gap those layers do not cover.
+
+## B1. Motive — why this experience
+
+New joiners still ask:
+
+> *What does this company actually do — scientifically — and where do I fit?*
+
+HR packets cover policies. Org charts cover reporting lines. Neither makes **liquid chromatography**, **mass spectrometry**, or the **ecosystem of roles** feel real — especially for software, IT, data, ops, HR, finance.
+
+**Motive:** give every joiner an interactive, memorable first encounter with Waters science, technology, global footprint, people, and *their own place* — using their SmartStart record for the personal finale only.
+
+### Problems → response
+
+| Problem | Prototype response |
+| --- | --- |
+| Company story is abstract | Six-chapter interactive **machine** |
+| LC/MS hard to explain with slides | Cinematic **How it works** films + optional **Become the sample** |
+| Org context buried in systems | Finale **Your place** from SmartStart joiner record |
+| Public facts vs personal data mixed | Public sources only for company story; personal chain from joiner record |
+| Heavy frameworks slow first ship | **Canvas 2D + WatersGfx3D** — no WebGL required for Phase 1 |
+
+### Experience design principles
+
+1. **Motion is navigation** — hover, click, scroll.
+2. **Simple first, deeper on demand**.
+3. **Teach, then invite** — How it works before Become the sample.
+4. **Grounded content** — cited public facts; no invented HR data.
+5. **Accessible** — keyboard, `prefers-reduced-motion`, no WebGL required.
+6. **IRA handoff** — finale connects to meet team / understand role / explore tools.
+
+---
+
+## B2. What we have built (Waters features)
+
+**Name:** Waters // How it all connects — launched as **“What is Waters?”**.
+
+**Entry points:** Employee nav / teaser · `#waters` deep link · full-screen `#wm` overlay.
+
+### A. Interactive machine — **Phase 1**
+
+| Chapter | Label | Joiner gets |
+| --- | --- | --- |
+| **01 Science** | What does Waters do? | Separate → identify → understand; LC, MS, informatics |
+| **02 Impact** | Why does it matter? | Medicines, food & water, diagnostics, antibiotic resistance |
+| **03 Technology** | Inside the chambers | LC & MS chambers; entries into films / rides |
+| **04 World** | Waters around the world | ~16k colleagues; globe (Milford, Wilmslow, Wexford, Bengaluru, …) |
+| **05 People** | Who works here? | Ecosystem: scientists, engineers, software, data, ops, sales, service, business, HR |
+| **06 You** | Your place in the machine | Personal chain: company → area → dept → team → role → you |
+
+**Interactions:** look around · hover light-up · click isolate · zoom · scroll/arrows travel · Esc back · mobile chapter rail · intro *Explore freely* · finale + Replay + IRA chips · sources footer.
+
+### B. Animation & visual system — **Phase 1**
+
+Assemble/disassemble · pipes · particles/glass/glow · globe · people network · finale path · **WatersGfx3D** (Canvas 2D, no WebGL) · reduced-motion support.
+
+### C. Explaining machinery (“How it works”) — **Phase 1**
+
+| Track | Mode | Content |
+| --- | --- | --- |
+| **observe-lc** | How it works (LC) | Assembled tower → five modules → solvents → pump → injector (6-port valve) → column → UV detector → peaks → your turn |
+| **observe-ms** | How it works (MS) | How MS works → ion source → quadrupole → counting ions → your turn |
+
+One part on stage; numbered lesson text; drag to orbit; scroll to advance; progress rail.
+
+### D. Become the sample / Ride the ions — built (optional after Phase 1 gate)
+
+| Track | Mode | Content |
+| --- | --- | --- |
+| **ride-lc** | Become the sample | Pick molecule → machine breakdown → LOAD→INJECT → column → read peak |
+| **ride-ms** | Ride the ions | Electrospray / quadrupole / spectrum |
+
+Staged play: scroll cannot skip unfinished stages.
+
+### E. API personalization
+
+`GET /api/employee/{joiner_id}/waters` → public story + `you` chain + `sources`.  
+Home site via `SMARTSTART_HOME_SITE` (default Bengaluru for GCC demos).
+
+### F. IRA bridge
+
+Finale actions share org-chain vocabulary with IRA (*What does my role do?*).
+
+---
+
+## B3. How the Waters prototype works (exactly)
+
+### Runtime
+
+```
+Employee UI
+   └─ openWaters()
+         ├─ GET /api/employee/{id}/waters  →  waters_explorer.build()
+         └─ watersMachine.open({ data, ira… })
+               ├─ waters-machine.js          (chapters / finale)
+               └─ enterRide → waters-ride.js
+                     ├─ observe-*  (How it works)
+                     ├─ ride-*     (Become the sample)
+                     └─ waters-ride-world.js + WatersGfx3D
+```
+
+### Happy path
+
+1. Sign into Employee Experience → pick synthetic profile.  
+2. Open **What is Waters?**.  
+3. Fetch `/waters` payload.  
+4. Explore machine chapters.  
+5. Technology → **How it works** (LC or MS) — Phase 1 primary.  
+6. Optional: Become the sample / Ride the ions.  
+7. Finale **You** + IRA next steps.  
+8. Sources remain visible.
+
+Story order: `science → impact → technology → world → people → you`.
+
+### Ride engine
+
+- **Tracks** (films) on a shared timeline, not one mega-scrubber.
+- **Observe** = scroll-taught, camera outside.
+- **Ride/play** = staged; playhead capped until the stage is done.
+- Mode switch mirrors teaching ↔ riding (`observe-lc` ↔ `ride-lc`, etc.).
+
+### Key modules
+
+| Module | Role |
+| --- | --- |
+| `backend/waters_explorer.py` | Story + personal chain |
+| `frontend/waters-machine.js` | Machine UI |
+| `frontend/waters-ride*.js` + `waters-gfx3d.js` | Films / play / renderer |
+| `frontend/employee.html` / `employee.js` | Entry + IRA wiring |
+| `tests/test_waters_explorer.py` | Story/chain tests |
+
+> **Not Phase 1:** React `waters-explore/` (Vite + Three.js). Phase 1 ships the **vanilla SmartStart-integrated** experience.
+
+### Waters tech (current)
+
+Same SmartStart host: FastAPI + vanilla JS + **Canvas 2D / WatersGfx3D**. No WebGL dependency for the Phase 1 path.
+
+### Waters production notes (additive to §A5)
+
+| Concern | Recommendation |
+| --- | --- |
+| Public story | Cache at CDN/edge; purge on content release |
+| Personalization | Tiny scoped `/me/waters`; degrade to chapters 01–05 if it fails |
+| Content | Versioned copy + mandatory source URLs; Comms/L&D sign-off |
+| Safety | No LLM in Phase 1 machine path; read-only; CSP on static assets |
+| Telemetry | `waters_open`, `chapter_view`, `observe_complete`, `finale_shown` — no names in events |
+| Flags | `WATERS_MACHINE_ENABLED`; separate flag for playable ride |
+
+---
+
+# Part C — Phase 1 deployment
+
+## C1. In scope (ship)
+
+| # | Deliverable | Done when |
+| ---: | --- | --- |
+| 1 | SmartStart Employee entry to **What is Waters?** | Joiner can open from Employee Experience |
+| 2 | **Machine** (6 chapters + finale chain) | Panels render from API; finale matches signed-in joiner |
+| 3 | **Animations** | Assemble/travel/hover/zoom; reduced-motion usable; mobile rail |
+| 4 | **How it works** LC + MS | Both observe films complete from Technology |
+| 5 | **Safety baseline** | Sources visible; scoped personalization; no React app in release |
+| 6 | **Basic telemetry** | Open / chapter / observe-complete / finale (non-PII) |
+
+## C2. Deferred (built, not the Phase 1 gate)
+
+- Become the sample / Ride the ions (feature flag OK)
+- React `waters-explore`
+- CMS editing UI, audio/captions, multi-language
+
+## C3. Acceptance checklist
+
+- [ ] Joiner opens **What is Waters?** from Employee Experience  
+- [ ] Science → People panels render from API  
+- [ ] LC and MS **How it works** complete  
+- [ ] Animations + reduced-motion path OK  
+- [ ] Finale chain correct for signed-in joiner  
+- [ ] Sources visible  
+- [ ] Desktop Chrome/Edge + representative mobile OK  
+- [ ] No dependency on React `waters-explore`
+
+## C4. Rollout
+
+1. Internal demo (synthetic cohort)  
+2. Pilot (e.g. one GCC / early-career cohort)  
+3. Default-on via feature flag  
+4. Phase 2 — enable playable ride; content pipeline; SSO/metrics hardening  
+
+## C5. Stakeholder demo script
+
+1. Portal → Employer (optional): show role-aware Command Center + NIA briefly — *this is SmartStart*.  
+2. Portal → Employee → pick a joiner.  
+3. Open **What is Waters?**  
+4. Explore freely → Technology → LC **How it works** (solvents → pump → injector → column → detector).  
+5. World (e.g. Bengaluru) + People (joiner’s node).  
+6. Finale **You** + IRA chips.  
+7. Call out: public Sources vs personal SmartStart record; all demo data synthetic.
+
+---
+
+## Open questions
+
+| Topic | Recommendation |
+| --- | --- |
+| Phase 1 include playable ride? | **Observe-only** for the gate; flag the ride |
+| Hosting | **Inside SmartStart** for personalization; CDN for static Waters JS |
+| Content ownership | Eng ships; Comms/L&D approve copy + sources |
+| WebGL later? | Stay on Canvas for Phase 1 |
+
+---
+
+*Document purpose: Confluence source of truth for why SmartStart exists, how the platform works, its stack, and Phase 1 deployment of What is Waters? (machine, animation, machinery explanation).*

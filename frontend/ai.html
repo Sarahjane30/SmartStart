@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartStart — AI Features</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css?v=16" />
+</head>
+<body class="ai-page">
+  <div class="ai-shell">
+    <header class="ai-top">
+      <div class="brand">
+        <div class="brand-mark">SS</div>
+        <div>
+          <div class="brand-name">SmartStart</div>
+          <div class="brand-sub">Prototype AI Features · Employer</div>
+        </div>
+      </div>
+      <div class="ai-top-actions">
+        <label class="picker">
+          <span class="muted tiny">Demo joiner</span>
+          <select id="joiner-select" aria-label="Select synthetic joiner"></select>
+        </label>
+        <a class="btn-secondary" href="/command-center">Command Center</a>
+        <button type="button" class="btn-secondary" id="sign-out-btn">Exit to portal</button>
+        <button id="refresh-btn" class="btn-secondary" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <p class="banner muted tiny">
+      <span class="pill synthetic">SYNTHETIC AI ONLY</span>
+      Employer tooling · rule-based FAQ · seed-stable risk scores · no real PII · no live LLM
+    </p>
+
+    <div id="load-error" class="load-error" hidden></div>
+
+    <section class="ai-grid" id="dashboard" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2>Onboarding chatbot</h2>
+          <span class="muted tiny" id="chat-role"></span>
+        </div>
+        <div id="chat-log" class="chat-log" aria-live="polite"></div>
+        <div class="faq-chips" id="faq-chips"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" type="text" maxlength="240" placeholder="Ask about documents, laptop, mentor…" autocomplete="off" />
+          <button class="btn-primary" type="submit">Ask</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Predictive delay risk</h2>
+          <span id="overall-risk" class="risk-pill">—</span>
+        </div>
+        <p class="muted tiny" id="predict-note"></p>
+        <div id="alerts-list" class="ai-alerts"></div>
+      </div>
+
+      <div class="card recs-card">
+        <div class="card-head">
+          <h2>Adaptive recommendations</h2>
+          <span class="muted tiny" id="recs-focus"></span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Learning track completion</span>
+            <span id="track-pct">0%</span>
+          </div>
+          <div class="progress-bar" id="track-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="progress-fill" id="track-fill"></div>
+          </div>
+        </div>
+        <div id="recs-list" class="recs-list"></div>
+      </div>
+    </section>
+  </div>
+  <script src="/static/session.js?v=16"></script>
+  <script src="/static/motion.js?v=16"></script>
+  <script src="/static/ai.js?v=16"></script>
+</body>
+</html>

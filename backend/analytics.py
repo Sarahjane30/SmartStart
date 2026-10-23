@@ -7,9 +7,12 @@ from datetime import datetime, timezone
 
 from backend.database import DataStore, store
 from backend.models import (
-    DocumentStatus,
-    OnboardingState,
     AnalyticsResponse,
+    DocumentStatus,
+    EmployerRole,
+    HardwareStatus,
+    Joiner,
+    OnboardingState,
     TimeSeriesPoint,
 )
 from backend.synthetic_engine import days_in_pipeline, infer_bottleneck
@@ -17,12 +20,83 @@ from backend.synthetic_engine import days_in_pipeline, infer_bottleneck
 # Seed-stable demo "as of" clock (matches synthetic_engine reference day + offset).
 ANALYTICS_AS_OF = datetime(2026, 9, 15, 12, 0, 0, tzinfo=timezone.utc)
 
+ROLE_FOCUS = {
+    EmployerRole.ALL: "Full cohort — every synthetic joiner in your scope",
+    EmployerRole.HR: "HR work queue — docs pending or offer/docs stages",
+    EmployerRole.IT: "IT work queue — hardware not delivered or SLA pressure",
+    EmployerRole.MANAGER: "Manager work queue — Day-1 / project readiness",
+}
 
-def build_analytics(db: DataStore | None = None) -> AnalyticsResponse:
-    """Compute employer KPIs from the in-memory synthetic cohort."""
+
+def queue_for_bottleneck(bottleneck: str | None) -> str:
+    """Map a bottleneck label to the work queue that should own it."""
+    if not bottleneck:
+        return "Ops"
+    t = bottleneck.lower()
+    if "document" in t or "docs" in t or "icims" in t or "offer-to-docs" in t:
+        return "HR"
+    if "it " in t or "sla" in t or "servicenow" in t or "hardware" in t or "provisioning" in t:
+        return "IT"
+    if "project" in t or "jira" in t or "day-1" in t or "orientation" in t:
+        return "Manager"
+    return "Ops"
+
+
+def joiner_in_role_view(
+    joiner: Joiner,
+    docs_status: DocumentStatus | None,
+    hardware_status: HardwareStatus | None,
+    it_sla_breached: bool,
+    role_view: EmployerRole,
+    bottleneck: str | None = None,
+) -> bool:
+    """Work-queue lenses for the Command Center (not hiring-manager picks).
+
+    All = everyone in scope.
+    HR / IT / Manager = joiners whose current bottleneck belongs to that queue.
+    """
+    if role_view == EmployerRole.ALL:
+        return True
+
+    if bottleneck is None:
+        # Fallback when caller only has status fields (no full docs/ticket).
+        if role_view == EmployerRole.HR:
+            return docs_status != DocumentStatus.COMPLETE or joiner.current_state in {
+                OnboardingState.OFFER_ACCEPTED,
+                OnboardingState.DOCS_SUBMITTED,
+            }
+        if role_view == EmployerRole.IT:
+            return it_sla_breached or hardware_status != HardwareStatus.DELIVERED
+        return joiner.current_state in {
+            OnboardingState.DAY1_ORIENTED,
+            OnboardingState.PROJECT_READY,
+        }
+
+    queue = queue_for_bottleneck(bottleneck)
+    if role_view == EmployerRole.HR:
+        return queue == "HR"
+    if role_view == EmployerRole.IT:
+        return queue == "IT"
+    return queue == "Manager"
+
+
+def focus_note_for(role_view: EmployerRole, manager_id: str | None = None) -> str:
+    base = ROLE_FOCUS[role_view]
+    if manager_id:
+        return f"{base} · scoped to hiring manager {manager_id}"
+    return base
+
+
+def build_analytics(
+    db: DataStore | None = None,
+    role_view: EmployerRole = EmployerRole.ALL,
+    manager_id: str | None = None,
+) -> AnalyticsResponse:
+    """Compute employer KPIs for the selected role lens (optionally one hiring manager)."""
     db = db or store
-    joiners = db.list_joiners()
-    if not joiners:
+    all_joiners = db.list_joiners()
+    note = focus_note_for(role_view, manager_id)
+    if not all_joiners:
         return AnalyticsResponse(
             avg_onboarding_days=0.0,
             avg_it_lead_time_days=0.0,
@@ -32,7 +106,47 @@ def build_analytics(db: DataStore | None = None) -> AnalyticsResponse:
             bottleneck_counts={},
             avg_days_by_state={},
             onboarding_trend=[],
+            role_view=role_view.value,
+            cohort_size=0,
+            focus_note=note,
             synthetic=True,
+        )
+
+    joiners: list[Joiner] = []
+    for j in all_joiners:
+        if manager_id and j.manager_id != manager_id:
+            continue
+        docs = db.get_documents(j.id)
+        ticket = db.get_ticket_for_joiner(j.id)
+        if docs is None or ticket is None:
+            continue
+        bottleneck = infer_bottleneck(j.current_state, docs, ticket)
+        if joiner_in_role_view(
+            j,
+            docs.status,
+            ticket.hardware_status,
+            ticket.sla_breached,
+            role_view,
+            bottleneck=bottleneck,
+        ):
+            joiners.append(j)
+
+    if not joiners:
+        return AnalyticsResponse(
+            avg_onboarding_days=0.0,
+            avg_it_lead_time_days=0.0,
+            completion_rate_pct=0.0,
+            active_joiners=0,
+            project_ready_count=0,
+            docs_pending=0,
+            bottleneck_counts={},
+            avg_days_by_state={},
+            onboarding_trend=[],
+            role_view=role_view.value,
+            cohort_size=0,
+            focus_note=note + " — no joiners match this lens right now.",
+            synthetic=True,
+            as_of=ANALYTICS_AS_OF,
         )
 
     pipeline_days = [days_in_pipeline(j, now=ANALYTICS_AS_OF) for j in joiners]
@@ -45,7 +159,9 @@ def build_analytics(db: DataStore | None = None) -> AnalyticsResponse:
 
     bottlenecks: Counter[str] = Counter()
     days_by_state: dict[str, list[int]] = {}
+    state_counts: Counter[str] = Counter()
     for j, d, t, days in zip(joiners, docs, tickets, pipeline_days, strict=True):
+        state_counts[j.current_state.value] += 1
         days_by_state.setdefault(j.current_state.value, []).append(days)
         if d is None or t is None:
             continue
@@ -53,26 +169,51 @@ def build_analytics(db: DataStore | None = None) -> AnalyticsResponse:
         bottlenecks[label or "On track"] += 1
 
     avg_days_by_state = {
-        state: round(sum(vals) / len(vals), 2)
-        for state, vals in sorted(days_by_state.items())
+        state.value: round(
+            sum(days_by_state.get(state.value, [0])) / max(len(days_by_state.get(state.value, [])), 1),
+            2,
+        )
+        for state in OnboardingState
+        if days_by_state.get(state.value)
     }
 
-    # Synthetic weekly trend of average pipeline days (seed-stable from cohort).
-    trend: list[TimeSeriesPoint] = []
-    for week in range(1, 7):
-        # Weighted blend so the chart looks realistic but deterministic.
-        base = sum(pipeline_days) / len(pipeline_days)
-        wobble = ((week * 7) % 5) - 2
-        trend.append(
-            TimeSeriesPoint(
-                label=f"W{week}",
-                value=round(max(3.0, base + wobble - (6 - week) * 0.35), 2),
-            )
-        )
+    # Real cohort distribution by state (pipeline order).
+    stage_order = [s.value for s in OnboardingState]
+    trend = [
+        TimeSeriesPoint(label=s.replace("_", " "), value=float(state_counts.get(s, 0)))
+        for s in stage_order
+        if state_counts.get(s, 0) or role_view == EmployerRole.ALL
+    ]
+    if not trend:
+        trend = [
+            TimeSeriesPoint(label=s.replace("_", " "), value=float(state_counts.get(s, 0)))
+            for s in stage_order
+        ]
+
+    # Stable, readable bottleneck order (worst / most common first).
+    bn_priority = (
+        "Documents pending (iCIMS)",
+        "Document rework loop",
+        "IT SLA breach (ServiceNow)",
+        "IT provisioning in progress",
+        "Awaiting Day-1 orientation",
+        "Awaiting project assignment (Jira)",
+        "Offer-to-docs handoff",
+        "On track",
+    )
+    ordered_bn: dict[str, int] = {}
+    for key in bn_priority:
+        if key in bottlenecks:
+            ordered_bn[key] = bottlenecks[key]
+    for key, val in bottlenecks.items():
+        if key not in ordered_bn:
+            ordered_bn[key] = val
+    bottlenecks = ordered_bn
 
     docs_pending = sum(
         1 for d in docs if d is not None and d.status == DocumentStatus.PENDING
     )
+    sla_breaches = sum(1 for t in tickets if t is not None and t.sla_breached)
 
     return AnalyticsResponse(
         avg_onboarding_days=round(sum(pipeline_days) / len(pipeline_days), 2),
@@ -81,9 +222,13 @@ def build_analytics(db: DataStore | None = None) -> AnalyticsResponse:
         active_joiners=active,
         project_ready_count=ready,
         docs_pending=docs_pending,
+        sla_breaches=sla_breaches,
         bottleneck_counts=dict(bottlenecks),
         avg_days_by_state=avg_days_by_state,
         onboarding_trend=trend,
+        role_view=role_view.value,
+        cohort_size=len(joiners),
+        focus_note=note,
         synthetic=True,
         as_of=ANALYTICS_AS_OF,
     )

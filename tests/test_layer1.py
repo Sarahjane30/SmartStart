@@ -20,6 +20,9 @@ def test_generate_cohort_counts_and_flags():
     assert all(j.synthetic for j in joiners)
     assert all(j.email.endswith("@synthetic.smartstart.example") for j in joiners)
     assert all(j.id.startswith("SYN-J-") for j in joiners)
+    manager_ids = {j.manager_id for j in joiners}
+    assert len(manager_ids) >= 2
+    assert all(j.manager_name for j in joiners)
     for j in joiners:
         assert db.get_documents(j.id) is not None
         assert db.get_ticket_for_joiner(j.id) is not None
@@ -43,11 +46,13 @@ def test_api_joiners_and_metrics():
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["mode"] == "synthetic"
+        assert health.json()["employer_auth"] is True
 
         listing = client.get("/api/joiners")
         assert listing.status_code == 200
         rows = listing.json()
         assert len(rows) == 30
+        assert all(r["manager_id"].startswith("MGR-") for r in rows)
 
         interns = client.get("/api/joiners", params={"role_type": "INTERN"})
         assert len(interns.json()) == 15
@@ -56,6 +61,7 @@ def test_api_joiners_and_metrics():
         assert detail.status_code == 200
         body = detail.json()
         assert body["joiner"]["synthetic"] is True
+        assert body["joiner"]["manager_name"]
         assert "it_ticket" in body
         assert "documents" in body
         assert body["documents"]["form_count"] == 30
@@ -71,9 +77,23 @@ def test_api_joiners_and_metrics():
 
 def test_api_regenerate_and_404():
     with TestClient(app) as client:
+        denied = client.post(
+            "/api/admin/regenerate",
+            params={"seed": 1, "n_interns": 2, "n_ftes": 2},
+        )
+        assert denied.status_code == 401
+
+        login = client.post(
+            "/api/auth/login",
+            json={"username": "ops.admin", "password": "ops-demo-2026"},
+        )
+        assert login.status_code == 200
+        headers = {"Authorization": f"Bearer {login.json()['token']}"}
+
         regen = client.post(
             "/api/admin/regenerate",
             params={"seed": 1, "n_interns": 2, "n_ftes": 2},
+            headers=headers,
         )
         assert regen.status_code == 200
         assert regen.json()["total_joiners"] == 4

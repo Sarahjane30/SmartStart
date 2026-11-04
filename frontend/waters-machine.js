@@ -9,17 +9,61 @@
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const TAU = Math.PI * 2;
   const DEG = Math.PI / 180;
+  const THEME_KEY = "wm-theme-brand";
+  const PALETTE = {
+    night: {
+      cyan: [96, 214, 255],
+      blue: [96, 136, 255],
+      violet: [170, 128, 255],
+      ice: [218, 232, 255],
+      mint: [112, 238, 208],
+      amber: [255, 198, 120],
+      steel: [150, 165, 196],
+    },
+    /* Sampled from Waters corporate brand art: #0077BB white→blue field */
+    brand: {
+      cyan: [0, 119, 187],
+      blue: [0, 140, 205],
+      violet: [56, 150, 205],
+      ice: [210, 232, 245],
+      mint: [90, 175, 215],
+      amber: [0, 100, 160],
+      steel: [130, 170, 200],
+    },
+  };
   const C = {
-    cyan: [96, 214, 255],
-    blue: [96, 136, 255],
-    violet: [170, 128, 255],
-    ice: [218, 232, 255],
-    mint: [112, 238, 208],
-    amber: [255, 198, 120],
-    steel: [150, 165, 196],
+    cyan: PALETTE.night.cyan.slice(),
+    blue: PALETTE.night.blue.slice(),
+    violet: PALETTE.night.violet.slice(),
+    ice: PALETTE.night.ice.slice(),
+    mint: PALETTE.night.mint.slice(),
+    amber: PALETTE.night.amber.slice(),
+    steel: PALETTE.night.steel.slice(),
   };
   const AREA_COLORS = [C.cyan, C.mint, C.blue, C.violet];
   const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`;
+  function applyPalette(brand) {
+    const src = brand ? PALETTE.brand : PALETTE.night;
+    Object.keys(src).forEach((k) => {
+      C[k][0] = src[k][0];
+      C[k][1] = src[k][1];
+      C[k][2] = src[k][2];
+    });
+  }
+  function readBrandPref() {
+    try {
+      return localStorage.getItem(THEME_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+  function writeBrandPref(on) {
+    try {
+      localStorage.setItem(THEME_KEY, on ? "1" : "0");
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
   const lerp = (a, b, k) => a + (b - a) * k;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3));
@@ -130,6 +174,7 @@
     proj: {},
     dust: [],
     iraOrb: null,
+    brand: false,
   };
   [...ORDER, "core"].forEach((id) => (S.fx[id] = { a: 0, k: 1, open: 0 }));
   for (let i = 0; i < 150; i += 1) {
@@ -249,12 +294,27 @@
     const cx = S.w / 2 + S.shift * 0.6;
     const cy = S.h * 0.5;
     const R = Math.max(S.w, S.h);
-    const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.75);
-    bg.addColorStop(0, "#0d1a42");
-    bg.addColorStop(0.45, "#060c22");
-    bg.addColorStop(1, "#02040b");
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, S.w, S.h);
+    if (S.brand) {
+      const bg = ctx.createLinearGradient(0, 0, S.w, 0);
+      bg.addColorStop(0, "#ffffff");
+      bg.addColorStop(0.42, "#b7d9ee");
+      bg.addColorStop(1, "#0077bb");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, S.w, S.h);
+      const veil = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.7);
+      veil.addColorStop(0, "rgba(255,255,255,0.28)");
+      veil.addColorStop(0.55, "rgba(255,255,255,0)");
+      veil.addColorStop(1, "rgba(0,70,120,0.18)");
+      ctx.fillStyle = veil;
+      ctx.fillRect(0, 0, S.w, S.h);
+    } else {
+      const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.75);
+      bg.addColorStop(0, "#0d1a42");
+      bg.addColorStop(0.45, "#060c22");
+      bg.addColorStop(1, "#02040b");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, S.w, S.h);
+    }
 
     const m = Math.min(S.w, S.h);
     const ox = cx + S.smx * -14;
@@ -1528,6 +1588,25 @@
   $(".wm-src-btn").addEventListener("click", () => (els.sources.hidden = !els.sources.hidden));
   els.sources.querySelector(".wm-sources-close").addEventListener("click", () => (els.sources.hidden = true));
 
+  const themeBtn = $(".wm-theme-toggle");
+  function setBrandTheme(on, { persist = true } = {}) {
+    S.brand = !!on;
+    applyPalette(S.brand);
+    root.classList.toggle("is-brand", S.brand);
+    if (themeBtn) {
+      themeBtn.setAttribute("aria-pressed", S.brand ? "true" : "false");
+      const label = themeBtn.querySelector(".wm-theme-toggle-text");
+      if (label) label.textContent = S.brand ? "Brand on" : "Brand";
+      themeBtn.title = S.brand ? "Switch to night colors" : "Waters brand colors";
+    }
+    if (persist) writeBrandPref(S.brand);
+    if (S.data) renderPanel();
+  }
+  if (themeBtn) {
+    themeBtn.addEventListener("click", () => setBrandTheme(!S.brand));
+  }
+  setBrandTheme(readBrandPref(), { persist: false });
+
   /* ---------- open / close ---------- */
 
   async function open(opts = {}) {
@@ -1536,6 +1615,7 @@
     root.hidden = false;
     document.body.classList.add("wm-lock");
     S.open = true;
+    setBrandTheme(S.brand, { persist: false });
     S.intro = true;
     S.finale = false;
     S.active = null;

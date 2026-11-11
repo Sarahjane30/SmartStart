@@ -103,6 +103,7 @@
     overview: "Move to look around · hover a part to light it up · click to open · scroll to travel",
     active: "Click the part again to zoom · scroll or → for next · Esc to step back",
     deep: "Scroll or → for next · Esc to step back",
+    universe: "Drag or ← → to turn the worlds · Enter to step inside · scroll or ↓ for the next chapter",
   };
 
   const fib = (n) =>
@@ -180,6 +181,9 @@
     opening: false,
     px: -9999,
     py: -9999,
+    uni: null,
+    uniK: 0,
+    uniText: false,
   };
   [...ORDER, "core"].forEach((id) => (S.fx[id] = { a: 0, k: 1, open: 0 }));
   for (let i = 0; i < 150; i += 1) {
@@ -586,7 +590,7 @@
   }
 
   /* The LC/MS ride is its own full-screen film; the machine sleeps underneath until it ends. */
-  function enterRide(kind, trackName = "observe") {
+  function enterRide(kind, trackName = "observe", back = null) {
     if (!window.WatersRide) return;
     hideIntro();
     if (S.finale) leaveFinale();
@@ -600,10 +604,42 @@
         S.ride = false;
         root.classList.remove("is-ride");
         if (!S.open) return;
-        overview();
+        if (back === "universe" && S.active === "technology" && uniOn()) S.uni.redive();
+        else overview();
         S.last = 0;
         cancelAnimationFrame(S.raf);
         S.raf = requestAnimationFrame(frame);
+      },
+    });
+  }
+
+  /* Chapter 03 hub. The universe draws on this canvas so the rail and camera stay put;
+     the chapter panel becomes its text version. Without the module the old panel remains. */
+  const uniOn = () => !!S.uni && S.active === "technology" && !S.uniText && !S.finale;
+
+  function makeUniverse() {
+    if (S.uni || !window.WatersUniverse || !window.WatersSim) return;
+    S.uni = window.WatersUniverse.create({
+      ctx,
+      C,
+      rgba,
+      glow,
+      dot,
+      lerp,
+      clamp,
+      ease,
+      TAU,
+      reduce,
+      S,
+      esc,
+      root,
+      cursor: (c) => (canvas.style.cursor = c),
+      onJourney: (track, kind) => enterRide(kind, track, "universe"),
+      onText: () => {
+        S.uniText = true;
+        renderPanel();
+        setHint();
+        requestAnimationFrame(() => els.panel.querySelector("h2")?.focus({ preventScroll: true }));
       },
     });
   }
@@ -2100,7 +2136,7 @@
       else if (active) a = id === active ? 1 : active === "you" ? (youLit ? 0.22 : 0.04) : 0.15;
       else if (S.hover) a = id === S.hover ? 1 : 0.26;
       else a = S.intro ? (id === "you" ? 0.45 : 0.72) : id === "you" ? 0.6 : 0.92;
-      fx.ta = a * ease(S.assemble * 1.3 - ORDER.indexOf(id) * 0.08);
+      fx.ta = a * ease(S.assemble * 1.3 - ORDER.indexOf(id) * 0.08) * (1 - ease(S.uniK));
       fx.tk = id === active || id === S.hover ? 1.08 : 1;
       fx.topen = id === active ? (id === "technology" ? (S.level > 1 || S.chamber >= 0 ? 1 : 0.35) : 1) : 0;
     });
@@ -2116,6 +2152,7 @@
           : S.hover
             ? 0.4
             : 1;
+    core.ta *= 1 - ease(S.uniK);
   }
 
   function cameraTargets() {
@@ -2141,7 +2178,13 @@
       zoom = 0.86;
     }
     if (S.finale) zoom = (S.narrow ? 0.78 : 1) * (1 - ease(S.closing) * 0.25);
-    const shiftY = S.narrow && !S.finale ? -S.h * (active ? 0.27 : S.intro ? 0.16 : 0) : 0;
+    let shiftY = S.narrow && !S.finale ? -S.h * (active ? 0.27 : S.intro ? 0.16 : 0) : 0;
+    if (S.uniK > 0.001) {
+      const u = ease(S.uniK);
+      zoom *= 1 + 1.6 * u;
+      shift *= 1 - u;
+      shiftY *= 1 - u;
+    }
     return { cam, zoom, shift, shiftY };
   }
 
@@ -2159,6 +2202,7 @@
 
     if (S.ride) return;
 
+    S.uniK = lerp(S.uniK, uniOn() ? 1 : 0, Math.min(1, dt * (reduce ? 8 : 1.6)));
     if (S.opening) tickOpening(dt);
     targets();
     const k6 = Math.min(1, dt * 5);
@@ -2188,6 +2232,7 @@
     ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
     drawBackdrop();
     if (S.opening) {
+      S.uni?.draw(dt, 0);
       drawOpening();
       ctx.globalCompositeOperation = "source-over";
       syncOpening();
@@ -2211,6 +2256,7 @@
     }
     if (!coreDrawn) drawCore();
     ctx.globalCompositeOperation = "source-over";
+    S.uni?.draw(dt, S.uniK, S.proj.technology);
 
     syncDom();
     if (S.finale && S.closing > 0.85 && !S.finaleShown) showFinale();
@@ -2399,10 +2445,32 @@
       <h4>How it works</h4>
       <p class="wm-div-how">${esc(d.how)}</p>
       <h4>Key technologies</h4>
-      <ul class="wm-div-tech">${d.tech.map((t) => `<li><strong>${esc(t.name)}</strong><span>${esc(t.what)}</span></li>`).join("")}</ul>
+      <ul class="wm-div-tech">${d.tech
+        .map(
+          (t) => `<li><strong>${esc(t.name)}</strong><span>${esc(t.what)}</span>${
+            t.status === "pending"
+              ? `<small class="wm-pending">Pending validation${t.source ? ` · <a href="${esc(t.source)}" target="_blank" rel="noopener">source</a>` : ""}</small>`
+              : ""
+          }</li>`
+        )
+        .join("")}</ul>
       <h4>Where it's used</h4>
       <div class="wm-div-used">${d.used.map((u) => `<span>${esc(u)}</span>`).join("")}</div>
       <p class="wm-plain"><span>For example</span>${esc(d.example)}</p>`;
+  }
+
+  function uniTextHTML(u) {
+    return `<button type="button" class="wm-uni-return">← Back to the interactive universe</button>
+      <p class="wm-uni-tlegend">${esc(u.legend.simulation)}. ${esc(u.legend.labels)}. ${esc(u.legend.products)}.</p>
+      <h3>${esc(u.title)}</h3>
+      <ul class="wm-uni-tlist">${u.areas
+        .map(
+          (a) => `<li style="--c:${divColor(a.division)}"><strong>${esc(a.division)}</strong>
+            <span>${esc(a.question)} ${esc(a.teaser)}</span>
+            <em>${a.experience === "available" ? "Interactive journeys available" : "Interactive experience in progress"}</em>
+            ${a.note ? `<span class="wm-muted">${esc(a.note)}</span>` : ""}</li>`
+        )
+        .join("")}</ul>`;
   }
 
   const PANELS = {
@@ -2448,7 +2516,9 @@
         <p class="wm-plain"><span>The point</span>Not just measuring things — helping scientists make better decisions.</p>`;
     },
     technology(c) {
-      return `${kicker(c)}<h2>${esc(c.title)}</h2>
+      const u = S.uni && c.universe;
+      return `${kicker(c)}<h2 tabindex="-1">${esc(c.title)}</h2>
+        ${u ? uniTextHTML(c.universe) : ""}
         <p class="wm-lead">${esc(c.lead)}</p>
         <div class="wm-chambers">${c.chambers
           .map(
@@ -2531,13 +2601,16 @@
     const id = S.active;
     if (!id) {
       els.panel.classList.remove("is-show");
+      els.panel.inert = false;
       return;
     }
     const c = comp(id);
     els.panel.dataset.part = id;
     const body = PANELS[id](c);
     els.panel.innerHTML = `<div class="wm-panel-body">${body}</div>${navFooter(id)}`;
-    els.panel.classList.toggle("is-show", id !== "you" || S.youStage >= 4);
+    const hub = id === "technology" && uniOn();
+    els.panel.classList.toggle("is-show", (id !== "you" || S.youStage >= 4) && !hub);
+    els.panel.inert = hub;
     if (id === "you") {
       els.youCard.innerHTML = `<strong>${esc(c.name)}</strong><span class="l2">${esc(c.role_title)}</span><span class="l2 dim">${esc(c.team)} · ${esc(c.department)}</span>`;
     }
@@ -2598,6 +2671,11 @@
       });
     }
     if (id === "technology") {
+      P.querySelector(".wm-uni-return")?.addEventListener("click", () => {
+        S.uniText = false;
+        renderPanel();
+        setHint();
+      });
       P.querySelectorAll("[data-ride]").forEach((b) =>
         b.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -2664,13 +2742,16 @@
   /* ---------- navigation ---------- */
 
   function setHint() {
-    const key = S.active
+    const key = uniOn()
+      ? "universe"
+      : S.active
       ? ["world", "people", "you"].includes(S.active) || S.level > 1
         ? "deep"
         : "active"
       : "overview";
     els.hint.textContent = S.finale ? "" : HINTS[key];
     root.classList.toggle("is-active", !!S.active);
+    root.classList.toggle("is-universe", uniOn());
     root.classList.toggle("is-finale", S.finale);
     els.rail.querySelectorAll(".wm-rail-btn").forEach((b) => {
       const i = Number(b.dataset.step);
@@ -2687,14 +2768,18 @@
   function select(id) {
     hideIntro();
     if (S.finale) leaveFinale();
-    if (S.active === id) {
+    if (S.active === id && id === "technology" && uniOn()) {
+      /* the hub has its own depth; re-selecting the chapter keeps it */
+    } else if (S.active === id) {
       if (["science", "impact", "technology"].includes(id)) {
         S.level = S.level > 1 ? 1 : 2;
         if (id === "technology" && S.level > 1 && S.chamber < 0) S.chamber = 0;
         renderPanel();
       }
     } else {
+      if (S.active === "technology") S.uni?.leave();
       S.active = id;
+      S.uniText = reduce;
       S.level = 1;
       S.chamber = -1;
       S.site = null;
@@ -2712,6 +2797,7 @@
 
   function overview() {
     if (S.finale) leaveFinale();
+    if (S.active === "technology") S.uni?.leave();
     S.active = null;
     S.level = 1;
     S.globeTarget = null;
@@ -2818,6 +2904,7 @@
     S.py = e.clientY - r.top;
     OP.ptrT = S.t;
     if (S.intro || S.finale || S.opening) return;
+    if (uniOn()) return S.uni.move(S.px, S.py);
     const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
     if (!S.active) S.hover = hit;
     canvas.style.cursor = hit ? "pointer" : "default";
@@ -2852,6 +2939,7 @@
       if (!reduce) OP.ripples.push({ x, y, t: 0 });
       return;
     }
+    if (uniOn()) return S.uni.click(x, y);
     const hit = hitTest(x, y);
     if (S.intro) {
       hideIntro();
@@ -2864,7 +2952,7 @@
   }
 
   function onWheel(e) {
-    const inPanel = e.target.closest(".wm-panel, .wm-sources");
+    const inPanel = e.target.closest(".wm-panel, .wm-sources, .wm-uni-dive");
     if (inPanel && inPanel.scrollHeight > inPanel.clientHeight + 2) return;
     e.preventDefault();
     if (S.opening) {
@@ -2894,10 +2982,19 @@
       e.preventDefault();
       return;
     }
+    if (uniOn() && els.sources.hidden && S.uni.key(e)) {
+      e.preventDefault();
+      return;
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       if (!els.sources.hidden) els.sources.hidden = true;
       else if (S.finale) goStep(ORDER.length - 1);
+      else if (S.active === "technology" && S.uni && S.uniText && !reduce) {
+        S.uniText = false;
+        renderPanel();
+        setHint();
+      }
       else if (S.active) overview();
       else close();
     } else if (["ArrowRight", "ArrowDown", "PageDown"].includes(e.key) && !e.target.closest("input, textarea")) {
@@ -2923,6 +3020,12 @@
   canvas.addEventListener("pointermove", onMove);
   canvas.addEventListener("pointerdown", (e) => {
     OP.dragMoved = 0;
+    if (uniOn() && e.pointerType !== "touch") {
+      S.uni.down(e.clientX - canvas.getBoundingClientRect().left);
+      root.classList.add("is-dragging");
+      canvas.setPointerCapture?.(e.pointerId);
+      return;
+    }
     if (!S.opening || e.pointerType === "touch") return;
     OP.drag = { x: e.clientX };
     OP.spinV = 0;
@@ -2939,6 +3042,7 @@
     OP.spinV = lerp(OP.spinV, d, 0.6);
   });
   const endDrag = () => {
+    S.uni?.up();
     OP.drag = null;
     root.classList.remove("is-dragging");
   };
@@ -2957,6 +3061,7 @@
     "touchstart",
     (e) => {
       S.touchY = e.touches[0]?.clientY ?? null;
+      S.touchX = e.touches[0]?.clientX ?? null;
       OP.touchY = S.touchY;
       OP.touching = S.opening;
     },
@@ -2984,9 +3089,11 @@
         S.touchY = null;
         return;
       }
-      if (S.touchY === null || e.target.closest(".wm-panel")) return;
+      if (S.touchY === null || e.target.closest(".wm-panel, .wm-uni-dive")) return;
       const dy = S.touchY - (e.changedTouches[0]?.clientY ?? S.touchY);
-      if (Math.abs(dy) > 50) step(dy > 0 ? 1 : -1);
+      const dx = (S.touchX ?? 0) - (e.changedTouches[0]?.clientX ?? S.touchX ?? 0);
+      if (uniOn() && !S.uni.diving && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) S.uni.turn(dx > 0 ? 1 : -1);
+      else if (Math.abs(dy) > 50) step(dy > 0 ? 1 : -1);
       S.touchY = null;
     },
     { passive: true }
@@ -3020,7 +3127,10 @@
       themeBtn.title = S.brand ? "Switch to night colors" : "Waters brand colors";
     }
     if (persist) writeBrandPref(S.brand);
-    if (S.data) renderPanel();
+    if (S.data) {
+      renderPanel();
+      S.uni?.setData(comp("technology"), S.data.company.divisions);
+    }
   }
   if (themeBtn) {
     themeBtn.addEventListener("click", () => setBrandTheme(!S.brand));
@@ -3068,6 +3178,8 @@
     }
     buildLabels();
     buildFinale();
+    makeUniverse();
+    S.uni?.setData(comp("technology"), S.data.company.divisions);
     setHint();
     if (S.opening) return;
     cancelAnimationFrame(S.raf);

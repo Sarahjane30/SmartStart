@@ -97,6 +97,15 @@ def test_technology_universe_is_labelled_and_grounded() -> None:
         ]
         assert {a["division"] for a in uni["areas"]} <= names
         assert len({a["visual"] for a in uni["areas"]}) == 4
+        assert uni["title"] == "Explore the science"
+        assert [a["subtitle"] for a in uni["areas"]] == [
+            "Separation, detection and analysis",
+            "Cells, molecular biology and flow cytometry",
+            "Infection testing and diagnostics",
+            "Characterising materials and their properties",
+        ]
+        assert uni["areas"][1]["tagline"] == "Understanding the complexity of life, one cell at a time."
+        assert all(a["tagline"] for a in uni["areas"])
         assert set(uni["legend"]) == {"simulation", "labels", "products"}
         analytical = uni["areas"][0]
         assert analytical["experience"] == "available"

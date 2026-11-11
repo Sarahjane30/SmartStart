@@ -262,8 +262,8 @@ for _d in DIVISIONS:
 # Chapter 03 — the Technology universe. Area names are working labels (see label_status) and
 # each area points at its division's content above; visuals are illustrative simulations.
 UNIVERSE = {
-    "title": "The technology universe",
-    "intro": "Four worlds of science. Turn the ring, choose a world and step inside.",
+    "title": "Explore the science",
+    "intro": "Four areas. Four different scientific worlds.",
     "legend": {
         "simulation": "Illustrative simulation, not instrument data",
         "labels": "Working area names, pending confirmation",
@@ -275,6 +275,8 @@ UNIVERSE = {
             "division": "Analytical Sciences",
             "accent": "cyan",
             "visual": "column",
+            "subtitle": "Separation, detection and analysis",
+            "tagline": "Seeing what's inside a sample, molecule by molecule.",
             "question": "Which molecules are in this sample?",
             "teaser": "Separate a mixture, then weigh every molecule in it.",
             "experience": "available",
@@ -290,6 +292,8 @@ UNIVERSE = {
             "division": "Biosciences",
             "accent": "violet",
             "visual": "flow",
+            "subtitle": "Cells, molecular biology and flow cytometry",
+            "tagline": "Understanding the complexity of life, one cell at a time.",
             "question": "Which cells are in this sample, and what are they doing?",
             "teaser": "Cells pass a laser one at a time; the light they give off reveals what they are.",
             "experience": "in-progress",
@@ -300,6 +304,8 @@ UNIVERSE = {
             "division": "Advanced Diagnostics",
             "accent": "mint",
             "visual": "culture",
+            "subtitle": "Infection testing and diagnostics",
+            "tagline": "From a patient's sample to an answer a clinician can act on.",
             "question": "Is this patient infected, with what, and what will treat it?",
             "teaser": "Microbes growing in a blood culture slowly light the sensor until the bottle flags positive.",
             "experience": "in-progress",
@@ -311,6 +317,8 @@ UNIVERSE = {
             "division": "Materials Sciences",
             "accent": "blue",
             "visual": "lattice",
+            "subtitle": "Characterising materials and their properties",
+            "tagline": "Knowing how a material will behave before it's put to work.",
             "question": "How will this material behave when it's heated, stretched or made to flow?",
             "teaser": "Heat a crystal: it vibrates harder, then loses its order at the melting point.",
             "experience": "in-progress",

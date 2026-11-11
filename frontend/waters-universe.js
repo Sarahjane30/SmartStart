@@ -1,10 +1,10 @@
-/* Waters // Chapter 03 — the Technology universe.
-   A ring of four scientific worlds drawn on the machine's canvas with the machine's own
-   helpers. Each world animates its real process from WatersSim; the focused world wakes up.
-   Drag, swipe, arrow keys or the world labels turn the ring; stepping inside a world opens
-   its experience — the existing LC/MS journeys for Analytical Sciences, an in-progress
-   preview for the others. All controls are DOM buttons, so the hub is keyboard and
-   screen-reader operable; a text version lives in the chapter panel. */
+/* Waters // Chapter 03 — the Technology landing screen.
+   Four large exploration panels, one per scientific area, each with its own live scene drawn
+   on the machine's canvas from WatersSim. Choosing a panel expands its scene to the full
+   screen and opens that area; Analytical Sciences leads into the existing LC/MS journeys,
+   the other areas show an in-progress shell until their experiences are built. The panels
+   and every control are DOM buttons, so the screen is keyboard and screen-reader operable;
+   a text version lives in the chapter panel. */
 (function (global) {
   "use strict";
 
@@ -14,184 +14,177 @@
     const { ctx, C, rgba, glow, dot, lerp, clamp, ease, TAU, reduce, S, esc, root } = kit;
     const sm = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
     const MONO = '"IBM Plex Mono", ui-monospace, monospace';
+    const pad = (n) => String(n).padStart(2, "0");
 
     const U = {
       k: 0,
-      rot: 0,
-      target: 0,
-      focus: 0,
-      dive: 0,
-      diving: false,
-      drag: null,
-      moved: 0,
-      hover: -1,
       t: 0,
-      wake: [0, 0, 0, 0],
-      clock: [0, 0, 0, 0],
-      touched: false,
+      n: 0,
+      index: "03",
+      chapter: "",
       areas: [],
       divisions: [],
       legend: {},
+      open: -1,
+      shown: -1,
+      x: 0,
+      from: null,
+      hover: -1,
+      wake: [0, 0, 0, 0],
+      lbl: true,
     };
 
     const box = document.createElement("div");
     box.className = "wm-uni";
     box.hidden = true;
-    box.setAttribute("aria-label", "Technology universe");
+    box.setAttribute("aria-label", "Explore the science");
     root.appendChild(box);
+    let tiles = [];
 
     function setData(tech, divisions) {
       const u = tech?.universe;
       U.areas = u ? u.areas : [];
+      U.n = U.areas.length;
       U.divisions = divisions || [];
       U.legend = u ? u.legend : {};
       if (!u) return;
-      const n = U.areas.length;
+      U.index = tech.index;
+      U.chapter = tech.label;
       box.innerHTML = `
-        <div class="wm-uni-intro"><p class="wm-uni-kick">${esc(u.title)}</p><p>${esc(u.intro)}</p></div>
-        <div class="wm-uni-worlds">${U.areas
-          .map(
-            (a, i) => `<button type="button" class="wm-uni-world" data-i="${i}" style="--c:${rgba(C[a.accent], 1)}"
-              aria-label="${esc(a.division)}: ${esc(a.question)}"><span>${String(i + 1).padStart(2, "0")}</span>${esc(a.division)}</button>`
-          )
+        <header class="wm-uni-head">
+          <p class="wm-uni-kick">${esc(tech.index)} · ${esc(tech.label)}</p>
+          <h2>${esc(u.title)}</h2>
+          <p>${esc(u.intro)}</p>
+        </header>
+        <div class="wm-uni-grid">${U.areas
+          .map((a, i) => {
+            const live = a.experience === "available";
+            return `<button type="button" class="wm-uni-tile" data-i="${i}" style="--c:${rgba(C[a.accent], 1)}">
+              ${live ? "" : `<small class="wm-uni-soon">In progress</small>`}
+              <span class="wm-uni-idx">${pad(i + 1)}</span>
+              <strong>${esc(a.division)}</strong>
+              <span class="wm-uni-sub">${esc(a.subtitle)}</span>
+              <span class="wm-uni-cta">Explore <i aria-hidden="true">→</i></span>
+            </button>`;
+          })
           .join("")}</div>
-        <div class="wm-uni-focus" aria-live="polite"></div>
-        <div class="wm-uni-turn">
-          <button type="button" class="wm-uni-arrow" data-turn="-1" aria-label="Previous world">←</button>
-          <span class="wm-uni-count"></span>
-          <button type="button" class="wm-uni-arrow" data-turn="1" aria-label="Next world">→</button>
-        </div>
         <p class="wm-uni-legend"><span><i></i>${esc(U.legend.simulation)}</span><span>${esc(U.legend.labels)}</span><span>${esc(U.legend.products)}</span></p>
         <button type="button" class="wm-uni-text">Text version</button>
-        <section class="wm-uni-dive" hidden aria-live="polite"></section>`;
-      box.querySelectorAll(".wm-uni-world").forEach((b) =>
-        b.addEventListener("click", () => {
-          const i = Number(b.dataset.i);
-          if (i === U.focus) dive(true);
-          else turnTo(i);
-        })
-      );
-      box.querySelectorAll("[data-turn]").forEach((b) => b.addEventListener("click", () => turn(Number(b.dataset.turn))));
+        <section class="wm-uni-area" hidden></section>`;
+      tiles = [...box.querySelectorAll(".wm-uni-tile")];
+      tiles.forEach((b, i) => {
+        b.addEventListener("mouseenter", () => (U.hover = i));
+        b.addEventListener("focus", () => (U.hover = i));
+        b.addEventListener("mouseleave", () => U.hover === i && (U.hover = -1));
+        b.addEventListener("blur", () => U.hover === i && (U.hover = -1));
+        b.addEventListener("click", () => openArea(i));
+      });
       box.querySelector(".wm-uni-text").addEventListener("click", () => kit.onText());
-      U.n = n;
-      renderFocus();
-      box.classList.toggle("is-touched", U.touched);
-      if (U.diving) {
-        box.classList.add("is-dive");
-        renderDive();
-        box.querySelector(".wm-uni-dive").hidden = false;
+      if (U.open >= 0) {
+        box.classList.add("is-area");
+        renderArea(U.open);
+        box.querySelector(".wm-uni-area").hidden = false;
       }
     }
 
-    const area = (i) => U.areas[((i % U.n) + U.n) % U.n];
+    const area = (i) => U.areas[i];
     const divisionOf = (a) => U.divisions.find((d) => d.name === a.division) || {};
-    const wrap = (i) => ((i % U.n) + U.n) % U.n;
 
-    function renderFocus() {
-      const a = area(U.focus);
-      if (!a) return;
-      const live = a.experience === "available";
-      box.querySelector(".wm-uni-focus").innerHTML = `
-        <h3 style="--c:${rgba(C[a.accent], 1)}">${esc(a.division)}</h3>
-        <p class="wm-uni-q">${esc(a.question)}</p>
-        <p class="wm-uni-teaser">${esc(a.teaser)}</p>
-        <button type="button" class="wm-uni-go${live ? "" : " is-soon"}">${live ? "Step inside" : "Preview · in progress"} <span aria-hidden="true">→</span></button>`;
-      box.querySelector(".wm-uni-go").addEventListener("click", () => dive(true));
-      box.querySelector(".wm-uni-count").textContent = `${String(U.focus + 1).padStart(2, "0")} / ${String(U.n).padStart(2, "0")}`;
-      box.querySelectorAll(".wm-uni-world").forEach((b) => b.classList.toggle("is-front", Number(b.dataset.i) === U.focus));
+    function relRect(el) {
+      const r = el.getBoundingClientRect();
+      const q = root.getBoundingClientRect();
+      return { x: r.left - q.left, y: r.top - q.top, w: r.width, h: r.height };
     }
 
-    function renderDive() {
-      const a = area(U.focus);
+    function renderArea(i) {
+      const a = area(i);
       const d = divisionOf(a);
-      const el = box.querySelector(".wm-uni-dive");
       const live = a.experience === "available";
-      el.style.setProperty("--c", rgba(C[a.accent], 1));
-      el.innerHTML = `
-        <p class="wm-uni-kick">${esc(a.division)} <small>working label</small></p>
-        <h3>${esc(a.question)}</h3>
-        <p>${esc(d.simple || a.teaser)}</p>
-        ${
-          live
-            ? `<p class="wm-uni-sub">Choose a journey</p><div class="wm-uni-journeys">${a.journeys
-                .map(
-                  (j, i) => `<button type="button" class="wm-uni-journey" data-j="${i}"><strong>${esc(j.label)}</strong><span>${esc(j.what)}</span><em aria-hidden="true">→</em></button>`
-                )
-                .join("")}</div>`
-            : `<p class="wm-uni-status"><i></i>Interactive experience in progress</p>
-               <p class="wm-uni-sub">Coming next</p><p>${esc(a.coming)}</p>
-               ${a.note ? `<p class="wm-uni-note">${esc(a.note)}</p>` : ""}
-               <button type="button" class="wm-uni-read">Read about ${esc(a.division)} as text</button>`
-        }
-        <button type="button" class="wm-uni-back">← Back to the universe</button>`;
-      el.querySelectorAll("[data-j]").forEach((b) =>
+      const sec = box.querySelector(".wm-uni-area");
+      sec.style.setProperty("--c", rgba(C[a.accent], 1));
+      sec.setAttribute("aria-label", a.division);
+      sec.innerHTML = `
+        <nav class="wm-uni-crumb" aria-label="Technology areas">
+          <button type="button" class="wm-uni-back">← All four areas</button>
+          <span>${esc(U.index)} ${esc(U.chapter)} <i>/</i> ${esc(a.division)}</span>
+        </nav>
+        <div class="wm-uni-copy">
+          <p class="wm-uni-kick">${pad(i + 1)} · ${esc(a.subtitle)}</p>
+          <h2 tabindex="-1">${esc(a.division)}</h2>
+          <p class="wm-uni-tag">${esc(a.tagline)}</p>
+          <p>${esc(d.simple || a.teaser)}</p>
+          ${
+            live
+              ? `<p class="wm-uni-label">Choose a journey</p><div class="wm-uni-journeys">${a.journeys
+                  .map(
+                    (j, n) => `<button type="button" class="wm-uni-journey" data-j="${n}"><strong>${esc(j.label)}</strong><span>${esc(j.what)}</span><em aria-hidden="true">→</em></button>`
+                  )
+                  .join("")}</div>`
+              : `<p class="wm-uni-status"><i></i>Full interactive experience in progress</p>
+                 <p class="wm-uni-next"><span>Coming next</span>${esc(a.coming)}</p>
+                 ${a.note ? `<p class="wm-uni-note">${esc(a.note)}</p>` : ""}
+                 <button type="button" class="wm-uni-read">Read about ${esc(a.division)} as text</button>`
+          }
+        </div>`;
+      sec.querySelectorAll("[data-j]").forEach((b) =>
         b.addEventListener("click", () => {
           const j = a.journeys[Number(b.dataset.j)];
           kit.onJourney(j.track, j.kind);
         })
       );
-      el.querySelector(".wm-uni-read")?.addEventListener("click", () => kit.onText(a.division));
-      el.querySelector(".wm-uni-back").addEventListener("click", () => dive(false));
+      sec.querySelector(".wm-uni-read")?.addEventListener("click", () => kit.onText());
+      sec.querySelector(".wm-uni-back").addEventListener("click", () => closeArea());
     }
 
-    function touch() {
-      U.touched = true;
-      box.classList.add("is-touched");
+    function openArea(i) {
+      if (U.open >= 0 || !tiles[i]) return;
+      U.from = relRect(tiles[i]);
+      U.open = i;
+      U.shown = i;
+      U.hover = -1;
+      renderArea(i);
+      box.classList.add("is-area");
+      const sec = box.querySelector(".wm-uni-area");
+      sec.hidden = false;
+      setTimeout(() => sec.querySelector("h2")?.focus({ preventScroll: true }), reduce ? 0 : 420);
     }
 
-    function turnTo(i) {
-      if (U.diving) return;
-      touch();
-      const cur = wrap(Math.round(U.target));
-      let d = wrap(i) - cur;
-      if (d > U.n / 2) d -= U.n;
-      if (d < -U.n / 2) d += U.n;
-      U.target = Math.round(U.target) + d;
-      U.focus = wrap(U.target);
-      renderFocus();
-    }
-    const turn = (d) => turnTo(wrap(Math.round(U.target)) + d);
-
-    function dive(on) {
-      if (on === U.diving) return;
-      touch();
-      U.diving = on;
-      const el = box.querySelector(".wm-uni-dive");
-      box.classList.toggle("is-dive", on);
-      if (on) {
-        renderDive();
-        el.hidden = false;
-        requestAnimationFrame(() => el.querySelector("button")?.focus({ preventScroll: true }));
-      } else {
-        el.hidden = true;
-        box.querySelector(".wm-uni-go")?.focus({ preventScroll: true });
+    function closeArea(instant) {
+      if (U.open < 0) return;
+      const i = U.open;
+      U.open = -1;
+      if (instant) {
+        U.x = 0;
+        U.shown = -1;
       }
+      box.classList.remove("is-area");
+      box.querySelector(".wm-uni-area").hidden = true;
+      if (!instant) tiles[i]?.focus({ preventScroll: true });
     }
 
     /* ---------- layout ---------- */
 
-    function place(i) {
-      const ang = ((i - U.rot) * TAU) / U.n;
-      const z = Math.cos(ang);
-      const depth = (1 - z) / 2;
-      const narrow = S.narrow;
-      const rx = narrow ? S.w * 0.44 : Math.min(S.w * 0.33, 560);
-      const unit = Math.min(S.w, S.h) * (narrow ? 0.2 : 0.17);
-      const scale = 1 / (1 + depth * 1.3);
-      const cy = S.h * (narrow ? 0.4 : 0.44);
-      const dv = ease(U.dive);
-      const front = i === U.focus ? dv : 0;
-      const x = S.w / 2 + Math.sin(ang) * rx * (1 + dv * 0.6) - (narrow ? 0 : S.w * 0.2 * front);
-      const y = cy - depth * depth * S.h * 0.22 - (narrow ? S.h * 0.12 * front : 0);
-      const vis = depth < 0.5 ? lerp(1, 0.62, depth / 0.5) : lerp(0.62, 0.04, (depth - 0.5) / 0.5);
-      const alpha = vis * (i === U.focus ? 1 : 1 - dv * 0.9);
-      return { x, y, u: unit * scale * (1 + front * 0.35), a: alpha, z, depth };
+    function sceneIn(r) {
+      if (r.w / r.h > 1.5) {
+        const u = Math.min(r.h * 0.3, r.w * 0.12);
+        return { x: r.x + r.w * 0.6, y: r.y + r.h * 0.5, u };
+      }
+      const u = Math.min(r.w * 0.3, r.h * 0.18);
+      return { x: r.x + r.w * 0.34, y: r.y + r.h * 0.36, u };
     }
+
+    function sceneFull() {
+      if (S.narrow) return { x: S.w * 0.4, y: S.h * 0.26, u: Math.min(S.w * 0.2, S.h * 0.1) };
+      return { x: S.w * 0.64, y: S.h * 0.52, u: Math.min(S.h * 0.22, S.w * 0.12) };
+    }
+
+    const mixRect = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), w: lerp(a.w, b.w, k), h: lerp(a.h, b.h, k) });
+    const mixP = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), u: lerp(a.u, b.u, k) });
 
     /* ---------- the four worlds ---------- */
 
     function label(text, x, y, a, o = {}) {
-      if (a <= 0.02) return;
+      if (a <= 0.02 || !U.lbl) return;
       ctx.globalCompositeOperation = "source-over";
       ctx.font = `500 ${o.size || 9}px ${MONO}`;
       ctx.textAlign = o.align || "left";
@@ -572,142 +565,135 @@
 
     /* ---------- frame ---------- */
 
+    function hash(m, s) {
+      const v = Math.sin(m * s) * 43758.5453;
+      return v - Math.floor(v);
+    }
+
+    /* The environment around an opened area: drifting particles shaped like that science. */
+    function ambient(A, r, a) {
+      const col = C[A.accent];
+      for (let m = 0; m < 70; m += 1) {
+        const sp = 0.004 + hash(m, 7.1) * 0.012;
+        const px = r.x + ((hash(m, 12.9) + U.t * sp) % 1) * r.w;
+        const py = r.y + hash(m, 78.2) * r.h + Math.sin(U.t * 0.4 + m) * 12;
+        const s = 1 + hash(m, 3.7) * 2.4;
+        const al = (0.12 + hash(m, 5.3) * 0.25) * a;
+        if (A.visual === "flow") {
+          ctx.strokeStyle = rgba(col, al);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(px, py, s * 2.4, 0, TAU);
+          ctx.stroke();
+        } else if (A.visual === "culture") {
+          const an = m + U.t * 0.2;
+          ctx.strokeStyle = rgba(col, al);
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(px - Math.cos(an) * s * 2, py - Math.sin(an) * s * 2);
+          ctx.lineTo(px + Math.cos(an) * s * 2, py + Math.sin(an) * s * 2);
+          ctx.stroke();
+        } else if (A.visual === "lattice") {
+          ctx.fillStyle = rgba(col, al);
+          ctx.fillRect(px - s, py - s, s * 2, s * 2);
+        } else {
+          dot(px, py, s * 0.8, col, al * 1.4);
+        }
+      }
+    }
+
+    function drawTile(A, i, r, P, a, ex) {
+      ctx.save();
+      ctx.beginPath();
+      const rad = 20 * (1 - ex);
+      if (ctx.roundRect) ctx.roundRect(r.x, r.y, r.w, r.h, rad);
+      else ctx.rect(r.x, r.y, r.w, r.h);
+      ctx.clip();
+      ctx.globalCompositeOperation = "source-over";
+      if (ex > 0.01) {
+        ctx.fillStyle = S.brand ? `rgba(235,245,252,${0.75 * ex * a})` : `rgba(3,5,14,${0.72 * ex * a})`;
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+      }
+      const g = ctx.createRadialGradient(P.x, P.y, 0, P.x, P.y, Math.max(r.w, r.h) * 0.7);
+      g.addColorStop(0, rgba(C[A.accent], 0.16 * a));
+      g.addColorStop(1, rgba(C[A.accent], 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.globalCompositeOperation = "lighter";
+      if (ex > 0.01) ambient(A, r, a * ex);
+      U.lbl = P.u >= 70;
+      WORLDS[A.visual](P, a, 0.55 + 0.45 * U.wake[i], U.t, A, i);
+      ctx.restore();
+    }
+
     function draw(dt, k, origin) {
       U.k = k;
       if (!U.n) return;
       U.t += dt * (reduce ? 0.3 : 1);
-      if (!U.drag) U.rot = lerp(U.rot, U.target, Math.min(1, dt * (reduce ? 12 : 4.2)));
-      U.dive = lerp(U.dive, U.diving ? 1 : 0, Math.min(1, dt * 3));
+      U.x = lerp(U.x, U.open >= 0 ? 1 : 0, Math.min(1, dt * (reduce ? 12 : 3.2)));
+      if (U.open < 0 && U.x < 0.003) U.shown = -1;
       box.hidden = k < 0.02;
       box.style.opacity = sm((k - 0.45) / 0.55).toFixed(3);
       box.classList.toggle("is-live", k > 0.9);
-      if (k < 0.01) return;
+      if (k < 0.01 || !tiles.length) return;
       const arrive = sm(k);
+      const ex = sm(U.x);
+      const rects = tiles.map(relRect);
       ctx.globalCompositeOperation = "lighter";
       if (origin && arrive < 0.999 && !reduce) {
-        for (let m = 0; m < 120; m += 1) {
-          const target = place(m % U.n);
-          const r = Math.sin(m * 12.9898) * 43758.5453;
-          const s = r - Math.floor(r);
-          const q = sm(clamp((arrive - s * 0.3) / 0.7, 0, 1));
-          const px = lerp(origin.x, target.x + Math.cos(m) * target.u * 0.8, q);
-          const py = lerp(origin.y, target.y + Math.sin(m * 1.3) * target.u * 0.8, q);
-          dot(px, py, 1.3, C[area(m).accent], 0.8 * (1 - q * 0.6));
+        for (let m = 0; m < 140; m += 1) {
+          const r = rects[m % U.n];
+          const q = sm(clamp((arrive - hash(m, 12.9898) * 0.3) / 0.7, 0, 1));
+          const tx = r.x + hash(m, 3.1) * r.w;
+          const ty = r.y + hash(m, 5.7) * r.h;
+          dot(lerp(origin.x, tx, q), lerp(origin.y, ty, q), 1.3, C[area(m % U.n).accent], 0.8 * (1 - q * 0.7));
         }
       }
-      const order = U.areas.map((A, i) => ({ A, i, P: place(i) })).sort((p, q) => p.P.z - q.P.z);
-      const btns = box.querySelectorAll(".wm-uni-world");
-      order.forEach(({ A, i, P }) => {
-        const front = i === U.focus;
-        const goal = front || i === U.hover ? 1 : 0;
-        U.wake[i] = lerp(U.wake[i], goal, Math.min(1, dt * 3));
-        const a = P.a * sm(clamp((arrive - 0.25) / 0.75, 0, 1));
-        glow(P.x, P.y, P.u * 2.2, C[A.accent], 0.07 * a);
-        WORLDS[A.visual](P, a, U.wake[i] * (front ? 1 : 0.6), U.t, A, i);
-        const b = btns[i];
-        if (b) {
-          const by = P.y + P.u * 1.35;
-          if (!b._w || b._wAt !== S.w) {
-            b._w = b.offsetWidth;
-            b._wAt = S.w;
-          }
-          const bx = clamp(P.x, b._w / 2 + 8, S.w - b._w / 2 - 8);
-          b.style.transform = `translate(${Math.round(bx)}px, ${Math.round(by)}px) translate(-50%, 0)`;
-          const show = front || S.narrow ? 0 : clamp((0.8 - P.depth) / 0.2, 0, 1) * (1 - ease(U.dive));
-          b.style.opacity = show.toFixed(3);
-          b.style.visibility = show < 0.05 ? "hidden" : "visible";
-          b.tabIndex = front ? -1 : 0;
+      const full = { x: 0, y: 0, w: S.w, h: S.h };
+      const base = sm(clamp((arrive - 0.25) / 0.75, 0, 1));
+      const order = U.areas.map((A, i) => i).sort((p, q) => (p === U.shown) - (q === U.shown));
+      order.forEach((i) => {
+        const A = U.areas[i];
+        const chosen = i === U.shown;
+        U.wake[i] = lerp(U.wake[i], chosen || i === U.hover ? 1 : 0, Math.min(1, dt * 3));
+        let r = rects[i];
+        let P = sceneIn(r);
+        let a = base;
+        if (chosen && U.from) {
+          r = mixRect(U.from, full, ex);
+          P = mixP(sceneIn(U.from), sceneFull(), ex);
+        } else {
+          a *= 1 - ex;
+          if (U.hover >= 0 && i !== U.hover) a *= 0.6;
         }
+        if (a > 0.01 && r.w > 4) drawTile(A, i, r, P, a, chosen ? ex : 0);
       });
       ctx.globalCompositeOperation = "source-over";
-    }
-
-    function hit(x, y) {
-      let best = -1;
-      let bz = -9;
-      U.areas.forEach((_, i) => {
-        const P = place(i);
-        if (Math.abs(x - P.x) < P.u * 1.0 && Math.abs(y - P.y) < P.u * 1.2 && P.z > bz && P.a > 0.3) {
-          best = i;
-          bz = P.z;
-        }
-      });
-      return best;
     }
 
     return {
       setData,
       draw,
       get diving() {
-        return U.diving;
-      },
-      get active() {
-        return U.k > 0.5;
-      },
-      enter() {
-        U.drag = null;
+        return U.open >= 0;
       },
       leave() {
-        if (U.diving) dive(false);
+        closeArea(true);
         U.hover = -1;
       },
-      focusArea(id) {
-        const i = U.areas.findIndex((a) => a.id === id);
-        if (i >= 0) turnTo(i);
-      },
       redive() {
-        if (!U.diving) dive(true);
-        else box.querySelector(".wm-uni-dive button")?.focus({ preventScroll: true });
+        box.querySelector(".wm-uni-area .wm-uni-journey, .wm-uni-area h2")?.focus({ preventScroll: true });
       },
-      turn,
-      move(x, y) {
-        if (U.drag) {
-          const dx = x - U.drag.x;
-          U.moved = Math.max(U.moved, Math.abs(dx));
-          U.rot = U.drag.rot - dx / (S.narrow ? S.w * 0.5 : S.w * 0.28);
-          return;
-        }
-        U.hover = U.diving ? -1 : hit(x, y);
-        kit.cursor(U.hover >= 0 ? "pointer" : "grab");
+      move() {
+        kit.cursor("default");
       },
-      down(x) {
-        if (U.diving) return;
-        U.drag = { x, rot: U.rot };
-        U.moved = 0;
-      },
-      up() {
-        if (!U.drag) return;
-        U.drag = null;
-        if (U.moved > 6) {
-          touch();
-          U.target = Math.round(U.rot);
-          U.focus = wrap(U.target);
-          renderFocus();
-        }
-      },
-      click(x, y) {
-        if (U.moved > 6) {
-          U.moved = 0;
-          return;
-        }
-        if (U.diving) return;
-        const i = hit(x, y);
-        if (i < 0) return;
-        if (i === U.focus) dive(true);
-        else turnTo(i);
-      },
+      click() {},
       key(e) {
-        if (e.target.closest && e.target.closest("input, textarea")) return false;
-        if (e.key === "Escape" && U.diving) {
-          dive(false);
+        if (e.key === "Escape" && U.open >= 0) {
+          closeArea();
           return true;
         }
-        if (U.diving) return false;
-        if (e.key === "ArrowLeft") turn(-1);
-        else if (e.key === "ArrowRight") turn(1);
-        else if (e.key === "Enter" && !(e.target.closest && e.target.closest("button"))) dive(true);
-        else return false;
-        return true;
+        return false;
       },
     };
   }

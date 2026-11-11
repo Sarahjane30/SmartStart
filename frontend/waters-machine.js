@@ -103,7 +103,7 @@
     overview: "Move to look around · hover a part to light it up · click to open · scroll to travel",
     active: "Click the part again to zoom · scroll or → for next · Esc to step back",
     deep: "Scroll or → for next · Esc to step back",
-    universe: "Drag or ← → to turn the worlds · Enter to step inside · scroll or ↓ for the next chapter",
+    universe: "Choose an area to explore · scroll or ↓ for the next chapter · Esc to step back",
   };
 
   const fib = (n) =>
@@ -2466,7 +2466,8 @@
       <ul class="wm-uni-tlist">${u.areas
         .map(
           (a) => `<li style="--c:${divColor(a.division)}"><strong>${esc(a.division)}</strong>
-            <span>${esc(a.question)} ${esc(a.teaser)}</span>
+            <span>${esc(a.subtitle)}. ${esc(a.tagline)}</span>
+            <span>${esc(a.teaser)}</span>
             <em>${a.experience === "available" ? "Interactive journeys available" : "Interactive experience in progress"}</em>
             ${a.note ? `<span class="wm-muted">${esc(a.note)}</span>` : ""}</li>`
         )
@@ -2952,7 +2953,7 @@
   }
 
   function onWheel(e) {
-    const inPanel = e.target.closest(".wm-panel, .wm-sources, .wm-uni-dive");
+    const inPanel = e.target.closest(".wm-panel, .wm-sources, .wm-uni-copy");
     if (inPanel && inPanel.scrollHeight > inPanel.clientHeight + 2) return;
     e.preventDefault();
     if (S.opening) {
@@ -3020,12 +3021,6 @@
   canvas.addEventListener("pointermove", onMove);
   canvas.addEventListener("pointerdown", (e) => {
     OP.dragMoved = 0;
-    if (uniOn() && e.pointerType !== "touch") {
-      S.uni.down(e.clientX - canvas.getBoundingClientRect().left);
-      root.classList.add("is-dragging");
-      canvas.setPointerCapture?.(e.pointerId);
-      return;
-    }
     if (!S.opening || e.pointerType === "touch") return;
     OP.drag = { x: e.clientX };
     OP.spinV = 0;
@@ -3042,7 +3037,6 @@
     OP.spinV = lerp(OP.spinV, d, 0.6);
   });
   const endDrag = () => {
-    S.uni?.up();
     OP.drag = null;
     root.classList.remove("is-dragging");
   };
@@ -3061,7 +3055,6 @@
     "touchstart",
     (e) => {
       S.touchY = e.touches[0]?.clientY ?? null;
-      S.touchX = e.touches[0]?.clientX ?? null;
       OP.touchY = S.touchY;
       OP.touching = S.opening;
     },
@@ -3089,11 +3082,9 @@
         S.touchY = null;
         return;
       }
-      if (S.touchY === null || e.target.closest(".wm-panel, .wm-uni-dive")) return;
+      if (S.touchY === null || e.target.closest(".wm-panel, .wm-uni-area")) return;
       const dy = S.touchY - (e.changedTouches[0]?.clientY ?? S.touchY);
-      const dx = (S.touchX ?? 0) - (e.changedTouches[0]?.clientX ?? S.touchX ?? 0);
-      if (uniOn() && !S.uni.diving && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) S.uni.turn(dx > 0 ? 1 : -1);
-      else if (Math.abs(dy) > 50) step(dy > 0 ? 1 : -1);
+      if (Math.abs(dy) > 50) step(dy > 0 ? 1 : -1);
       S.touchY = null;
     },
     { passive: true }

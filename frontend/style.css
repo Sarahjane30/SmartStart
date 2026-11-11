@@ -4237,6 +4237,14 @@ body.wm-lock { overflow: hidden; }
   transform: translate3d(-50%, calc((1 - var(--k)) * 18px), 0);
 }
 .wm-open-line.is-low.is-big { font-size: clamp(2rem, 3.4vw, 3.4rem); line-height: 1.06; letter-spacing: -0.04em; }
+.wm-open-line .wm-open-kick {
+  display: block; margin-bottom: 0.6rem; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; font-weight: 500;
+  letter-spacing: 0.26em; text-transform: uppercase; color: #60d6ff;
+}
+.wm-open-divs {
+  display: block; margin-top: 0.2rem; font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; font-weight: 400;
+  letter-spacing: 0.2em; text-transform: uppercase; color: rgba(170, 128, 255, 0.85); white-space: normal;
+}
 .wm-open-line.is-reveal {
   left: 50%; top: calc(50% + max(9rem, 17vh)); text-align: center; max-width: 90vw; white-space: nowrap;
   font-size: clamp(2rem, 3.4vw, 3.5rem); letter-spacing: -0.04em;

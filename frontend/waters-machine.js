@@ -868,47 +868,56 @@
 
   // Scroll track 0..1. Each window is [fade in from, fully in, hold until, gone by].
   const OPEN_BEATS = {
-    see: [-1, 0, 0.035, 0.05],
-    understand: [0.05, 0.065, 0.1, 0.118],
-    medicine: [0.13, 0.148, 0.2, 0.215],
-    water: [0.228, 0.243, 0.29, 0.305],
-    food: [0.318, 0.333, 0.37, 0.385],
-    material: [0.398, 0.413, 0.455, 0.47],
-    appearance: [0.485, 0.5, 0.545, 0.56],
-    within: [0.585, 0.6, 0.635, 0.65],
-    identity: [0.65, 0.665, 0.7, 0.715],
-    observe: [0.72, 0.733, 0.752, 0.765],
-    separate: [0.768, 0.782, 0.85, 0.862],
-    science: [0.866, 0.88, 0.912, 0.925],
-    waters: [0.93, 0.943, 0.965, 0.975],
-    mark: [0.975, 0.988, 2, 3],
+    see: [-1, 0, 0.028, 0.04],
+    understand: [0.042, 0.054, 0.085, 0.097],
+    medicine: [0.1, 0.112, 0.16, 0.172],
+    water: [0.177, 0.189, 0.23, 0.242],
+    food: [0.247, 0.259, 0.295, 0.307],
+    material: [0.312, 0.324, 0.36, 0.372],
+    appearance: [0.377, 0.389, 0.43, 0.442],
+    within: [0.457, 0.469, 0.5, 0.512],
+    identity: [0.512, 0.524, 0.545, 0.556],
+    observe: [0.556, 0.565, 0.576, 0.585],
+    separate: [0.585, 0.594, 0.606, 0.616],
+    analytical: [0.616, 0.627, 0.675, 0.687],
+    bio: [0.692, 0.705, 0.755, 0.767],
+    dx: [0.772, 0.785, 0.835, 0.847],
+    heat: [0.852, 0.865, 0.91, 0.92],
+    together: [0.922, 0.932, 0.952, 0.96],
+    waters: [0.962, 0.97, 0.98, 0.986],
+    mark: [0.986, 0.993, 2, 3],
   };
-  const OPEN_STOPS = [0, 0.085, 0.175, 0.268, 0.352, 0.435, 0.522, 0.618, 0.683, 0.743, 0.79, 0.85, 0.896, 0.955, 0.995, 1];
+  const OPEN_STOPS = [0, 0.07, 0.14, 0.21, 0.277, 0.343, 0.41, 0.49, 0.535, 0.571, 0.6, 0.632, 0.712, 0.792, 0.872, 0.945, 0.976, 0.995, 1];
   const OPEN_BREATHE = [
-    [0.065, 0.1],
-    [0.5, 0.545],
-    [0.88, 0.912],
-    [0.943, 0.965],
+    [0.054, 0.085],
+    [0.389, 0.43],
+    [0.932, 0.952],
+    [0.97, 0.98],
   ];
   // One continuous particle timeline: each keyframe is a formation held over [a, b].
+  // Keyframes with `dur` also run on their own clock while held, so the science plays out without scrolling.
   const KF = [
-    { s: "globe", a: -1, b: 0.1, zoom: 1.16, side: 1 },
-    { s: "tablet", a: 0.135, b: 0.2, zoom: 1.3, side: 1 },
-    { s: "drop", a: 0.232, b: 0.29, zoom: 1.3, side: 1 },
-    { s: "food", a: 0.322, b: 0.37, zoom: 1.3, side: 1 },
-    { s: "material", a: 0.402, b: 0.455, zoom: 1.22, side: 1 },
-    { s: "lineup", a: 0.488, b: 0.545, zoom: 0.95, side: 0 },
-    { s: "micro", a: 0.59, b: 0.7, zoom: 1.35, side: 0 },
-    { s: "mixture", a: 0.728, b: 0.755, zoom: 1.45, side: 0 },
-    { s: "separation", a: 0.775, b: 0.85, zoom: 1, side: 0 },
-    { s: "instrument", a: 0.875, b: 0.915, zoom: 1, side: 0 },
-    { s: "core", a: 0.945, b: 2, zoom: 1, side: 0 },
+    { s: "globe", a: -1, b: 0.085, zoom: 1.16, side: 1 },
+    { s: "tablet", a: 0.115, b: 0.165, zoom: 1.3, side: 1 },
+    { s: "drop", a: 0.19, b: 0.232, zoom: 1.3, side: 1 },
+    { s: "food", a: 0.257, b: 0.297, zoom: 1.3, side: 1 },
+    { s: "material", a: 0.322, b: 0.362, zoom: 1.22, side: 1 },
+    { s: "lineup", a: 0.388, b: 0.435, zoom: 0.95, side: 0 },
+    { s: "micro", a: 0.47, b: 0.55, zoom: 1.35, side: 0 },
+    { s: "mixture", a: 0.566, b: 0.605, zoom: 1.45, side: 0 },
+    { s: "separation", a: 0.628, b: 0.68, zoom: 1, side: 0, dur: 7 },
+    { s: "cells", a: 0.708, b: 0.76, zoom: 1.2, side: 0, dur: 9 },
+    { s: "dx", a: 0.788, b: 0.84, zoom: 1.2, side: 0, dur: 7 },
+    { s: "heat", a: 0.868, b: 0.915, zoom: 1.2, side: 0, dur: 8 },
+    { s: "quad", a: 0.935, b: 0.955, zoom: 1.05, side: 0 },
+    { s: "core", a: 0.975, b: 2, zoom: 1, side: 0 },
   ];
   const KI = Object.fromEntries(KF.map((k, i) => [k.s, i]));
   const OBJ = ["tablet", "drop", "food", "material"];
   const OBJ_LABEL = ["A medicine tablet", "A drop of water", "A food sample", "A material surface"];
   const OBJ_MOL = [0, 2, 1, 3];
   const COMP = ["cyan", "violet", "mint", "blue"];
+  const DIVISIONS = ["Analytical Sciences", "Biosciences", "Advanced Diagnostics", "Materials Sciences"];
 
   const OPEN_DOTS = fib(720);
   const OPEN_N = OPEN_DOTS.length;
@@ -1063,41 +1072,6 @@
     }),
   };
 
-  // A generic benchtop LC–MS outline: separation stack on the left, mass spectrometer on the right.
-  const INSTR = (() => {
-    const segs = [];
-    const box = (x0, y0, x1, y1, d) => {
-      const F = [
-        [x0, y0],
-        [x1, y0],
-        [x1, y1],
-        [x0, y1],
-      ];
-      F.forEach((p, k) => segs.push([[p[0], p[1], 0], [F[(k + 1) % 4][0], F[(k + 1) % 4][1], 0]]));
-      segs.push([[x0, y1, 0], [x0, y1, -d]], [[x1, y1, 0], [x1, y1, -d]], [[x1, y0, 0], [x1, y0, -d]], [[x0, y1, -d], [x1, y1, -d]], [[x1, y1, -d], [x1, y0, -d]]);
-    };
-    box(-2.0, -0.85, -0.8, 0.95, 0.7);
-    [-0.4, 0.05, 0.5].forEach((y) => segs.push([[-2.0, y, 0], [-0.8, y, 0]]));
-    box(-0.5, -0.85, 2.0, 0.3, 0.9);
-    for (let k = 0; k < 16; k += 1) {
-      const a0 = (k / 16) * TAU;
-      const a1 = ((k + 1) / 16) * TAU;
-      segs.push([[-0.15 + Math.cos(a0) * 0.17, -0.3 + Math.sin(a0) * 0.17, 0], [-0.15 + Math.cos(a1) * 0.17, -0.3 + Math.sin(a1) * 0.17, 0]]);
-    }
-    segs.push([[0.5, -0.05, 0], [1.6, -0.05, 0]], [[0.5, -0.55, 0], [1.6, -0.55, 0]], [[0.5, -0.05, 0], [0.5, -0.55, 0]], [[1.6, -0.05, 0], [1.6, -0.55, 0]]);
-    const tube = (u) => bez([-0.8, 0.72, 0], [-0.2, 0.78, 0.15], [-0.15, -0.13, 0], u);
-    for (let k = 0; k < 12; k += 1) segs.push([tube(k / 12), tube((k + 1) / 12)]);
-    const lens = segs.map(([a, b]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]));
-    const total = lens.reduce((s, l) => s + l, 0);
-    const pts = OPEN_DOTS.map((_, i) => {
-      let u = ((i * 0.6180339887) % 1) * total;
-      let k = 0;
-      while (k < segs.length - 1 && u > lens[k]) u -= lens[k++];
-      return add(mix(segs[k][0], segs[k][1], u / lens[k]), ballJitter(0.008));
-    });
-    return { pts, tube };
-  })();
-
   // Liquid chromatography in miniature: components move at different speeds, broaden, and elute in turn.
   const SEP = { X0: -2.1, XD: 1.0, Y0: 0.85, T0: -2.1, T1: 2.1, YT: -0.48, speed: [1, 0.74, 0.55, 0.42] };
   const SEP_K = 1 / (0.86 * SEP.speed[3]);
@@ -1108,6 +1082,90 @@
   });
   const SEP_JIT = OPEN_DOTS.map(() => [gauss(), seeded() - 0.5]);
   const MIX_POS = COMP.map(() => Array.from({ length: 30 }, () => [gauss() * 0.72, gauss() * 0.36, gauss() * 0.3]));
+
+  // Biosciences: cells pass a laser one at a time; each lands in its population on a two-marker plot.
+  const CELLS = (() => {
+    const n = OPEN_N / 12;
+    const pop = Array.from({ length: n }, (_, c) => c % 3);
+    for (let c = n - 1; c > 0; c -= 1) {
+      const r = Math.floor(seeded() * (c + 1));
+      [pop[c], pop[r]] = [pop[r], pop[c]];
+    }
+    const centre = [
+      [0.22, 0.24],
+      [0.74, 0.3],
+      [0.7, 0.76],
+    ];
+    const plot = pop.map((g) => [clamp(centre[g][0] + gauss() * 0.07, 0.03, 0.97), clamp(centre[g][1] + gauss() * 0.07, 0.03, 0.97)]);
+    return { n, pop, plot, col: ["cyan", "violet", "mint"], LX: -0.6, SY: 0.05, X0: 0.35, X1: 2.05, Y0: -0.85, Y1: 0.75 };
+  })();
+
+  // Diagnostics: a few target organisms hide among many other particles until the test captures them.
+  const DX = (() => {
+    const rods = 8;
+    const cx = -1.2;
+    const cy = 0.1;
+    return {
+      rods,
+      cx,
+      cy,
+      probe: [0.05, 0.1],
+      start: Array.from({ length: rods }, () => [cx + clamp(gauss() * 0.4, -0.8, 0.8), cy + clamp(gauss() * 0.24, -0.45, 0.45), 0]),
+      tc: Array.from({ length: rods }, (_, r) => 0.12 + r * 0.075),
+      bg: OPEN_DOTS.map(() => [cx + clamp(gauss() * 0.55, -1.05, 1.05), cy + clamp(gauss() * 0.32, -0.6, 0.6), gauss() * 0.2]),
+      G: { X0: 0.75, X1: 2.1, Y0: -0.55, Y1: 0.65, thr: 0.45 },
+    };
+  })();
+  const dxCaptured = (T) => DX.tc.reduce((s, t) => s + sm((T - t - 0.12) / 0.03), 0) / DX.rods;
+
+  // Materials: a heated crystal vibrates harder, loses its order at the melting point and flows.
+  const HEAT = {
+    X: -1.15,
+    Y: 0.1,
+    Tm: 0.6,
+    sig: 0.045,
+    liquid: OPEN_DOTS.map(() => [clamp(gauss() * 0.45, -1, 1), -0.45 + Math.abs(gauss()) * 0.09, clamp(gauss() * 0.3, -0.5, 0.5)]),
+    G: { X0: 0.45, X1: 2.1, Y0: -0.45, Y1: 0.75 },
+  };
+  const heatMelt = (T) => sm((T - (HEAT.Tm - 0.08)) / 0.16);
+  const heatFlow = (T) => 0.06 * T + 0.85 * Math.exp(-((T - HEAT.Tm) ** 2) / (2 * HEAT.sig * HEAT.sig));
+
+  // Narrow screens stack each vignette: the specimen above, its measurement below.
+  const VSTACK = {
+    cells: [
+      [-1.42, 0.05],
+      [1.2, -0.05],
+    ],
+    dx: [
+      [-1.0, 0.1],
+      [1.425, 0.05],
+    ],
+    heat: [
+      [-1.3, 0.1],
+      [1.275, 0.15],
+    ],
+  };
+  function vmap(name, part, x, y) {
+    if (!S.narrow) return [x, y];
+    const c = VSTACK[name][part];
+    return [x - c[0], y - c[1] + (part ? -0.8 : 0.95)];
+  }
+
+  function quadLocal(g, j, i) {
+    if (g === 0) return MOL_PARTS[0][j].local.map((v) => v * 0.42);
+    if (g === 3) return MOL_PARTS[3][j].local.map((v) => v * 0.45);
+    if (g === 1) {
+      if (j < 140) {
+        const a = (j / 140) * TAU;
+        return [Math.cos(a) * 0.26, Math.sin(a) * 0.26, OPEN_DOTS[i][2] * 0.03];
+      }
+      return OPEN_DOTS[i].map((v) => v * 0.08);
+    }
+    const x = lerp(-0.25, 0.25, (j % 45) / 44);
+    const a = Math.floor(j / 45) * (TAU / 4) + x * 4;
+    const r = 0.075 * Math.sqrt(Math.max(0, 1 - (x / 0.27) ** 8));
+    return [x, Math.cos(a) * r, Math.sin(a) * r];
+  }
 
   const coarse = window.matchMedia("(hover: none)").matches;
   const OP = {
@@ -1131,6 +1189,7 @@
     hold: 0,
     after: 0,
     sep: 0,
+    clk: KF.map(() => 0),
     st: { A: 0, B: 0, e: 0 },
     cs: 1,
     sn: 0,
@@ -1170,10 +1229,10 @@
   opEls.lines.forEach(splitWords);
 
   function scaleExp(p) {
-    if (p < 0.11) return 7;
-    if (p < 0.135) return Math.round(lerp(7, -2, sm((p - 0.11) / 0.025)));
-    if (p < 0.545) return -2;
-    return Math.round(lerp(-2, -9, sm((p - 0.545) / 0.045)));
+    if (p < 0.09) return 7;
+    if (p < 0.112) return Math.round(lerp(7, -2, sm((p - 0.09) / 0.022)));
+    if (p < 0.43) return -2;
+    return Math.round(lerp(-2, -9, sm((p - 0.43) / 0.04)));
   }
 
   function openLayout() {
@@ -1190,8 +1249,8 @@
         mix: [0, 0.1, 0],
         mx: 0.6,
         sx: 0.92,
-        is: 0.95,
-        ip: [0, 0.2, 0],
+        qr: 0.85,
+        qy: 1.25,
       };
     }
     return {
@@ -1206,8 +1265,8 @@
       mix: [0, 0.15, 0],
       mx: 1,
       sx: 1,
-      is: 1,
-      ip: [0, 0.12, 0],
+      qr: 1.35,
+      qy: 0.62,
     };
   }
 
@@ -1219,7 +1278,11 @@
     }
     return { A: KF.length - 1, B: KF.length - 1, e: 0 };
   }
-  const localT = (k) => clamp((OP.p - KF[k].a) / (KF[k].b - KF[k].a), 0, 1);
+  const localT = (k) => {
+    const K = KF[k];
+    const scroll = clamp((OP.p - (K.a + 0.004)) / (K.b - K.a - 0.004), 0, 1);
+    return K.dur ? Math.max(scroll, clamp(OP.clk[k] / K.dur, 0, 1)) : scroll;
+  };
   const weightOf = (k) => {
     const { A, B, e } = OP.st;
     return (A === k ? 1 - e : 0) + (B === k && A !== k ? e : 0);
@@ -1332,9 +1395,75 @@
       const end = [(top[0] + mol[0]) * L.sx, top[1] + mol[1], mol[2]];
       return { w: bez([SEP.XD * L.sx + 0.12, SEP.Y0, 0], [end[0], SEP.Y0, 0], end, u), col: C[COMP[g]], size: 0.011, a: 1 };
     }
-    if (s === "instrument") {
-      const p = INSTR.pts[i];
-      return { w: add(L.ip, [p[0] * L.is, p[1] * L.is, p[2] * L.is]), col: seed < 0.06 ? C.cyan : C.ice, size: 0.009, a: 0.85 };
+    if (s === "cells") {
+      const T = localT(k);
+      const c = Math.floor(i / 12);
+      const slot = i % 12;
+      const V = CELLS;
+      const sp = (T - (c / V.n) * 0.72) / 0.22;
+      const loc = slot < 10 ? [Math.cos((slot / 10) * TAU + c) * 0.045, Math.sin((slot / 10) * TAU + c) * 0.045, 0] : [(slot - 10.5) * 0.024, 0, 0.01];
+      const pc = C[V.col[V.pop[c]]];
+      if (sp <= 1) {
+        const x = lerp(-2.25, V.LX, sp);
+        const wob = Math.sin(t * 2 + c) * 0.006;
+        const at = vmap("cells", 0, x + loc[0], V.SY + loc[1] + wob);
+        return {
+          w: [at[0], at[1], loc[2]],
+          col: sp > 0.9 ? mixC(C.ice, pc, (sp - 0.9) / 0.1) : C.ice,
+          size: slot < 10 ? 0.009 : 0.013,
+          a: clamp(1 + (x + 2.25) / 0.35, 0, 1) * (1 + 2.2 * Math.max(0, 1 - Math.abs(sp - 1) / 0.12)),
+        };
+      }
+      const u = ease(clamp((sp - 1) / 0.55, 0, 1));
+      const P = V.plot[c];
+      const end = [...vmap("cells", 1, lerp(V.X0, V.X1, P[0]), lerp(V.Y0, V.Y1, P[1])), 0];
+      const from = [...vmap("cells", 0, V.LX, V.SY), 0];
+      const ctl = S.narrow ? [from[0] + 0.5, (from[1] + end[1]) / 2, 0] : [V.LX + 0.7, V.SY, 0];
+      const at = bez(from, ctl, end, u);
+      const shrink = 1 - u * 0.75;
+      return { w: [at[0] + loc[0] * shrink, at[1] + loc[1] * shrink, 0], col: pc, size: lerp(0.01, 0.012, u), a: 1 + 1.5 * Math.max(0, 1 - (sp - 1) / 0.15) };
+    }
+    if (s === "dx") {
+      const T = localT(k);
+      const drift = [Math.sin(t * 0.5 + seed * 20) * 0.03, Math.cos(t * 0.4 + seed * 31) * 0.025, 0];
+      if (i % 9) {
+        const b = add(DX.bg[i], drift);
+        const at = vmap("dx", 0, b[0], b[1]);
+        return { w: [at[0], at[1], b[2]], col: mixC(C.ice, C.violet, 0.25), size: 0.01, a: 0.42 };
+      }
+      const r = Math.floor(i / 90);
+      const slot = (i / 9) % 10;
+      const loc = [lerp(-0.065, 0.065, (slot % 5) / 4), slot < 5 ? 0.02 : -0.02, 0];
+      const u = ease(clamp((T - DX.tc[r]) / 0.12, 0, 1));
+      const ang = (r / DX.rods) * TAU;
+      const home = add(DX.start[r], drift);
+      const at = mix(home, [DX.probe[0] + Math.cos(ang) * 0.2, DX.probe[1] + Math.sin(ang) * 0.2, 0], u);
+      const q = rotZ(loc, lerp(r * 0.7, ang + Math.PI / 2, u));
+      const lit = sm((T - 0.03) / 0.08);
+      const w = vmap("dx", 0, at[0] + q[0], at[1] + q[1]);
+      return { w: [w[0], w[1], 0], col: mixC(mixC(C.ice, C.violet, 0.25), C.mint, lit), size: lerp(0.01, 0.013, lit), a: lerp(0.42, 1.4, lit) };
+    }
+    if (s === "heat") {
+      const T = localT(k);
+      const m = heatMelt(T);
+      const ix = i % 12;
+      const iy = Math.floor(i / 12) % 10;
+      const iz = Math.floor(i / 120);
+      const lat = rotX(rotY([(ix - 5.5) * 0.085, (iy - 4.5) * 0.085, (iz - 2.5) * 0.085], 0.55), 0.22);
+      const amp = (0.003 + 0.024 * Math.min(T, HEAT.Tm)) * live;
+      const vib = [Math.sin(t * 9 + seed * 50) * amp, Math.cos(t * 8 + seed * 70) * amp, Math.sin(t * 7 + seed * 90) * amp];
+      const liq = HEAT.liquid[i];
+      const flow = [Math.sin(t * 0.7 + seed * 40) * 0.04 * m, 0, Math.cos(t * 0.6 + seed * 40) * 0.04 * m];
+      const p = add(add(mix(lat, liq, m), vib), flow);
+      const at = vmap("heat", 0, HEAT.X + p[0], HEAT.Y + p[1]);
+      return { w: [at[0], at[1], p[2]], col: mixC(mixC(C.blue, C.violet, Math.min(1, T * 1.4)), C.cyan, m * 0.4), size: 0.011, a: 0.95 };
+    }
+    if (s === "quad") {
+      const a = (g / 4) * TAU - Math.PI * 0.75 + t * 0.12;
+      const c = [Math.cos(a) * L.qr, Math.sin(a) * L.qr * L.qy + 0.05, 0];
+      const ql = quadLocal(g, j, i);
+      const q = g === 1 ? rotZ(rotX(ql, 0.35), t * 0.4) : g === 2 ? rotZ(rotX(ql, t * 1.2), 0.5) : rotY(ql, t * 0.4 + g);
+      return { w: add(c, q), col: C[COMP[g]], size: 0.011, a: 1 };
     }
     const d = OPEN_DOTS[i];
     return { w: [d[0] * 0.14, d[1] * 0.14, d[2] * 0.14], col: C.cyan, size: 0.01, a: 1 };
@@ -1349,6 +1478,7 @@
     root.classList.add("is-opening");
     els.intro.classList.add("is-gone");
     OP.ripples = [];
+    OP.clk = KF.map(() => 0);
     OP.flash = [-9, -9, -9, -9];
     OP.lensOn = false;
     OP.moved = 0;
@@ -1421,7 +1551,12 @@
     OP.p = lerp(OP.p, OP.target, Math.min(1, dt * (reduce ? 9 : 2.1)));
     if (Math.abs(OP.p - OP.target) < 1e-4) OP.p = OP.target;
     OP.st = stageAt(OP.p);
-    OP.sep = sm((OP.p - 0.72) / 0.04);
+    KF.forEach((K, k) => {
+      if (!K.dur) return;
+      if (OP.st.A === k && OP.st.B === k) OP.clk[k] += dt;
+      else if (OP.st.A !== k && OP.st.B !== k) OP.clk[k] = 0;
+    });
+    OP.sep = sm((OP.p - 0.555) / 0.04);
     if (OP.target >= 0.999 && OP.p > 0.99) {
       OP.hold += dt;
       if (OP.hold > 2.2) endOpening();
@@ -1761,19 +1896,133 @@
       });
     }
 
-    const iw = weightOf(KI.instrument) ** 2;
-    if (iw > 0.01) {
-      const lc = project(add(L.ip, [-1.4 * L.is, 1.15 * L.is, 0]));
-      const ms = project(add(L.ip, [0.75 * L.is, 0.5 * L.is, 0]));
-      canvasLabel("Liquid chromatography", lc.x, lc.y, 0.7 * iw, { size: S.narrow ? 7 : 10 });
-      canvasLabel("Mass spectrometry", ms.x, ms.y, 0.7 * iw, { size: S.narrow ? 7 : 10 });
-      for (let b = 0; b < 5; b += 1) {
-        const u = (S.t * 0.35 + b / 5) % 1;
-        const q = project(add(L.ip, INSTR.tube(u).map((v) => v * L.is)));
-        glow(q.x, q.y, 0.12 * q.s, COMP[b % 4] ? C[COMP[b % 4]] : C.cyan, 0.8 * iw);
+    let vig = "cells";
+    const P2 = (x, y, part = 1) => project([...vmap(vig, part, x, y), 0]);
+    const lab = S.narrow ? 8 : 10;
+    const axes = (G, a, xl, yl) => {
+      const o = P2(G.X0, G.Y0);
+      const xe = P2(G.X1, G.Y0);
+      const ye = P2(G.X0, G.Y1);
+      ctx.strokeStyle = rgba(C.ice, 0.22 * a);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(ye.x, ye.y);
+      ctx.lineTo(o.x, o.y);
+      ctx.lineTo(xe.x, xe.y);
+      ctx.stroke();
+      canvasLabel(xl, xe.x, xe.y + 16, 0.55 * a, { size: lab, align: "end" });
+      canvasLabel(yl, ye.x, ye.y - 14, 0.55 * a, { size: lab, align: "start" });
+    };
+    const curve = (G, f, head, a, col) => {
+      const pts = [];
+      for (let u = 0; u <= head; u += 1 / 160) pts.push(P2(lerp(G.X0, G.X1, u), lerp(G.Y0, G.Y1, f(u))));
+      if (pts.length < 2) return null;
+      strokePts(pts, col, 0.9 * a, 1.6);
+      const tip = pts[pts.length - 1];
+      if (head < 0.999) glow(tip.x, tip.y, 0.12 * tip.s, col, 0.9 * a);
+      return tip;
+    };
+
+    const bw = weightOf(KI.cells);
+    if (bw > 0.01) {
+      const T = localT(KI.cells);
+      const V = CELLS;
+      vig = "cells";
+      const l0 = P2(V.LX, V.SY + 0.32, 0);
+      const l1 = P2(V.LX, V.SY - 0.32, 0);
+      const near = Array.from({ length: V.n }, (_, c) => Math.max(0, 1 - Math.abs((T - (c / V.n) * 0.72) / 0.22 - 1) / 0.08)).reduce((m, v) => Math.max(m, v), 0);
+      const lg = ctx.createLinearGradient(l0.x, l0.y, l1.x, l1.y);
+      lg.addColorStop(0, rgba(C.cyan, 0));
+      lg.addColorStop(0.5, rgba(C.cyan, (0.55 + near * 0.45) * bw));
+      lg.addColorStop(1, rgba(C.cyan, 0));
+      ctx.strokeStyle = lg;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(l0.x, l0.y);
+      ctx.lineTo(l1.x, l1.y);
+      ctx.stroke();
+      const lc = P2(V.LX, V.SY, 0);
+      glow(lc.x, lc.y, (0.12 + near * 0.2) * lc.s, C.cyan, (0.3 + near * 0.6) * bw);
+      canvasLabel("Laser", l0.x, l0.y - 12, 0.75 * bw, { size: lab, col: C.cyan });
+      const s0 = P2(-2.15, V.SY + 0.16, 0);
+      canvasLabel("Cells, single file", s0.x, s0.y, 0.6 * bw, { size: lab, align: "start" });
+      axes({ X0: V.X0, X1: V.X1, Y0: V.Y0, Y1: V.Y1 }, bw, "Marker 1 →", "Marker 2 ↑");
+    }
+
+    const dw = weightOf(KI.dx);
+    if (dw > 0.01) {
+      const T = localT(KI.dx);
+      const G = DX.G;
+      vig = "dx";
+      const pr = P2(DX.probe[0], DX.probe[1], 0);
+      const got = dxCaptured(T);
+      ctx.strokeStyle = rgba(C.mint, (0.35 + got * 0.5) * dw);
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.arc(pr.x, pr.y, 0.2 * pr.s * (S.narrow ? 0.92 : 1), 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      glow(pr.x, pr.y, 0.25 * pr.s, C.mint, (0.15 + got * 0.5) * dw);
+      const sl = P2(DX.cx, DX.cy + 0.78, 0);
+      canvasLabel("Patient sample", sl.x, sl.y, 0.6 * dw, { size: lab });
+      canvasLabel("Capture", pr.x, pr.y - 0.32 * pr.s, 0.6 * dw, { size: lab, col: C.mint });
+      axes(G, dw, "Time →", "Signal");
+      const th0 = P2(G.X0, lerp(G.Y0, G.Y1, G.thr));
+      const th1 = P2(G.X1, lerp(G.Y0, G.Y1, G.thr));
+      ctx.strokeStyle = rgba(C.violet, 0.5 * dw);
+      ctx.setLineDash([4, 5]);
+      ctx.beginPath();
+      ctx.moveTo(th0.x, th0.y);
+      ctx.lineTo(th1.x, th1.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      canvasLabel("Threshold", th1.x, th1.y - 12, 0.5 * dw, { size: lab, align: "end", col: C.violet });
+      curve(G, (u) => 0.04 + dxCaptured(u) * 0.9 + Math.sin(u * 90) * 0.006, T, dw, C.mint);
+      if (got > G.thr) {
+        const k = sm((got - G.thr) / 0.08);
+        const q = P2((G.X0 + G.X1) / 2, G.Y1 + 0.34);
+        canvasLabel("Target detected", q.x, q.y, k * dw, { size: lab + 2, col: C.mint });
       }
-      const src = project(add(L.ip, [-0.15 * L.is, -0.3 * L.is, 0]));
-      glow(src.x, src.y, 0.3 * src.s, C.cyan, (0.35 + 0.2 * Math.sin(S.t * 3)) * iw);
+    }
+
+    const hw = weightOf(KI.heat);
+    if (hw > 0.01) {
+      const T = localT(KI.heat);
+      const G = HEAT.G;
+      vig = "heat";
+      const m = heatMelt(T);
+      axes(G, hw, "Temperature →", "Heat flow");
+      const tip = curve(G, (u) => 0.08 + heatFlow(u) * 0.95, T, hw, C.violet);
+      const pk = P2(lerp(G.X0, G.X1, HEAT.Tm), lerp(G.Y0, G.Y1, 0.08 + heatFlow(HEAT.Tm) * 0.95));
+      if (T > HEAT.Tm + 0.02) canvasLabel("Melting point", pk.x + 12, pk.y + 4, sm((T - HEAT.Tm - 0.02) / 0.05) * hw, { size: lab, col: C.violet, align: "start" });
+      const st = P2(HEAT.X, HEAT.Y + 0.72, 0);
+      canvasLabel(m < 0.2 ? "Solid" : m < 0.85 ? "Melting" : "Liquid", st.x, st.y, 0.7 * hw, { size: lab });
+      if (tip) {
+        const bar0 = P2(HEAT.X - 1.05, HEAT.Y - 0.3, 0);
+        const bar1 = P2(HEAT.X - 1.05, HEAT.Y + 0.5, 0);
+        ctx.strokeStyle = rgba(C.ice, 0.18 * hw);
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(bar0.x, bar0.y);
+        ctx.lineTo(bar1.x, bar1.y);
+        ctx.stroke();
+        ctx.strokeStyle = rgba(mixC(C.blue, C.violet, T), 0.9 * hw);
+        ctx.beginPath();
+        ctx.moveTo(bar0.x, bar0.y);
+        ctx.lineTo(bar0.x, lerp(bar0.y, bar1.y, T));
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        canvasLabel("Heat", bar0.x, bar0.y + 14, 0.55 * hw, { size: lab });
+      }
+    }
+
+    const qw = weightOf(KI.quad) ** 2;
+    if (qw > 0.01) {
+      DIVISIONS.forEach((name, g) => {
+        const a = (g / 4) * TAU - Math.PI * 0.75 + (reduce ? 0 : S.t) * 0.12;
+        const q = project([Math.cos(a) * L.qr, Math.sin(a) * L.qr * L.qy + 0.05 - 0.42, 0]);
+        canvasLabel(name, q.x, q.y, 0.8 * qw, { size: lab, col: C[COMP[g]] });
+      });
     }
 
     const cw = weightOf(KI.core);
@@ -1827,7 +2076,7 @@
         if (mark) em.textContent = mark;
         em.classList.toggle("is-on", !!mark);
       }
-      setOpenK(opEls.scale, ready * (1 - sm((p - 0.7) / 0.03)));
+      setOpenK(opEls.scale, ready * (1 - sm((p - 0.55) / 0.03)));
     }
     setOpenK(opEls.cue, clamp((OP.age - 2.4) / 1, 0, 1) * (1 - sm(p / 0.04)));
     opEls.bar.style.transform = `scaleY(${p.toFixed(4)})`;

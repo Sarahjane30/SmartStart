@@ -116,7 +116,9 @@ def test_technology_universe_is_labelled_and_grounded() -> None:
             ("ride", "ms"),
         }
         for area in uni["areas"][1:]:
-            assert area["experience"] == "in-progress" and area["coming"]
+            assert area["experience"] == "available" and len(area["steps"]) == 3
+            for step in area["steps"]:
+                assert step["id"] and step["title"] and step["heading"] and step["text"] and step["try"]
         assert "Biosciences" in uni["areas"][2]["note"]
         for d in story["company"]["divisions"]:
             assert d["label_status"] == "pending"

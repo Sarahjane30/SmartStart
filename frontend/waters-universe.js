@@ -30,6 +30,7 @@
       x: 0,
       from: null,
       hover: -1,
+      step: {},
       wake: [0, 0, 0, 0],
       lbl: true,
     };
@@ -102,6 +103,7 @@
       const sec = box.querySelector(".wm-uni-area");
       sec.style.setProperty("--c", rgba(C[a.accent], 1));
       sec.setAttribute("aria-label", a.division);
+      sec.classList.toggle("has-steps", !!a.steps);
       sec.innerHTML = `
         <nav class="wm-uni-crumb" aria-label="Technology areas">
           <button type="button" class="wm-uni-back">← All four areas</button>
@@ -113,7 +115,17 @@
           <p class="wm-uni-tag">${esc(a.tagline)}</p>
           <p>${esc(d.simple || a.teaser)}</p>
           ${
-            live
+            a.steps
+              ? `<p class="wm-uni-label">Explore the process</p>
+                 <div class="wm-uni-steps" role="tablist" aria-label="${esc(a.division)} steps">${a.steps
+                   .map(
+                     (s, n) => `<button type="button" role="tab" class="wm-uni-stepbtn" data-s="${n}"><span>${n + 1}</span>${esc(s.title)}</button>`
+                   )
+                   .join("")}</div>
+                 <div class="wm-uni-step" role="tabpanel" aria-live="polite"></div>
+                 ${a.note ? `<p class="wm-uni-note">${esc(a.note)}</p>` : ""}
+                 <button type="button" class="wm-uni-read is-quiet">Read about ${esc(a.division)} as text</button>`
+              : live
               ? `<p class="wm-uni-label">Choose a journey</p><div class="wm-uni-journeys">${a.journeys
                   .map(
                     (j, n) => `<button type="button" class="wm-uni-journey" data-j="${n}"><strong>${esc(j.label)}</strong><span>${esc(j.what)}</span><em aria-hidden="true">→</em></button>`
@@ -133,6 +145,57 @@
       );
       sec.querySelector(".wm-uni-read")?.addEventListener("click", () => kit.onText());
       sec.querySelector(".wm-uni-back").addEventListener("click", () => closeArea());
+      sec.querySelectorAll("[data-s]").forEach((b) => b.addEventListener("click", () => setStep(Number(b.dataset.s))));
+      if (a.steps) setStep(U.step[i] || 0);
+    }
+
+    /* ---------- area experiences ---------- */
+
+    const mods = {};
+    function mod(a) {
+      if (!a || !a.steps || !global.WatersAreas?.[a.id]) return null;
+      if (!mods[a.id]) mods[a.id] = global.WatersAreas[a.id]({ ...kit, SIM, worlds: WORLDS });
+      return mods[a.id];
+    }
+
+    function setStep(n) {
+      const i = U.open;
+      const a = area(i);
+      const m = mod(a);
+      if (!a?.steps) return;
+      U.step[i] = n;
+      m?.setStage(n);
+      const sec = box.querySelector(".wm-uni-area");
+      sec.querySelectorAll("[data-s]").forEach((b) => {
+        const on = Number(b.dataset.s) === n;
+        b.classList.toggle("is-on", on);
+        b.setAttribute("aria-selected", String(on));
+      });
+      renderStep();
+    }
+
+    function renderStep() {
+      const i = U.open;
+      const a = area(i);
+      const m = mod(a);
+      const n = U.step[i] || 0;
+      const s = a.steps[n];
+      const el = box.querySelector(".wm-uni-step");
+      if (!el) return;
+      el.innerHTML = `<h3>${esc(s.heading)}</h3><p>${esc(s.text)}</p>
+        ${m ? m.controls(n) : ""}
+        <p class="wm-uni-try"><i aria-hidden="true"></i>${esc(s.try)}</p>
+        ${n < a.steps.length - 1 ? `<button type="button" class="wm-uni-nextstep">Next: ${esc(a.steps[n + 1].title)} →</button>` : `<button type="button" class="wm-uni-nextstep" data-restart>Start again ↺</button>`}`;
+      m?.wire(el, renderStep);
+      el.querySelector(".wm-uni-nextstep").addEventListener("click", (e) => setStep(e.currentTarget.dataset.restart != null ? 0 : n + 1));
+    }
+
+    function expRect() {
+      if (S.w < 700) return { x: 8, y: 62, w: S.w - 16, h: S.h * 0.43 - 62 };
+      if (S.w <= 1100 && S.h > S.w) return { x: 24, y: 132, w: S.w - 48, h: S.h * 0.46 - 132 };
+      const x = S.w * 0.06 + Math.min(496, S.w * 0.4) + 28;
+      const y = S.h < 680 ? 64 : 78;
+      return { x, y, w: S.w - x - 24, h: S.h - y - 40 };
     }
 
     function openArea(i) {
@@ -601,7 +664,7 @@
       }
     }
 
-    function drawTile(A, i, r, P, a, ex) {
+    function drawTile(A, i, r, P, a, ex, dt) {
       ctx.save();
       ctx.beginPath();
       const rad = 20 * (1 - ex);
@@ -621,7 +684,13 @@
       ctx.globalCompositeOperation = "lighter";
       if (ex > 0.01) ambient(A, r, a * ex);
       U.lbl = P.u >= 70;
-      WORLDS[A.visual](P, a, 0.55 + 0.45 * U.wake[i], U.t, A, i);
+      const m = ex > 0.01 ? mod(A) : null;
+      const mk = m ? sm((ex - 0.55) / 0.45) : 0;
+      if (mk < 0.99) WORLDS[A.visual](P, a * (1 - mk), 0.55 + 0.45 * U.wake[i], U.t, A, i);
+      if (mk > 0.01) {
+        U.lbl = true;
+        m.draw(dt, expRect(), a * mk);
+      }
       ctx.restore();
     }
 
@@ -665,7 +734,7 @@
           a *= 1 - ex;
           if (U.hover >= 0 && i !== U.hover) a *= 0.6;
         }
-        if (a > 0.01 && r.w > 4) drawTile(A, i, r, P, a, chosen ? ex : 0);
+        if (a > 0.01 && r.w > 4) drawTile(A, i, r, P, a, chosen ? ex : 0, dt);
       });
       ctx.globalCompositeOperation = "source-over";
     }
@@ -683,10 +752,18 @@
       redive() {
         box.querySelector(".wm-uni-area .wm-uni-journey, .wm-uni-area h2")?.focus({ preventScroll: true });
       },
-      move() {
-        kit.cursor("default");
+      move(x, y) {
+        const m = U.open >= 0 ? mod(area(U.open)) : null;
+        kit.cursor(m && m.hit(x, y) ? "pointer" : "default");
       },
-      click() {},
+      click(x, y) {
+        const m = U.open >= 0 ? mod(area(U.open)) : null;
+        if (!m) return;
+        const n = m.click(x, y);
+        if (n < 0) return;
+        if (n !== (U.step[U.open] || 0)) setStep(n);
+        else renderStep();
+      },
       key(e) {
         if (e.key === "Escape" && U.open >= 0) {
           closeArea();

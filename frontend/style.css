@@ -5474,3 +5474,62 @@ sup.gr-ref:hover { background: var(--blue-600); color: #fff; }
 .wm.is-brand .wm-uni-journey { background: rgba(255, 255, 255, 0.8); }
 .wm.is-brand .wm-uni-journey span { color: var(--wm-brand-muted); }
 .wm.is-brand .wm-uni-read { background: var(--wm-brand); border-color: var(--wm-brand); }
+
+/* 03 area experiences: step tabs, step text and controls */
+.wm-uni-steps { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
+.wm-uni-stepbtn {
+  display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.42rem 0.85rem 0.42rem 0.45rem; border-radius: 999px; cursor: pointer; font: inherit; font-size: 0.8rem;
+  border: 1px solid rgba(160, 190, 255, 0.2); background: rgba(6, 10, 26, 0.55); color: rgba(225, 232, 255, 0.8); transition: border-color 0.25s, background 0.25s, color 0.25s;
+}
+.wm-uni-stepbtn span { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); color: var(--c); }
+.wm-uni-stepbtn:hover, .wm-uni-stepbtn:focus-visible { border-color: var(--c); }
+.wm-uni-stepbtn.is-on { color: #fff; border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, rgba(6, 10, 26, 0.6)); }
+.wm-uni-stepbtn.is-on span { background: var(--c); color: #050817; }
+.wm-uni-step { padding: 0.95rem 1rem; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--c) 28%, rgba(160, 190, 255, 0.1)); background: rgba(6, 10, 26, 0.6); animation: wmRise 0.45s both cubic-bezier(0.2, 0.8, 0.2, 1); }
+.wm-uni-step h3 { margin: 0 0 0.45rem; font-size: 1.05rem; font-weight: 700; color: #fff; }
+.wm-uni-step p { margin: 0 0 0.7rem !important; font-size: 0.86rem !important; }
+.wm-uni-try { display: flex; align-items: center; gap: 0.5rem; font-family: "IBM Plex Mono", monospace; font-size: 0.64rem !important; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c) !important; }
+.wm-uni-try i { flex: none; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--c); animation: wmUniPulse 1.6s ease-in-out infinite; }
+.wm-uni-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.75rem; }
+.wm-uni-chips button { font: inherit; font-size: 0.76rem; cursor: pointer; padding: 0.34rem 0.75rem; border-radius: 999px; border: 1px solid rgba(160, 190, 255, 0.24); background: transparent; color: #e8eeff; }
+.wm-uni-chips button:hover, .wm-uni-chips button:focus-visible { border-color: var(--c); }
+.wm-uni-chips button[aria-pressed="true"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 20%, transparent); color: #fff; }
+.wm-uni-slider { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.75rem; font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(210, 222, 255, 0.7); }
+.wm-uni-slider input { flex: 1; accent-color: var(--c); }
+.wm-uni-nextstep { font: inherit; font-size: 0.8rem; cursor: pointer; padding: 0.45rem 0.95rem; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 14%, transparent); color: #fff; }
+.wm-uni-nextstep:hover, .wm-uni-nextstep:focus-visible { background: color-mix(in srgb, var(--c) 26%, transparent); }
+@media (max-height: 680px) and (min-width: 700px) {
+  .wm-uni-copy > p:not(.wm-uni-kick):not(.wm-uni-tag):not(.wm-uni-label) { display: none; }
+  .wm-uni-step { padding: 0.7rem 0.8rem; }
+  .wm-uni-step p { font-size: 0.78rem !important; margin-bottom: 0.5rem !important; }
+  .wm-uni-steps { margin-bottom: 0.6rem; }
+}
+@media (max-width: 699px) {
+  .wm-uni-copy > p:not(.wm-uni-kick):not(.wm-uni-tag):not(.wm-uni-label) { display: none; }
+  .wm-uni-stepbtn { font-size: 0.74rem; padding-right: 0.65rem; }
+}
+.wm.is-brand .wm-uni-step, .wm.is-brand .wm-uni-stepbtn { background: rgba(255, 255, 255, 0.85); color: var(--wm-brand-ink); }
+.wm.is-brand .wm-uni-step h3, .wm.is-brand .wm-uni-chips button { color: var(--wm-brand-ink); }
+.wm-uni-area.has-steps .wm-uni-copy { top: 8.2rem; bottom: 3.4rem; transform: none; max-height: none; }
+.wm-uni-area.has-steps .wm-uni-copy h2 { font-size: clamp(2.2rem, 3.8vw, 3.6rem); }
+.wm-uni-area.has-steps .wm-uni-note { font-size: 0.78rem; line-height: 1.5; }
+@media (max-height: 860px) and (min-width: 700px) {
+  .wm-uni-area.has-steps .wm-uni-copy > p:not(.wm-uni-kick):not(.wm-uni-tag):not(.wm-uni-label):not(.wm-uni-note) { display: none; }
+}
+@media (max-height: 680px) and (min-width: 700px) {
+  .wm-uni-area.has-steps .wm-uni-copy { top: 6.6rem; bottom: 2.4rem; }
+  .wm-uni-area.has-steps .wm-uni-copy h2 { font-size: 2rem; }
+  .wm-uni-area.has-steps .wm-uni-note { display: none; }
+}
+@media (max-width: 699px) {
+  .wm-uni-area.has-steps .wm-uni-copy { top: auto; bottom: 0; max-height: 57%; }
+  .wm-uni-area.has-steps .wm-uni-copy h2 { font-size: 1.8rem; }
+  .wm-uni-area.has-steps .wm-uni-note { display: none; }
+}
+@media (min-width: 700px) and (max-width: 1100px) and (orientation: portrait) {
+  .wm-uni-area.has-steps .wm-uni-copy { top: auto; bottom: 4.2rem; left: 6vw; right: 6vw; width: auto; transform: none; max-height: 50%; }
+  .wm-uni-area.has-steps .wm-uni-copy h2 { font-size: 2.6rem; }
+}
+.wm-uni-read.is-quiet { margin-top: 0.8rem; padding: 0.3rem 0; border: 0; background: none; font-size: 0.74rem; color: rgba(210, 222, 255, 0.7); text-decoration: underline; text-underline-offset: 3px; }
+.wm-uni-read.is-quiet:hover, .wm-uni-read.is-quiet:focus-visible { color: #fff; background: none; }
+.wm.is-brand .wm-uni-read.is-quiet { background: none; color: var(--wm-brand-muted); }

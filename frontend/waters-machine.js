@@ -2468,7 +2468,7 @@
           (a) => `<li style="--c:${divColor(a.division)}"><strong>${esc(a.division)}</strong>
             <span>${esc(a.subtitle)}. ${esc(a.tagline)}</span>
             <span>${esc(a.teaser)}</span>
-            <em>${a.experience === "available" ? "Interactive journeys available" : "Interactive experience in progress"}</em>
+            <em>${a.steps ? `Interactive: ${a.steps.map((x) => esc(x.title)).join(" · ")}` : a.experience === "available" ? "Interactive journeys available" : "Interactive experience in progress"}</em>
             ${a.note ? `<span class="wm-muted">${esc(a.note)}</span>` : ""}</li>`
         )
         .join("")}</ul>`;

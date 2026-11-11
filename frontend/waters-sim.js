@@ -36,10 +36,24 @@
   const flow = {
     rate: 1.6,
     populations: [
-      { id: "A", fl: [0.78, 0.18], scatter: 0.55 },
-      { id: "B", fl: [0.22, 0.8], scatter: 0.72 },
-      { id: "unlabelled", fl: [0.14, 0.12], scatter: 0.4 },
+      { id: "A", fl: [0.78, 0.18], scatter: 0.55, fsc: 0.55, ssc: 0.3 },
+      { id: "B", fl: [0.22, 0.8], scatter: 0.72, fsc: 0.72, ssc: 0.68 },
+      { id: "unlabelled", fl: [0.14, 0.12], scatter: 0.4, fsc: 0.42, ssc: 0.22 },
     ],
+    /* Pulse heights a cell produces at each detector as it crosses the laser. */
+    signals(k) {
+      const c = this.cell(k);
+      const P = this.populations[c.pop];
+      const h = Math.sin(k * 57.3) * 9631.7;
+      const j = (h - Math.floor(h) - 0.5) * 0.12;
+      return { pop: c.pop, fsc: P.fsc + j, ssc: P.ssc - j * 0.5, fl: Math.max(c.x, c.y) * (c.pop === 2 ? 0.25 : 1) };
+    },
+    share(pop, n) {
+      if (n <= 0) return 0;
+      let hit = 0;
+      for (let k = 0; k < n; k += 1) if (this.cell(k).pop === pop) hit += 1;
+      return hit / n;
+    },
     cell(k) {
       const h = Math.sin(k * 127.1) * 43758.5453;
       const r = h - Math.floor(h);
@@ -78,6 +92,80 @@
     },
   };
 
+  /* Identification by fingerprint. A sample's peak pattern is compared with reference
+     patterns by cosine similarity; the closest reference names the organism. Patterns are
+     invented for illustration and do not represent real organisms. */
+  const identify = {
+    sample: [0.2, 0.9, 0.35, 0.1, 0.7, 0.15, 0.55, 0.05, 0.8, 0.3, 0.12, 0.45],
+    library: [
+      { name: "Reference organism 1", peaks: [0.7, 0.2, 0.1, 0.6, 0.15, 0.5, 0.1, 0.4, 0.2, 0.1, 0.6, 0.2] },
+      { name: "Reference organism 2", peaks: [0.25, 0.85, 0.3, 0.12, 0.65, 0.2, 0.5, 0.08, 0.75, 0.35, 0.1, 0.4] },
+      { name: "Reference organism 3", peaks: [0.1, 0.3, 0.8, 0.2, 0.1, 0.7, 0.2, 0.6, 0.1, 0.5, 0.3, 0.1] },
+      { name: "Reference organism 4", peaks: [0.5, 0.5, 0.2, 0.4, 0.4, 0.1, 0.7, 0.3, 0.3, 0.2, 0.5, 0.6] },
+    ],
+    similarity(a, b) {
+      let ab = 0;
+      let aa = 0;
+      let bb = 0;
+      a.forEach((v, i) => {
+        ab += v * b[i];
+        aa += v * v;
+        bb += b[i] * b[i];
+      });
+      return ab / Math.sqrt(aa * bb);
+    },
+    best() {
+      return this.library.reduce((m, r, i) => (this.similarity(this.sample, r.peaks) > this.similarity(this.sample, this.library[m].peaks) ? i : m), 0);
+    },
+  };
+
+  /* Antibiotic susceptibility by broth dilution. Wells hold doubling concentrations; the
+     organism grows wherever the concentration is below its MIC. Comparing the MIC with a
+     breakpoint gives susceptible or resistant. Drugs, MICs and breakpoints are invented. */
+  const susceptibility = {
+    drugs: ["Antibiotic A", "Antibiotic B", "Antibiotic C", "Antibiotic D"],
+    conc: [0.25, 0.5, 1, 2, 4, 8, 16, 32],
+    mic: [2, 7, 3, 8],
+    breakpoint: [3, 4, 4, 3],
+    growth(row, col, t) {
+      if (col >= this.mic[row]) return 0;
+      return 1 / (1 + Math.exp(-(t - 0.45) * 9));
+    },
+    result(row) {
+      return this.mic[row] <= this.breakpoint[row] ? "S" : "R";
+    },
+  };
+
+  /* Oscillatory rheology. Strain is sinusoidal; stress leads it by a phase δ between 0°
+     (elastic solid) and 90° (viscous liquid). */
+  const rheology = {
+    omega: 2.2,
+    phase(liquid) {
+      return (4 + 82 * clamp(liquid, 0, 1)) * (Math.PI / 180);
+    },
+    strain(t) {
+      return Math.sin(this.omega * t);
+    },
+    stress(t, liquid) {
+      return Math.sin(this.omega * t + this.phase(liquid));
+    },
+  };
+
+  /* Thermogravimetric analysis. Mass falls in steps as moisture and then a component leave
+     the sample. T is normalised 0–1. */
+  const tga = {
+    steps: [
+      { at: 0.22, width: 0.025, loss: 0.06 },
+      { at: 0.64, width: 0.035, loss: 0.52 },
+    ],
+    mass(T) {
+      return this.steps.reduce((m, s) => m - s.loss / (1 + Math.exp(-(T - s.at) / s.width)), 1);
+    },
+    rate(T) {
+      return (this.mass(T) - this.mass(T + 0.005)) / 0.005;
+    },
+  };
+
   /* Heating a crystalline solid. Thermal vibration grows with temperature (mean-square
      displacement ∝ T, so amplitude ∝ √T); at the melting point long-range order is lost.
      DSC records the extra heat absorbed while melting as a peak. T is normalised 0–1. */
@@ -95,5 +183,5 @@
     },
   };
 
-  global.WatersSim = { illustrative: true, lc, flow, culture, heat };
+  global.WatersSim = { illustrative: true, lc, flow, culture, heat, identify, susceptibility, rheology, tga };
 })(window);

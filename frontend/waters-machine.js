@@ -1580,7 +1580,7 @@
       if (S.finale) a = 1 - ease(S.closing * 1.2);
       else if (active) a = id === active ? 1 : active === "you" ? (youLit ? 0.22 : 0.04) : 0.15;
       else if (S.hover) a = id === S.hover ? 1 : 0.26;
-      else a = id === "you" ? 0.6 : 0.92;
+      else a = S.intro ? (id === "you" ? 0.45 : 0.72) : id === "you" ? 0.6 : 0.92;
       fx.ta = a * ease(S.assemble * 1.3 - ORDER.indexOf(id) * 0.08);
       fx.tk = id === active || id === S.hover ? 1.08 : 1;
       fx.topen = id === active ? (id === "technology" ? (S.level > 1 || S.chamber >= 0 ? 1 : 0.35) : 1) : 0;
@@ -1616,6 +1616,10 @@
       }
       if (active === "science") cam = [cam[0] + 0.35, cam[1], cam[2]];
       if (!S.narrow) shift = -S.w * 0.19;
+    }
+    if (S.intro && !active && !S.finale && !S.narrow) {
+      shift = S.w * 0.16;
+      zoom = 0.86;
     }
     if (S.finale) zoom = (S.narrow ? 0.78 : 1) * (1 - ease(S.closing) * 0.25);
     const shiftY = S.narrow && !S.finale ? -S.h * (active ? 0.27 : S.intro ? 0.16 : 0) : 0;
@@ -1654,7 +1658,7 @@
     const idleYaw = S.active ? 0 : Math.sin(S.t * 0.11) * (S.opening ? 0.12 : 0.3);
     S.yaw = lerp(S.yaw, idleYaw + S.smx * (S.active ? 0.14 : S.opening ? 0.22 : 0.38), kc);
     S.pitch = lerp(S.pitch, 0.16 + S.smy * (S.active ? 0.06 : S.opening ? 0.1 : 0.16), kc);
-    S.hud = lerp(S.hud, S.opening ? 0.3 * (1 - OP.sep) : 1, Math.min(1, dt * 1.5));
+    S.hud = lerp(S.hud, S.opening ? 0.3 * (1 - OP.sep) : S.intro ? 0.4 : 1, Math.min(1, dt * 1.5));
 
     for (const d of S.dust) {
       d.p[0] += d.v[0] * dt * speed;
@@ -1760,6 +1764,7 @@
   }
 
   function syncDom() {
+    root.classList.toggle("is-intro", S.intro);
     const showLabels = !S.intro && !S.active && !S.finale && S.assemble > 0.7;
     els.labels.classList.toggle("is-show", showLabels);
     const boxes = [];

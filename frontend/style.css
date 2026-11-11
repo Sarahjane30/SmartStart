@@ -4172,6 +4172,27 @@ body.wm-lock { overflow: hidden; }
   .wm-grain, .wx-waters-art, .wx-waters-art b, .wm-chamber.is-on .wm-steps li { animation: none; }
 }
 
+/* Landing: one title, one line, two actions — the machine carries the rest */
+.wm.is-intro .wm-hint { opacity: 0; }
+.wm-intro { left: 6vw; bottom: auto; top: 50%; transform: translateY(-50%); max-width: 30rem; }
+.wm-intro.is-gone { transform: translateY(calc(-50% + 24px)); }
+.wm-intro h1 { font-size: clamp(2.8rem, 5.6vw, 5.4rem); line-height: 0.92; letter-spacing: -0.04em; }
+.wm-intro-sub { margin: 1.2rem 0 1.6rem; font-size: 1rem; color: rgba(215, 226, 255, 0.62); }
+.wm.is-intro .wm-theme-toggle { padding: 0.42rem; gap: 0; opacity: 0.7; }
+.wm.is-intro .wm-theme-toggle:hover, .wm.is-intro .wm-theme-toggle:focus-visible { opacity: 1; }
+.wm.is-intro .wm-theme-toggle-text { display: none; }
+.wm.is-intro .wm-rail-btn { background: transparent; border-color: rgba(160, 190, 255, 0.1); }
+@media (max-width: 899px) {
+  .wm-intro { top: auto; bottom: 12vh; transform: none; left: 1.3rem; right: 1.3rem; }
+  .wm-intro.is-gone { transform: translateY(24px); }
+  .wm-intro h1 { font-size: clamp(2.6rem, 12vw, 3.6rem); }
+}
+
+@media (min-width: 900px) and (max-width: 1240px) {
+  .wm-brand { font-size: 0; }
+  .wm-brand strong { font-size: 0.74rem; }
+}
+
 /* ---------- What is Waters · opening on the globe ---------- */
 .wm-open { position: absolute; inset: 0; z-index: 7; pointer-events: none; opacity: 1; transition: opacity 0.9s ease, visibility 0s; }
 .wm:not(.is-opening) .wm-open { opacity: 0; visibility: hidden; transition: opacity 0.55s ease, visibility 0s 0.55s; }

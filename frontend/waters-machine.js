@@ -989,14 +989,48 @@
     return parts.sort((p, q) => q.local[1] - p.local[1]);
   });
 
-  const OP = { ripples: [], molSpin: [0, 0, 0, 0], molA: 0, molHot: -1, spinV: 0, drag: null, quietUntil: 0, dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, m: 0, sep: 0, fin: 0, map: null, anchors: [], touching: false };
+  const coarse = window.matchMedia("(hover: none)").matches;
+  const OP = { ptrT: -9, lx: 0, ly: 0, lensOn: false, moved: 0, peakT: [-9, -9, -9, -9], shock: false, ripples: [], molSpin: [0, 0, 0, 0], molA: 0, molHot: -1, spinV: 0, drag: null, quietUntil: 0, dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, m: 0, sep: 0, fin: 0, map: null, anchors: [], touching: false };
   const opEls = {
     box: $(".wm-open"),
     lines: [...root.querySelectorAll(".wm-open [data-beat]")],
     words: [...root.querySelectorAll(".wm-open [data-word]")],
     cue: $(".wm-open-cue"),
     bar: $(".wm-open-progress i"),
+    scale: $(".wm-open-scale"),
   };
+  const SCALE_MARKS = { 7: "Earth", 0: "Everyday things", "-5": "A cell", "-9": "A molecule" };
+
+  function splitWords(el) {
+    let i = 0;
+    const walk = (node) => {
+      [...node.childNodes].forEach((c) => {
+        if (c.nodeType === 1) return walk(c);
+        if (c.nodeType !== 3) return;
+        const frag = document.createDocumentFragment();
+        c.textContent.split(/(\s+)/).forEach((t) => {
+          if (!t) return;
+          if (/^\s+$/.test(t)) return frag.append(t);
+          const w = document.createElement("span");
+          w.className = "w";
+          w.style.setProperty("--i", i++);
+          w.textContent = t;
+          frag.append(w);
+        });
+        c.replaceWith(frag);
+      });
+    };
+    walk(el);
+    el.style.setProperty("--n", i);
+  }
+  opEls.lines.forEach(splitWords);
+
+  function scaleExp(p) {
+    if (p < 0.12) return 7;
+    if (p < 0.36) return Math.round(lerp(7, 0, sm((p - 0.12) / 0.24)));
+    if (p < 0.42) return 0;
+    return Math.round(lerp(0, -9, sm((p - 0.42) / 0.2)));
+  }
 
   function openLayout() {
     if (S.narrow) {
@@ -1070,6 +1104,8 @@
     root.classList.add("is-opening");
     els.intro.classList.add("is-gone");
     OP.ripples = [];
+    OP.lensOn = false;
+    OP.moved = 0;
     OP.drag = null;
     OP.spinV = 0;
     if (at > 0) {
@@ -1082,8 +1118,8 @@
       S.cam = [0, 0, 0];
       S.hud = 0.3;
     }
-    opEls.lines.concat(opEls.words, [opEls.cue]).forEach((el) => {
-      el._k = -1;
+    opEls.lines.concat(opEls.words, [opEls.cue, opEls.scale]).forEach((el) => {
+      if (el) el._k = -1;
     });
   }
 
@@ -1182,6 +1218,38 @@
     const near = [];
     ctx.globalCompositeOperation = "lighter";
 
+    const hasPtr = S.px > -999 && (!coarse || S.t - OP.ptrT < 2.5);
+    const lensR = S.narrow ? 56 : 78;
+    const lw = appear * (1 - sm((OP.p - 0.36) / 0.08)) * (1 - m);
+    const ltx = hasPtr ? S.px : pc.x + Math.cos(S.t * 0.37) * R * pc.s * 0.5;
+    const lty = hasPtr ? S.py : pc.y + Math.sin(S.t * 0.53) * R * pc.s * 0.42;
+    if (!OP.lensOn) {
+      OP.lx = ltx;
+      OP.ly = lty;
+      OP.lensOn = true;
+    }
+    OP.lx = lerp(OP.lx, ltx, hasPtr ? 0.35 : 0.06);
+    OP.ly = lerp(OP.ly, lty, hasPtr ? 0.35 : 0.06);
+    const lensPts = [];
+
+    const dive = Math.sin(Math.PI * clamp(m * 1.25, 0, 1)) * live;
+    if (dive > 0.01) {
+      const far = Math.hypot(S.w, S.h) * 0.6;
+      for (let i = 0; i < 110; i += 1) {
+        const sd = OPEN_SEED[i * 6];
+        const ang = sd * TAU * 7.3;
+        const u = (sd * 3.1 + S.t * (0.35 + sd * 0.4)) % 1;
+        const r0 = lerp(R * pc.s * 0.25, far, u * u);
+        const len = (20 + 140 * u) * dive;
+        ctx.strokeStyle = rgba(i % 4 ? C.ice : C.cyan, 0.32 * dive * (1 - u * 0.6));
+        ctx.lineWidth = 0.6 + u;
+        ctx.beginPath();
+        ctx.moveTo(pc.x + Math.cos(ang) * r0, pc.y + Math.sin(ang) * r0);
+        ctx.lineTo(pc.x + Math.cos(ang) * (r0 + len), pc.y + Math.sin(ang) * (r0 + len));
+        ctx.stroke();
+      }
+    }
+
     for (const r of OP.ripples) {
       const k = 1 - r.t / 1.8;
       ctx.strokeStyle = rgba(C.cyan, 0.22 * k * k);
@@ -1244,9 +1312,72 @@
         y += (dy / (dd || 1)) * f * 22;
         alpha *= 1 + f * 2;
       }
-      if (dd < press && (front || e > 0.5) && near.length < 120) near.push({ x, y, f: 1 - dd / press, col });
+      if (lw < 0.3 && dd < press && (front || e > 0.5) && near.length < 120) near.push({ x, y, f: 1 - dd / press, col });
+      if (lw > 0.01 && front && lensPts.length < 46 && Math.hypot(x - OP.lx, y - OP.ly) < lensR - 6) lensPts.push({ x, y, seed, col });
       dot(x, y, size * q.s, col, alpha);
       if (seed < 0.06 || seed > 0.97) glow(x, y, size * q.s * 6, col, 0.2 * alpha);
+    }
+
+    if (lw > 0.01) {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(OP.lx, OP.ly, lensR, 0, TAU);
+      ctx.clip();
+      ctx.fillStyle = `rgba(4, 9, 28, ${0.72 * lw})`;
+      ctx.fillRect(OP.lx - lensR, OP.ly - lensR, lensR * 2, lensR * 2);
+      ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createRadialGradient(OP.lx, OP.ly, 0, OP.lx, OP.ly, lensR);
+      g.addColorStop(0, rgba(C.blue, 0.16 * lw));
+      g.addColorStop(1, rgba(C.blue, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(OP.lx - lensR, OP.ly - lensR, lensR * 2, lensR * 2);
+      for (const q of lensPts) {
+        const rr = S.narrow ? 4.2 : 5.6;
+        const rot = q.seed * TAU + S.t * 0.6 * live;
+        const ring = [];
+        for (let j = 0; j < 6; j += 1) ring.push([q.x + Math.cos(rot + (j * TAU) / 6) * rr, q.y + Math.sin(rot + (j * TAU) / 6) * rr]);
+        ctx.strokeStyle = rgba(q.col, 0.75 * lw);
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ring.forEach(([x, y], j) => (j ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.closePath();
+        if (q.seed < 0.5) {
+          ctx.moveTo(ring[0][0], ring[0][1]);
+          ctx.lineTo(ring[0][0] + Math.cos(rot) * rr, ring[0][1] + Math.sin(rot) * rr);
+        }
+        ctx.stroke();
+        ring.forEach(([x, y], j) => dot(x, y, 1.1, j % 3 ? C.cyan : C.violet, 0.9 * lw));
+      }
+      ctx.restore();
+      ctx.strokeStyle = rgba(C.cyan, 0.6 * lw);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(OP.lx, OP.ly, lensR, 0, TAU);
+      ctx.stroke();
+      for (let j = 0; j < 24; j += 1) {
+        const a = (j / 24) * TAU + S.t * 0.15;
+        const t0 = lensR + 3;
+        const t1 = lensR + (j % 6 ? 6 : 11);
+        ctx.strokeStyle = rgba(C.ice, (j % 6 ? 0.25 : 0.55) * lw);
+        ctx.beginPath();
+        ctx.moveTo(OP.lx + Math.cos(a) * t0, OP.ly + Math.sin(a) * t0);
+        ctx.lineTo(OP.lx + Math.cos(a) * t1, OP.ly + Math.sin(a) * t1);
+        ctx.stroke();
+      }
+      const hint = lw * clamp(1 - OP.moved / 900, 0, 1) * clamp((OP.age - 1.6) / 1, 0, 1);
+      if (hint > 0.01) {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.font = "500 10px 'IBM Plex Mono', monospace";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = rgba(C.ice, 0.8 * hint);
+        if (S.narrow) {
+          ctx.textAlign = "center";
+          ctx.fillText("LOOK CLOSER", OP.lx, OP.ly + lensR + 22);
+          ctx.textAlign = "start";
+        } else ctx.fillText(hasPtr ? "LOOK CLOSER" : "LOOK CLOSER  ·  MOVE ME", OP.lx + lensR + 22, OP.ly);
+      }
+      ctx.globalCompositeOperation = "lighter";
     }
 
     if (live && near.length > 1) {
@@ -1277,6 +1408,15 @@
         if (hot) OP.molHot = g;
         const mh = ma * (hot ? 1.9 : 1);
         if (hot) glow(mc.x, mc.y, 0.75 * mc.s * L.mols[g].s, C.blue, 0.16 * ma);
+        const qk = win(OP.p, OPEN_BEATS.question) * ma * live;
+        if (qk > 0.01) {
+          const u = (S.t * 0.42 + g * 0.25) % 1;
+          ctx.strokeStyle = rgba(g % 2 ? C.violet : C.cyan, 0.35 * qk * (1 - u));
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(mc.x, mc.y, (0.25 + u * 0.7) * mc.s * L.mols[g].s, 0, TAU);
+          ctx.stroke();
+        }
         ctx.lineWidth = hot ? 1.4 : 1;
         M.bonds.forEach(([i, j]) => {
           ctx.strokeStyle = rgba(C.cyan, 0.32 * mh);
@@ -1318,6 +1458,7 @@
     });
 
     const sa = sm(sep * 2) * (1 - fin);
+    const hs = [0.55, 0.9, 0.42, 0.7];
     if (sa > 0.01) {
       const head = -L.span + 2 * L.span * clamp(sep * 1.2, 0, 1);
       ctx.setLineDash([2, 6]);
@@ -1325,7 +1466,18 @@
       ctx.setLineDash([]);
       const trace = [];
       const sig = L.bw * 1.6;
-      const hs = [0.55, 0.9, 0.42, 0.7];
+      L.bands.forEach((b, g) => {
+        const es = ease(clamp((sep - g * 0.12) / 0.55, 0, 1));
+        if (es < 0.5) OP.peakT[g] = -9;
+        else if (es > 0.97 && OP.peakT[g] < 0) OP.peakT[g] = S.t;
+        const ft = S.t - OP.peakT[g];
+        if (OP.peakT[g] > 0 && ft < 1.2) {
+          const q = project([b, L.traceY + hs[g] * L.th, 0]);
+          glow(q.x, q.y, (0.15 + ft * 0.5) * q.s, C.cyan, (1 - ft / 1.2) * 0.9 * sa);
+          const qb = project([b, L.flowY, 0]);
+          glow(qb.x, qb.y, 0.5 * qb.s, g % 2 ? C.violet : C.blue, (1 - ft / 1.2) * 0.35 * sa);
+        }
+      });
       for (let x = -L.span; x <= head; x += L.span / 90) {
         let y = L.traceY;
         L.bands.forEach((b, g) => {
@@ -1342,6 +1494,11 @@
       }
     }
 
+    if (fin < 0.5) OP.shock = false;
+    else if (fin > 0.96 && !OP.shock) {
+      OP.shock = true;
+      if (live) OP.ripples.push({ x: pc.x, y: pc.y, t: 0 });
+    }
     if (fin > 0.01) {
       glow(pc.x, pc.y, 1.3 * pc.s * fin, C.blue, 0.26 * fin);
       glow(pc.x, pc.y, 0.45 * pc.s, C.cyan, 0.65 * fin);
@@ -1356,18 +1513,39 @@
     glow(c.x, c.y, 0.6 * c.s, C.cyan, 0.55 * OP.after);
   }
 
-  function setOpenK(el, k) {
+  function setOpenK(el, k, r = 1) {
     const v = Math.round(clamp(k, 0, 1) * 1000) / 1000;
-    if (el._k === v) return;
+    const rv = Math.round(clamp(r, 0, 1) * 1000) / 1000;
+    if (el._k === v && el._r === rv) return;
     el._k = v;
+    el._r = rv;
     el.style.setProperty("--k", v);
+    el.style.setProperty("--r", rv);
     el.style.visibility = v <= 0.001 ? "hidden" : "visible";
   }
 
   function syncOpening() {
     const p = OP.p;
     const ready = reduce ? 1 : clamp((OP.age - 0.9) / 1.4, 0, 1);
-    opEls.lines.forEach((el) => setOpenK(el, win(p, OPEN_BEATS[el.dataset.beat]) * (el.dataset.beat === "world" ? ready : 1)));
+    opEls.lines.forEach((el) => {
+      const W = OPEN_BEATS[el.dataset.beat];
+      const k = win(p, W);
+      const rising = p <= W[2];
+      const r = (rising ? k : 1) * (el.dataset.beat === "world" ? ready : 1);
+      setOpenK(el, rising ? (r > 0 ? 1 : 0) : k, r);
+    });
+    if (opEls.scale) {
+      const n = scaleExp(p);
+      if (opEls.scale._n !== n) {
+        opEls.scale._n = n;
+        opEls.scale.querySelector("b").innerHTML = `≈ 10<sup>${n < 0 ? "−" + -n : n}</sup> m`;
+        const mark = SCALE_MARKS[n];
+        const em = opEls.scale.querySelector("em");
+        if (mark) em.textContent = mark;
+        em.classList.toggle("is-on", !!mark);
+      }
+      setOpenK(opEls.scale, ready * (1 - sm((p - 0.74) / 0.05)));
+    }
     opEls.words.forEach((el, i) => {
       const a = OP.anchors[i];
       setOpenK(el, a ? a.k : 0);
@@ -2031,8 +2209,11 @@
     const r = canvas.getBoundingClientRect();
     S.mx = ((e.clientX - r.left) / r.width) * 2 - 1;
     S.my = ((e.clientY - r.top) / r.height) * 2 - 1;
+    if (coarse && e.pointerType === "mouse") return;
+    if (S.opening && S.px > -999) OP.moved += Math.hypot(e.clientX - r.left - S.px, e.clientY - r.top - S.py);
     S.px = e.clientX - r.left;
     S.py = e.clientY - r.top;
+    OP.ptrT = S.t;
     if (S.intro || S.finale || S.opening) return;
     const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
     if (!S.active) S.hover = hit;
@@ -2186,6 +2367,7 @@
       const y = e.touches[0]?.clientY ?? OP.touchY;
       S.px = e.touches[0]?.clientX ?? S.px;
       S.py = y;
+      OP.ptrT = S.t;
       openingNudge((OP.touchY - y) / (S.h * 4.2));
       OP.touchY = y;
     },

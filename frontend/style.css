@@ -4193,13 +4193,20 @@ body.wm-lock { overflow: hidden; }
   position: absolute; left: 7vw; top: 50%; margin: 0; max-width: min(33rem, 36vw);
   font-size: clamp(1.9rem, 3vw, 3rem); line-height: 1.12; font-weight: 500; letter-spacing: -0.032em;
   color: #eef3ff; text-wrap: balance; visibility: hidden;
+  --r: 0;
   opacity: var(--k);
   transform: translate3d(0, calc(-50% + (1 - var(--k)) * 22px), 0);
-  filter: blur(calc((1 - var(--k)) * 5px));
   text-shadow: 0 0 40px rgba(6, 12, 34, 0.9);
 }
-.wm-open-line em {
-  font-style: normal; color: transparent; -webkit-background-clip: text; background-clip: text;
+.wm-open-line .w {
+  --w: clamp(0, calc((var(--r) * (var(--n) + 3) - var(--i)) / 3), 1);
+  display: inline-block; opacity: var(--w);
+  transform: translate3d(0, calc((1 - var(--w)) * 0.5em), 0);
+  filter: blur(calc((1 - var(--w)) * 7px));
+}
+.wm-open-line em { font-style: normal; }
+.wm-open-line em .w {
+  color: transparent; -webkit-background-clip: text; background-clip: text; text-shadow: none;
   background-image: linear-gradient(90deg, #60d6ff 0%, #6088ff 55%, #aa80ff 100%);
 }
 .wm-open-line.is-hero { font-size: clamp(2.3rem, 4vw, 4.1rem); line-height: 1.04; letter-spacing: -0.04em; max-width: min(38rem, 38vw); }
@@ -4212,7 +4219,7 @@ body.wm-lock { overflow: hidden; }
   font-size: 1rem; line-height: 1.55; font-weight: 400; letter-spacing: 0; color: rgba(215, 226, 255, 0.74);
   transform: translate3d(-50%, calc((1 - var(--k)) * 14px), 0);
 }
-.wm-open-line.is-caption span {
+.wm-open-line.is-caption .wm-open-kick {
   display: block; margin-bottom: 0.55rem; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
   letter-spacing: 0.26em; text-transform: uppercase; color: #60d6ff;
 }
@@ -4221,8 +4228,9 @@ body.wm-lock { overflow: hidden; }
   font-size: clamp(2rem, 3.4vw, 3.5rem); letter-spacing: -0.04em;
   transform: translate3d(-50%, calc(-50% + (1 - var(--k)) * 22px), 0);
 }
-.wm-open-line.is-reveal strong {
-  font-weight: 700; color: transparent; -webkit-background-clip: text; background-clip: text;
+.wm-open-line.is-reveal strong { font-weight: 700; }
+.wm-open-line.is-reveal strong .w {
+  color: transparent; -webkit-background-clip: text; background-clip: text; text-shadow: none;
   background-image: linear-gradient(180deg, #ffffff 25%, #60d6ff 100%);
 }
 
@@ -4255,12 +4263,20 @@ body.wm-lock { overflow: hidden; }
   .wm-open-cue .is-desk { display: none; }
   .wm-open-cue .is-touch { display: inline; }
 }
+.wm-open-scale {
+  --k: 0; position: absolute; left: 1.6rem; bottom: 1.5rem; display: grid; gap: 0.2rem; visibility: hidden; opacity: var(--k);
+  font-family: "IBM Plex Mono", monospace; color: rgba(215, 226, 255, 0.62); font-size: 0.62rem; letter-spacing: 0.24em; text-transform: uppercase;
+}
+.wm-open-scale b { font-family: Inter, sans-serif; font-weight: 500; font-size: 1.5rem; letter-spacing: -0.02em; text-transform: none; color: #eef3ff; font-variant-numeric: tabular-nums; }
+.wm-open-scale sup { font-size: 0.55em; color: #60d6ff; margin-left: 0.05em; }
+.wm-open-scale em { font-style: normal; color: #aa80ff; opacity: 0; transform: translateY(4px); transition: opacity 0.4s, transform 0.4s; }
+.wm-open-scale em.is-on { opacity: 1; transform: none; }
 .wm-open-progress { position: absolute; right: 1.5rem; top: 50%; width: 1px; height: 22vh; transform: translateY(-50%); background: rgba(160, 190, 255, 0.14); }
 .wm-open-progress i { position: absolute; inset: 0; background: linear-gradient(180deg, #60d6ff, #aa80ff); transform-origin: top; transform: scaleY(0); }
 
 @media (max-width: 899px) {
   .wm-open-line {
-    left: 1.4rem; right: 1.4rem; top: auto; bottom: 12vh; max-width: none;
+    left: 1.4rem; right: 1.4rem; top: auto; bottom: 15vh; max-width: none;
     font-size: clamp(1.5rem, 6.4vw, 2.1rem); transform: translate3d(0, calc((1 - var(--k)) * 18px), 0);
   }
   .wm-open-line.is-hero { font-size: clamp(1.9rem, 8.4vw, 2.7rem); max-width: none; }
@@ -4276,10 +4292,12 @@ body.wm-lock { overflow: hidden; }
   .wm-open-word span { font-size: 0.64rem; letter-spacing: 0.2em; }
   .wm-open-line.is-reveal { top: calc(50% + 5.5rem); bottom: auto; }
   .wm-open-progress { right: 0.7rem; height: 16vh; }
+  .wm-open-scale { left: 1.1rem; top: 4.4rem; bottom: auto; }
+  .wm-open-scale b { font-size: 1.1rem; }
   .wm-open-cue { bottom: 3vh; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wm-open-line { filter: none; }
+  .wm-open-line .w { filter: none; transform: none; }
   .wm-open-cue i::after { animation: none; transform: translateY(12px); }
 }
 

@@ -5337,7 +5337,7 @@ sup.gr-ref:hover { background: var(--blue-600); color: #fff; }
 .wm-uni-head h2 { margin: 0; font-size: clamp(2rem, 3.6vw, 3.3rem); line-height: 1; font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; color: #fff; text-shadow: 0 0 36px rgba(96, 214, 255, 0.35); }
 .wm-uni-head p:last-child { margin: 0.55rem 0 0; font-size: 1rem; color: rgba(215, 226, 255, 0.7); }
 
-.wm-uni-grid { position: absolute; left: 2rem; right: 2rem; top: 12.4rem; bottom: 4.4rem; display: flex; gap: 1rem; }
+.wm-uni-grid { position: absolute; left: 2rem; right: 2rem; top: 13rem; bottom: 3.6rem; display: flex; gap: 1rem; }
 .wm-uni-tile {
   position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 0.35rem;
   padding: 1.5rem 1.4rem; text-align: left; font: inherit; color: #fff; cursor: pointer; overflow: hidden; border-radius: 20px;
@@ -5352,10 +5352,9 @@ sup.gr-ref:hover { background: var(--blue-600); color: #fff; }
 .wm-uni-cta { margin-top: 0.55rem; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c); }
 .wm-uni-cta i { display: inline-block; font-style: normal; transition: transform 0.3s; }
 .wm-uni-tile:hover .wm-uni-cta i, .wm-uni-tile:focus-visible .wm-uni-cta i { transform: translateX(5px); }
-.wm-uni-soon { position: absolute; top: 1rem; right: 1rem; padding: 0.18rem 0.55rem; border-radius: 999px; border: 1px dashed color-mix(in srgb, var(--c) 55%, transparent); font-family: "IBM Plex Mono", monospace; font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(215, 226, 255, 0.75); background: rgba(4, 7, 18, 0.5); }
+.wm-uni-idx em { font-style: normal; color: rgba(215, 226, 255, 0.5); }
 
-.wm-uni-legend { position: absolute; left: 50%; bottom: 2.5rem; transform: translateX(-50%); margin: 0; white-space: nowrap; font-family: "IBM Plex Mono", monospace; font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(200, 215, 255, 0.5); }
-.wm-uni-legend span + span::before { content: " · "; }
+.wm-uni-legend { position: absolute; left: 50%; bottom: 1.3rem; transform: translateX(-50%); margin: 0; white-space: nowrap; font-family: "IBM Plex Mono", monospace; font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(200, 215, 255, 0.5); }
 .wm-uni-legend i { display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.45rem; border: 1px dashed rgba(200, 215, 255, 0.6); border-radius: 50%; vertical-align: -0.05rem; }
 .wm-uni-text { position: absolute; right: 1.6rem; top: 5.2rem; font: inherit; cursor: pointer; padding: 0.34rem 0.8rem; font-size: 0.72rem; border-radius: 999px; border: 1px solid rgba(160, 190, 255, 0.28); background: rgba(6, 10, 26, 0.5); color: #e8eeff; transition: opacity 0.4s; }
 .wm-uni-text:hover, .wm-uni-text:focus-visible { border-color: #60d6ff; }
@@ -5393,7 +5392,7 @@ sup.gr-ref:hover { background: var(--blue-600); color: #fff; }
 .wm-uni-next span { display: block; margin-bottom: 0.2rem; font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(200, 215, 255, 0.55); }
 .wm-uni-note { padding-left: 0.75rem; border-left: 2px solid color-mix(in srgb, var(--c) 50%, transparent); font-size: 0.84rem !important; }
 .wm-uni-read { border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 14%, transparent); }
-.wm.is-universe .wm-hint { left: 50%; bottom: 1rem; }
+.wm.is-universe .wm-hint { opacity: 0; }
 .wm.is-universe .wm-labels { opacity: 0; }
 @keyframes wmUniPulse { 50% { opacity: 0.35; } }
 
@@ -5415,18 +5414,22 @@ sup.gr-ref:hover { background: var(--blue-600); color: #fff; }
 @media (max-width: 699px), (max-width: 1100px) and (orientation: landscape), (max-height: 680px) {
   .wm-uni-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
   .wm-uni-tile { justify-content: center; padding: 1rem 1.2rem; background: linear-gradient(to right, rgba(4, 7, 18, 0.94) 0%, rgba(4, 7, 18, 0.6) 40%, rgba(4, 7, 18, 0) 64%); }
-  .wm-uni-tile > :not(.wm-uni-soon) { max-width: 52%; }
+  .wm-uni-tile > * { max-width: 48%; }
   .wm-uni-cta { margin-top: 0.3rem; }
 }
 @media (max-height: 680px) and (min-width: 700px) {
-  .wm-uni-head { top: 4.3rem; }
-  .wm-uni-head h2 { font-size: 1.7rem; }
-  .wm-uni-head p:last-child { margin-top: 0.3rem; font-size: 0.84rem; }
-  .wm-uni-text { top: 4.3rem; }
-  .wm-uni-grid { top: 8.6rem; bottom: 3.6rem; gap: 0.7rem; }
+  .wm-uni-head { top: 4.5rem; }
+  .wm-uni-head .wm-uni-kick { display: none; }
+  .wm-uni-head h2 { font-size: 1.6rem; }
+  .wm-uni-head p:last-child { margin-top: 0.25rem; font-size: 0.8rem; }
+  .wm-uni-text { top: auto; bottom: 0.7rem; right: 1.6rem; padding: 0.26rem 0.7rem; font-size: 0.66rem; }
+  .wm-uni-grid { top: 8.4rem; bottom: 2.7rem; left: 2.4rem; right: 2.4rem; gap: 0.9rem; }
+  .wm-uni-tile { padding: 0.9rem 1.3rem; gap: 0.25rem; }
   .wm-uni-tile strong { font-size: 1.15rem; }
   .wm-uni-sub { font-size: 0.78rem; }
-  .wm-uni-legend { bottom: 2.1rem; }
+  .wm-uni-cta { margin-top: 0.2rem; font-size: 0.6rem; }
+  .wm-uni-legend { bottom: 1rem; font-size: 0.54rem; }
+  .wm.is-universe .wm-theme-toggle { opacity: 0; pointer-events: none; }
   .wm-uni-crumb { top: 4.3rem; }
   .wm-uni-copy { top: 56%; max-height: calc(100% - 8.4rem); }
   .wm-uni-copy h2 { font-size: 2.4rem; }
@@ -5444,10 +5447,7 @@ sup.gr-ref:hover { background: var(--blue-600); color: #fff; }
   .wm-uni-tile strong { font-size: 1.08rem; }
   .wm-uni-sub { font-size: 0.74rem; }
   .wm-uni-cta { font-size: 0.6rem; }
-  .wm-uni-soon { top: 0.6rem; right: 0.6rem; }
-  .wm-uni-legend { left: 1rem; right: 7.5rem; bottom: 0.8rem; transform: none; white-space: normal; font-size: 0.5rem; line-height: 1.6; }
-  .wm-uni-legend span { display: block; }
-  .wm-uni-legend span + span::before { content: none; }
+  .wm-uni-legend { left: 1rem; right: 9rem; bottom: 0.8rem; transform: none; white-space: normal; font-size: 0.5rem; line-height: 1.6; }
   .wm-uni-text { top: auto; bottom: 0.9rem; right: 0.9rem; }
   .wm-uni-crumb { left: 1rem; right: 1rem; top: 3.9rem; gap: 0.6rem; }
   .wm-uni-crumb span { display: none; }

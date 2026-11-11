@@ -60,15 +60,14 @@
           .map((a, i) => {
             const live = a.experience === "available";
             return `<button type="button" class="wm-uni-tile" data-i="${i}" style="--c:${rgba(C[a.accent], 1)}">
-              ${live ? "" : `<small class="wm-uni-soon">In progress</small>`}
-              <span class="wm-uni-idx">${pad(i + 1)}</span>
+              <span class="wm-uni-idx">${pad(i + 1)}${live ? "" : ` <em>· In progress</em>`}</span>
               <strong>${esc(a.division)}</strong>
               <span class="wm-uni-sub">${esc(a.subtitle)}</span>
               <span class="wm-uni-cta">Explore <i aria-hidden="true">→</i></span>
             </button>`;
           })
           .join("")}</div>
-        <p class="wm-uni-legend"><span><i></i>${esc(U.legend.simulation)}</span><span>${esc(U.legend.labels)}</span><span>${esc(U.legend.products)}</span></p>
+        <p class="wm-uni-legend"><i></i>${esc(U.legend.short || U.legend.simulation)}</p>
         <button type="button" class="wm-uni-text">Text version</button>
         <section class="wm-uni-area" hidden></section>`;
       tiles = [...box.querySelectorAll(".wm-uni-tile")];
@@ -167,7 +166,7 @@
     function sceneIn(r) {
       if (r.w / r.h > 1.5) {
         const u = Math.min(r.h * 0.3, r.w * 0.12);
-        return { x: r.x + r.w * 0.6, y: r.y + r.h * 0.5, u };
+        return { x: r.x + r.w * 0.66, y: r.y + r.h * 0.5, u };
       }
       const u = Math.min(r.w * 0.3, r.h * 0.18);
       return { x: r.x + r.w * 0.34, y: r.y + r.h * 0.36, u };

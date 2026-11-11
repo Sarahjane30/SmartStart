@@ -106,7 +106,7 @@ def test_technology_universe_is_labelled_and_grounded() -> None:
         ]
         assert uni["areas"][1]["tagline"] == "Understanding the complexity of life, one cell at a time."
         assert all(a["tagline"] for a in uni["areas"])
-        assert set(uni["legend"]) == {"simulation", "labels", "products"}
+        assert set(uni["legend"]) == {"simulation", "labels", "products", "short"}
         analytical = uni["areas"][0]
         assert analytical["experience"] == "available"
         assert {(j["track"], j["kind"]) for j in analytical["journeys"]} == {

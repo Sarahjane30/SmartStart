@@ -268,6 +268,7 @@ UNIVERSE = {
         "simulation": "Illustrative simulation, not instrument data",
         "labels": "Working area names, pending confirmation",
         "products": "Product details pending validation",
+        "short": "Illustrative simulations, not instrument data · Area names and product details pending validation",
     },
     "areas": [
         {

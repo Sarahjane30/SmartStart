@@ -25,6 +25,14 @@ def test_story_is_public_and_ends_with_you() -> None:
             ["Identify", "Measure", "Understand"],
         ]
         assert all(c["simple"] and c["deeper"] for c in tech["chambers"])
+        assert [b["division"] for b in tech["beyond"]] == ["Biosciences", "Advanced Diagnostics", "Materials Sciences"]
+
+        divs = body["company"]["divisions"]
+        assert [d["name"] for d in divs] == ["Analytical Sciences", "Biosciences", "Advanced Diagnostics", "Materials Sciences"]
+        assert all(d["how"] and d["example"] and len(d["tech"]) >= 4 and d["used"] for d in divs)
+        names = {d["name"] for d in divs}
+        impact = body["components"][1]
+        assert all(set(a["divisions"]) <= names for a in impact["areas"] + impact["more"])
 
         world = body["components"][3]
         home = [s for s in world["sites"] if s["home"]]

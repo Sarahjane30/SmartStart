@@ -11,6 +11,7 @@ import os
 from backend.database import DataStore, store
 from backend.models import Joiner, RoleType
 from backend.team_directory import _DEFAULT, _TEAMS
+from backend.waters_divisions import BEYOND_LCMS, DIVISION_SOURCES, DIVISIONS, IMPACT_DIVISIONS, IMPACT_MORE, TOGETHER
 
 SOURCES = (
     {
@@ -26,23 +27,20 @@ SOURCES = (
         "url": "https://ir.waters.com/News--Events/newsroom/news-details/2023/Waters-Corporation-Opens-New-State-of-the-Art-Global-Capability-Center-in-Bengaluru-India/default.aspx",
     },
     {"label": "waters.com — Careers: global locations", "url": "https://www.waters.com/careers"},
+    *DIVISION_SOURCES,
 )
 
 COMPANY = {
     "name": "Waters",
     "tagline": "A global leader in life sciences and diagnostics.",
     "summary": (
-        "Waters develops analytical technologies, informatics and services that help "
-        "scientists analyse complex samples and make important decisions — from releasing "
-        "safe medicines to detecting disease earlier."
+        "Waters develops technologies, informatics and services across four divisions — "
+        "analytical sciences, biosciences, diagnostics and materials sciences — that help "
+        "scientists and clinicians understand complex samples and make important decisions, "
+        "from releasing safe medicines to diagnosing infections and designing better materials."
     ),
     "colleagues": "~16,000",
-    "divisions": [
-        {"name": "Analytical Sciences", "what": "Liquid chromatography, mass spectrometry and the software around them."},
-        {"name": "Biosciences", "what": "Tools for studying cells — formerly BD Biosciences."},
-        {"name": "Advanced Diagnostics", "what": "Testing that helps clinicians find and manage infections — formerly BD Diagnostic Solutions."},
-        {"name": "Materials Sciences", "what": "Measuring how materials behave — heat, flow and strength."},
-    ],
+    "divisions": list(DIVISIONS),
 }
 
 SCIENCE = {
@@ -51,7 +49,11 @@ SCIENCE = {
     "label": "What does Waters do?",
     "title": "The science",
     "lead": COMPANY["summary"],
-    "simple": "Think of it as helping scientists work out exactly what's inside a sample — and trust the answer.",
+    "simple": (
+        "Think of it as helping people work out exactly what's inside a sample, a cell, an "
+        "infection or a material — and trust the answer."
+    ),
+    "together": TOGETHER,
     "explore": [
         {
             "name": "Liquid chromatography",
@@ -85,11 +87,18 @@ IMPACT = {
         "The goal isn't just measurement — it's helping scientists make better decisions."
     ),
     "areas": [
-        {"name": "Medicines", "what": "Checking that effective, high-quality medicines are ready for release."},
-        {"name": "Food & water", "what": "Helping ensure the safety of what we eat and drink."},
-        {"name": "Diagnostics", "what": "Detecting diseases earlier and managing routine infections."},
-        {"name": "Antibiotic resistance", "what": "Supporting the fight against infections that stop responding to drugs."},
+        {**area, "divisions": divs}
+        for area, divs in zip(
+            (
+                {"name": "Medicines", "what": "Checking that effective, high-quality medicines are ready for release."},
+                {"name": "Food & water", "what": "Helping ensure the safety of what we eat and drink."},
+                {"name": "Diagnostics", "what": "Detecting diseases earlier, identifying infections and guiding treatment."},
+                {"name": "Antibiotic resistance", "what": "Finding which antibiotics will still work against an infection."},
+            ),
+            IMPACT_DIVISIONS,
+        )
     ],
+    "more": list(IMPACT_MORE),
 }
 
 TECHNOLOGY = {
@@ -97,7 +106,11 @@ TECHNOLOGY = {
     "index": "03",
     "label": "The technology",
     "title": "Inside the chambers",
-    "lead": "Two core ideas power most of the machine. Start simple — go deeper when you're ready.",
+    "lead": (
+        "Analytical Sciences runs on two core ideas, LC and MS — start there. Then look inside "
+        "the core technology of the other three divisions."
+    ),
+    "beyond": list(BEYOND_LCMS),
     "chambers": [
         {
             "name": "Liquid chromatography",

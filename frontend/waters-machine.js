@@ -162,6 +162,7 @@
     youT: 0,
     youStage: 0,
     chamber: -1,
+    division: 0,
     site: null,
     node: null,
     area: -1,
@@ -2383,6 +2384,27 @@
     </footer>`;
   }
 
+  const DIV_COLORS = ["cyan", "violet", "mint", "blue"];
+  const divColor = (name) => {
+    const i = (S.data?.company.divisions || []).findIndex((d) => d.name === name);
+    return rgba(C[DIV_COLORS[Math.max(0, i)]], 1);
+  };
+  const divChips = (names) =>
+    `<span class="wm-div-chips">${names.map((n) => `<span style="--c:${divColor(n)}">${esc(n)}</span>`).join("")}</span>`;
+
+  function divisionHTML(d) {
+    return `<p class="wm-div-her">${esc(d.heritage)}</p>
+      <p class="wm-div-q">${esc(d.question)}</p>
+      <p class="wm-div-simple">${esc(d.simple)}</p>
+      <h4>How it works</h4>
+      <p class="wm-div-how">${esc(d.how)}</p>
+      <h4>Key technologies</h4>
+      <ul class="wm-div-tech">${d.tech.map((t) => `<li><strong>${esc(t.name)}</strong><span>${esc(t.what)}</span></li>`).join("")}</ul>
+      <h4>Where it's used</h4>
+      <div class="wm-div-used">${d.used.map((u) => `<span>${esc(u)}</span>`).join("")}</div>
+      <p class="wm-plain"><span>For example</span>${esc(d.example)}</p>`;
+  }
+
   const PANELS = {
     science(c) {
       const divs = S.data.company.divisions;
@@ -2398,7 +2420,14 @@
           )
           .join("")}</div>
         <h3>Four divisions <small>since Feb 2026</small></h3>
-        <ul class="wm-divs">${divs.map((d) => `<li><strong>${esc(d.name)}</strong><span>${esc(d.what)}</span></li>`).join("")}</ul>`;
+        <div class="wm-div-tabs" role="tablist" aria-label="Waters divisions">${divs
+          .map(
+            (d, i) => `<button type="button" role="tab" class="wm-div-tab${i === S.division ? " is-on" : ""}" data-div="${i}"
+              aria-selected="${i === S.division}" style="--c:${rgba(C[DIV_COLORS[i]], 1)}"><i></i><strong>${esc(d.name)}</strong><span>${esc(d.what)}</span></button>`
+          )
+          .join("")}</div>
+        <article class="wm-div" role="tabpanel" style="--c:${rgba(C[DIV_COLORS[S.division]], 1)}">${divisionHTML(divs[S.division])}</article>
+        <p class="wm-plain"><span>How they fit together</span>${esc(c.together)}</p>`;
     },
     impact(c) {
       return `${kicker(c)}<h2>${esc(c.title)}</h2>
@@ -2406,9 +2435,16 @@
         <ul class="wm-areas">${c.areas
           .map(
             (a, i) => `<li data-area="${i}" tabindex="0"><i style="--c:${rgba(AREA_COLORS[i], 1)}"></i>
-              <div><strong>${esc(a.name)}</strong><span>${esc(a.what)}</span></div></li>`
+              <div><strong>${esc(a.name)}</strong><span>${esc(a.what)}</span>${a.divisions ? divChips(a.divisions) : ""}</div></li>`
           )
           .join("")}</ul>
+        ${
+          c.more
+            ? `<h3>And beyond</h3><ul class="wm-areas is-more">${c.more
+                .map((a) => `<li><div><strong>${esc(a.name)}</strong><span>${esc(a.what)}</span>${divChips(a.divisions)}</div></li>`)
+                .join("")}</ul>`
+            : ""
+        }
         <p class="wm-plain"><span>The point</span>Not just measuring things — helping scientists make better decisions.</p>`;
     },
     technology(c) {
@@ -2427,7 +2463,24 @@
             </article>`
           )
           .join("")}</div>
-        <p class="wm-plain"><span>Together</span>Think of it as separating and identifying what's inside a sample.</p>`;
+        <p class="wm-plain"><span>Together</span>Think of it as separating and identifying what's inside a sample.</p>
+        ${
+          c.beyond
+            ? `<h3>Beyond LC–MS <small>the other three divisions</small></h3>
+              <div class="wm-chambers is-beyond">${c.beyond
+                .map(
+                  (b) => `<article class="wm-chamber is-beyond" style="--c:${divColor(b.division)}">
+                    <header><span class="wm-ch-tag">${esc(b.short)}</span><strong>${esc(b.name)}</strong></header>
+                    ${divChips([b.division])}
+                    <ol class="wm-steps">${b.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+                    <p>${esc(b.simple)}</p>
+                    <button type="button" class="wm-deep-btn" aria-expanded="false">Explain deeper</button>
+                    <div class="wm-deeper" hidden><span>The technical version</span>${esc(b.deeper)}</div>
+                  </article>`
+                )
+                .join("")}</div>`
+            : ""
+        }`;
     },
     world(c) {
       const site = c.sites.find((s) => s.id === S.site);
@@ -2517,6 +2570,25 @@
         })
       );
     }
+    if (id === "science") {
+      P.querySelectorAll("[data-div]").forEach((b) =>
+        b.addEventListener("click", () => {
+          S.division = Number(b.dataset.div);
+          const divs = S.data.company.divisions;
+          P.querySelectorAll("[data-div]").forEach((t) => {
+            const on = t === b;
+            t.classList.toggle("is-on", on);
+            t.setAttribute("aria-selected", String(on));
+          });
+          const art = P.querySelector(".wm-div");
+          art.style.setProperty("--c", rgba(C[DIV_COLORS[S.division]], 1));
+          art.innerHTML = divisionHTML(divs[S.division]);
+          art.classList.remove("is-swap");
+          void art.offsetWidth;
+          art.classList.add("is-swap");
+        })
+      );
+    }
     if (id === "impact") {
       P.querySelectorAll("[data-area]").forEach((li) => {
         const on = () => (S.area = Number(li.dataset.area));
@@ -2532,7 +2604,15 @@
           enterRide(b.dataset.ride, b.dataset.track);
         })
       );
-      P.querySelectorAll(".wm-chamber").forEach((card) => {
+      P.querySelectorAll(".wm-chamber.is-beyond").forEach((card) =>
+        card.querySelector(".wm-deep-btn").addEventListener("click", (e) => {
+          const d = card.querySelector(".wm-deeper");
+          d.hidden = !d.hidden;
+          e.currentTarget.textContent = d.hidden ? "Explain deeper" : "Keep it simple";
+          e.currentTarget.setAttribute("aria-expanded", String(!d.hidden));
+        })
+      );
+      P.querySelectorAll(".wm-chamber:not(.is-beyond)").forEach((card) => {
         const on = () => {
           S.chamber = Number(card.dataset.ch);
           P.querySelectorAll(".wm-chamber").forEach((c) => c.classList.toggle("is-on", c === card));

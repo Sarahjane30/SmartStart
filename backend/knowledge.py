@@ -481,9 +481,11 @@ _e(
         kind="term",
         name="Waters",
         summary=(
-            "Waters is a global leader in life sciences and diagnostics — analytical technologies "
-            "such as liquid chromatography and mass spectrometry, informatics and service, "
-            "with about 16,000 colleagues worldwide (public company information)."
+            "Waters is a global leader in life sciences and diagnostics, with four divisions: "
+            "Analytical Sciences (liquid chromatography, mass spectrometry and informatics), "
+            "Biosciences (flow cytometry and single-cell analysis), Advanced Diagnostics "
+            "(microbiology and molecular infection testing) and Materials Sciences (TA Instruments "
+            "thermal analysis and rheology) — with about 16,000 colleagues worldwide (public company information)."
         ),
         owner="SmartStart",
         department="Company",

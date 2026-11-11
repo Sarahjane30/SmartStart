@@ -864,33 +864,61 @@
     you: (P, a) => drawYou(P, a),
   };
 
-  /* ---------- opening: the globe tells the first story ---------- */
+  /* ---------- opening: seeing is not the same as understanding ---------- */
 
   // Scroll track 0..1. Each window is [fade in from, fully in, hold until, gone by].
   const OPEN_BEATS = {
-    world: [-1, 0, 0.1, 0.15],
-    depend: [0.15, 0.19, 0.27, 0.31],
-    behind: [0.43, 0.47, 0.55, 0.59],
-    question: [0.63, 0.67, 0.775, 0.805],
-    science: [0.8, 0.835, 0.885, 0.905],
-    waters: [0.905, 0.945, 2, 3],
+    see: [-1, 0, 0.035, 0.05],
+    understand: [0.05, 0.065, 0.1, 0.118],
+    medicine: [0.13, 0.148, 0.2, 0.215],
+    water: [0.228, 0.243, 0.29, 0.305],
+    food: [0.318, 0.333, 0.37, 0.385],
+    material: [0.398, 0.413, 0.455, 0.47],
+    appearance: [0.485, 0.5, 0.545, 0.56],
+    within: [0.585, 0.6, 0.635, 0.65],
+    identity: [0.65, 0.665, 0.7, 0.715],
+    observe: [0.72, 0.733, 0.752, 0.765],
+    separate: [0.768, 0.782, 0.85, 0.862],
+    science: [0.866, 0.88, 0.912, 0.925],
+    waters: [0.93, 0.943, 0.965, 0.975],
+    mark: [0.975, 0.988, 2, 3],
   };
-  const OPEN_WORD = (i) => [0.27 + i * 0.025, 0.3 + i * 0.025, 0.42, 0.47];
-  const OPEN_STOPS = [0, 0.23, 0.385, 0.51, 0.72, 0.86, 0.975, 1];
-  const OPEN_ANCHORS = [
-    [-0.56, 0.44, 0.7],
-    [0.6, 0.4, 0.69],
-    [-0.62, -0.38, 0.69],
-    [0.55, -0.48, 0.68],
-  ].map((v) => {
-    const l = Math.hypot(...v);
-    return v.map((c) => c / l);
-  });
+  const OPEN_STOPS = [0, 0.085, 0.175, 0.268, 0.352, 0.435, 0.522, 0.618, 0.683, 0.743, 0.79, 0.85, 0.896, 0.955, 0.995, 1];
+  const OPEN_BREATHE = [
+    [0.065, 0.1],
+    [0.5, 0.545],
+    [0.88, 0.912],
+    [0.943, 0.965],
+  ];
+  // One continuous particle timeline: each keyframe is a formation held over [a, b].
+  const KF = [
+    { s: "globe", a: -1, b: 0.1, zoom: 1.16, side: 1 },
+    { s: "tablet", a: 0.135, b: 0.2, zoom: 1.3, side: 1 },
+    { s: "drop", a: 0.232, b: 0.29, zoom: 1.3, side: 1 },
+    { s: "food", a: 0.322, b: 0.37, zoom: 1.3, side: 1 },
+    { s: "material", a: 0.402, b: 0.455, zoom: 1.22, side: 1 },
+    { s: "lineup", a: 0.488, b: 0.545, zoom: 0.95, side: 0 },
+    { s: "micro", a: 0.59, b: 0.7, zoom: 1.35, side: 0 },
+    { s: "mixture", a: 0.728, b: 0.755, zoom: 1.45, side: 0 },
+    { s: "separation", a: 0.775, b: 0.85, zoom: 1, side: 0 },
+    { s: "instrument", a: 0.875, b: 0.915, zoom: 1, side: 0 },
+    { s: "core", a: 0.945, b: 2, zoom: 1, side: 0 },
+  ];
+  const KI = Object.fromEntries(KF.map((k, i) => [k.s, i]));
+  const OBJ = ["tablet", "drop", "food", "material"];
+  const OBJ_LABEL = ["A medicine tablet", "A drop of water", "A food sample", "A material surface"];
+  const OBJ_MOL = [0, 2, 1, 3];
+  const COMP = ["cyan", "violet", "mint", "blue"];
+
   const OPEN_DOTS = fib(720);
-  const OPEN_PER_MOL = OPEN_DOTS.length / 4;
+  const OPEN_N = OPEN_DOTS.length;
+  const OPEN_PER_MOL = OPEN_N / 4;
   const sm = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
   const win = (p, [a, b, c, d]) => (p <= a || p >= d ? 0 : p < b ? sm((p - a) / (b - a)) : p <= c ? 1 : 1 - sm((p - c) / (d - c)));
   const mixC = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+  const rotX = ([x, y, z], a) => [x, y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+  const rotY = ([x, y, z], a) => [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)];
+  const rotZ = ([x, y, z], a) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a), z];
 
   const seeded = (() => {
     let s = 20240611;
@@ -900,6 +928,15 @@
     };
   })();
   const OPEN_SEED = OPEN_DOTS.map(() => seeded());
+  const gauss = () => Math.sqrt(-2 * Math.log(seeded() + 1e-9)) * Math.cos(TAU * seeded());
+  const ballJitter = (r) => [(seeded() - 0.5) * 2 * r, (seeded() - 0.5) * 2 * r, (seeded() - 0.5) * 2 * r];
+
+  function recenter(M) {
+    const lo = [0, 1, 2].map((i) => Math.min(...M.atoms.map((a) => a.p[i])));
+    const hi = [0, 1, 2].map((i) => Math.max(...M.atoms.map((a) => a.p[i])));
+    M.atoms.forEach((a) => (a.p = a.p.map((v, i) => v - (lo[i] + hi[i]) / 2)));
+    return M;
+  }
 
   // Structural sketches only — never labelled as specific products.
   const MOLS = (() => {
@@ -949,18 +986,22 @@
           if (y) lattice.bonds.push([at(x, y - 1, z), at(x, y, z)]);
           if (z) lattice.bonds.push([at(x, y, z - 1), at(x, y, z)]);
         }
-    const mols = [ring, chain, water, lattice];
-    mols.forEach((M) => {
-      const lo = [0, 1, 2].map((i) => Math.min(...M.atoms.map((a) => a.p[i])));
-      const hi = [0, 1, 2].map((i) => Math.max(...M.atoms.map((a) => a.p[i])));
-      M.atoms.forEach((a) => (a.p = a.p.map((v, i) => v - (lo[i] + hi[i]) / 2)));
-    });
-    return mols;
+    return [ring, chain, water, lattice].map(recenter);
   })();
 
-  const gauss = () => Math.sqrt(-2 * Math.log(seeded() + 1e-9)) * Math.cos(TAU * seeded());
-  const ballJitter = (r) => [(seeded() - 0.5) * 2 * r, (seeded() - 0.5) * 2 * r, (seeded() - 0.5) * 2 * r];
-  const MOL_PARTS = MOLS.map((M, mol) => {
+  // Small, generic analyte sketches for the separation scene — illustrative, never named.
+  const ANA = (() => {
+    const hex = (cx, cy) => Array.from({ length: 6 }, (_, i) => [cx + Math.cos(Math.PI / 6 + (i * TAU) / 6) * 0.24, cy + Math.sin(Math.PI / 6 + (i * TAU) / 6) * 0.24, 0]);
+    const cyc = (o) => Array.from({ length: 6 }, (_, i) => [o + i, o + ((i + 1) % 6)]);
+    const mk = (atoms, bonds) => recenter({ atoms: atoms.map(([p, k]) => ({ p, k })), bonds, hb: [] });
+    const phenol = mk([...hex(0, 0).map((p) => [p, "cyan"]), [[0, 0.5, 0], "violet"]], [...cyc(0), [1, 6]]);
+    const chainAtoms = Array.from({ length: 6 }, (_, i) => [[-0.36 + i * 0.13, i % 2 ? 0.07 : -0.07, 0], "cyan"]);
+    const chain = mk([...chainAtoms, [[0.46, 0.2, 0], "violet"]], [...Array.from({ length: 5 }, (_, i) => [i, i + 1]), [5, 6]]);
+    const fused = mk([...hex(-0.208, 0), ...hex(0.208, 0)].map((p) => [p, "cyan"]), [...cyc(0), ...cyc(6)]);
+    return [phenol, chain, MOLS[0], fused];
+  })();
+
+  function allocParts(M) {
     const items = [
       ...M.atoms.map((a) => ({ w: a.k === "ice" ? 0.55 : 1, a })),
       ...M.bonds.map(([i, j]) => {
@@ -974,32 +1015,135 @@
     for (let j = 0; j < OPEN_PER_MOL; j += 1) {
       let u = ((j + 0.5) / OPEN_PER_MOL) * total;
       const it = items.find((x) => (u -= x.w) <= 0) || items[items.length - 1];
-      const part = { mol, bx: gauss(), by: seeded() - 0.5 };
-      if (it.a) {
-        part.local = add(it.a.p, ballJitter(0.04));
-        part.col = it.a.k;
-        part.atom = true;
-      } else {
-        part.local = add(mix(it.b[0], it.b[1], seeded()), ballJitter(0.012));
-        part.col = it.b[2] === "ice" ? "ice" : "blue";
-        part.atom = false;
-      }
-      parts.push(part);
+      if (it.a) parts.push({ local: add(it.a.p, ballJitter(0.04)), col: it.a.k, atom: true });
+      else parts.push({ local: add(mix(it.b[0], it.b[1], seeded()), ballJitter(0.012)), col: it.b[2] === "ice" ? "ice" : "blue", atom: false });
     }
     return parts.sort((p, q) => q.local[1] - p.local[1]);
+  }
+  const MOL_PARTS = MOLS.map(allocParts);
+  const ANA_PARTS = ANA.map(allocParts);
+
+  const tear = (d, s) => {
+    const t = Math.acos(clamp(d[1], -1, 1));
+    const az = Math.atan2(d[2], d[0]);
+    const r = Math.sin(t) * Math.pow(Math.sin(t / 2), 0.9) * 1.05 * s;
+    return [Math.cos(az) * r, (Math.cos(t) * 1.15 + 0.05) * s, Math.sin(az) * r];
+  };
+  // Everyday objects, sampled as particle surfaces in their own local frame.
+  const SHAPES = {
+    tablet: OPEN_DOTS.map(() => {
+      const u = seeded();
+      const th = seeded() * TAU;
+      if (u < 0.52) {
+        const r = Math.sqrt(seeded()) * 0.94;
+        let x = Math.cos(th) * r;
+        if (Math.abs(x) < 0.05) x = Math.sign(x || 1) * (0.05 + seeded() * 0.02);
+        return [x, 0.17 + 0.05 * (1 - r * r), Math.sin(th) * r];
+      }
+      if (u < 0.64) {
+        const r = Math.sqrt(seeded()) * 0.94;
+        return [Math.cos(th) * r, -0.17 - 0.05 * (1 - r * r), Math.sin(th) * r];
+      }
+      const y = (seeded() - 0.5) * 0.34;
+      const r = 1 - 0.07 * ((2 * Math.abs(y)) / 0.34) ** 2;
+      return [Math.cos(th) * r, y, Math.sin(th) * r];
+    }),
+    drop: OPEN_DOTS.map((d, i) => (seeded() < 0.1 ? tear(OPEN_DOTS[(i * 37) % OPEN_N], 0.3 + seeded() * 0.5) : tear(d, 1))),
+    food: OPEN_DOTS.map(([x, y, z]) => {
+      let Y = y * 0.62;
+      if (Y > 0 && Math.abs(z) < 0.18) Y *= 0.5 + Math.abs(z) * 2.7;
+      return [x * 1.25, Y, z * 0.64];
+    }),
+    material: OPEN_DOTS.map((d, i) => {
+      if (i < 576) return [((i % 24) / 23) * 2 - 1, 0.04, (Math.floor(i / 24) / 23) * 2 - 1];
+      const e = i % 4;
+      const t = seeded() * 2 - 1;
+      const y = (seeded() - 0.5) * 0.09;
+      return e === 0 ? [t, y, 1.02] : e === 1 ? [t, y, -1.02] : e === 2 ? [1.02, y, t] : [-1.02, y, t];
+    }),
+  };
+
+  // A generic benchtop LC–MS outline: separation stack on the left, mass spectrometer on the right.
+  const INSTR = (() => {
+    const segs = [];
+    const box = (x0, y0, x1, y1, d) => {
+      const F = [
+        [x0, y0],
+        [x1, y0],
+        [x1, y1],
+        [x0, y1],
+      ];
+      F.forEach((p, k) => segs.push([[p[0], p[1], 0], [F[(k + 1) % 4][0], F[(k + 1) % 4][1], 0]]));
+      segs.push([[x0, y1, 0], [x0, y1, -d]], [[x1, y1, 0], [x1, y1, -d]], [[x1, y0, 0], [x1, y0, -d]], [[x0, y1, -d], [x1, y1, -d]], [[x1, y1, -d], [x1, y0, -d]]);
+    };
+    box(-2.0, -0.85, -0.8, 0.95, 0.7);
+    [-0.4, 0.05, 0.5].forEach((y) => segs.push([[-2.0, y, 0], [-0.8, y, 0]]));
+    box(-0.5, -0.85, 2.0, 0.3, 0.9);
+    for (let k = 0; k < 16; k += 1) {
+      const a0 = (k / 16) * TAU;
+      const a1 = ((k + 1) / 16) * TAU;
+      segs.push([[-0.15 + Math.cos(a0) * 0.17, -0.3 + Math.sin(a0) * 0.17, 0], [-0.15 + Math.cos(a1) * 0.17, -0.3 + Math.sin(a1) * 0.17, 0]]);
+    }
+    segs.push([[0.5, -0.05, 0], [1.6, -0.05, 0]], [[0.5, -0.55, 0], [1.6, -0.55, 0]], [[0.5, -0.05, 0], [0.5, -0.55, 0]], [[1.6, -0.05, 0], [1.6, -0.55, 0]]);
+    const tube = (u) => bez([-0.8, 0.72, 0], [-0.2, 0.78, 0.15], [-0.15, -0.13, 0], u);
+    for (let k = 0; k < 12; k += 1) segs.push([tube(k / 12), tube((k + 1) / 12)]);
+    const lens = segs.map(([a, b]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]));
+    const total = lens.reduce((s, l) => s + l, 0);
+    const pts = OPEN_DOTS.map((_, i) => {
+      let u = ((i * 0.6180339887) % 1) * total;
+      let k = 0;
+      while (k < segs.length - 1 && u > lens[k]) u -= lens[k++];
+      return add(mix(segs[k][0], segs[k][1], u / lens[k]), ballJitter(0.008));
+    });
+    return { pts, tube };
+  })();
+
+  // Liquid chromatography in miniature: components move at different speeds, broaden, and elute in turn.
+  const SEP = { X0: -2.1, XD: 1.0, Y0: 0.85, T0: -2.1, T1: 2.1, YT: -0.48, speed: [1, 0.74, 0.55, 0.42] };
+  const SEP_K = 1 / (0.86 * SEP.speed[3]);
+  const SEP_PEAK = SEP.speed.map((v) => {
+    const t = 1 / (SEP_K * v);
+    const sig = 0.05 + 0.12 * t;
+    return { t, x: lerp(SEP.T0, SEP.T1, t), sig, h: 0.075 / sig };
   });
+  const SEP_JIT = OPEN_DOTS.map(() => [gauss(), seeded() - 0.5]);
+  const MIX_POS = COMP.map(() => Array.from({ length: 30 }, () => [gauss() * 0.72, gauss() * 0.36, gauss() * 0.3]));
 
   const coarse = window.matchMedia("(hover: none)").matches;
-  const OP = { ptrT: -9, lx: 0, ly: 0, lensOn: false, moved: 0, peakT: [-9, -9, -9, -9], shock: false, ripples: [], molSpin: [0, 0, 0, 0], molA: 0, molHot: -1, spinV: 0, drag: null, quietUntil: 0, dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, m: 0, sep: 0, fin: 0, map: null, anchors: [], touching: false };
+  const OP = {
+    ptrT: -9,
+    lx: 0,
+    ly: 0,
+    lensOn: false,
+    moved: 0,
+    flash: [-9, -9, -9, -9],
+    shock: false,
+    ripples: [],
+    molA: 0,
+    spinV: 0,
+    drag: null,
+    quietUntil: 0,
+    dir: 1,
+    p: 0,
+    target: 0,
+    age: 0,
+    idle: 0,
+    hold: 0,
+    after: 0,
+    sep: 0,
+    st: { A: 0, B: 0, e: 0 },
+    cs: 1,
+    sn: 0,
+    touching: false,
+  };
   const opEls = {
     box: $(".wm-open"),
     lines: [...root.querySelectorAll(".wm-open [data-beat]")],
-    words: [...root.querySelectorAll(".wm-open [data-word]")],
     cue: $(".wm-open-cue"),
     bar: $(".wm-open-progress i"),
     scale: $(".wm-open-scale"),
   };
-  const SCALE_MARKS = { 7: "Earth", 0: "Everyday things", "-5": "A cell", "-9": "A molecule" };
+  const SCALE_MARKS = { 7: "Earth", "-2": "Everyday objects", "-9": "Molecules" };
 
   function splitWords(el) {
     let i = 0;
@@ -1026,84 +1170,186 @@
   opEls.lines.forEach(splitWords);
 
   function scaleExp(p) {
-    if (p < 0.12) return 7;
-    if (p < 0.36) return Math.round(lerp(7, 0, sm((p - 0.12) / 0.24)));
-    if (p < 0.42) return 0;
-    return Math.round(lerp(0, -9, sm((p - 0.42) / 0.2)));
+    if (p < 0.11) return 7;
+    if (p < 0.135) return Math.round(lerp(7, -2, sm((p - 0.11) / 0.025)));
+    if (p < 0.545) return -2;
+    return Math.round(lerp(-2, -9, sm((p - 0.545) / 0.045)));
   }
 
   function openLayout() {
     if (S.narrow) {
       return {
-        mols: [
-          { c: [-0.5, 1.0, 0], s: 0.66 },
-          { c: [0.52, 1.04, 0], s: 0.66 },
-          { c: [-0.48, -0.95, 0], s: 0.66 },
-          { c: [0.52, -0.95, 0], s: 0.66 },
+        lp: [
+          [-0.95, 0.85, 0],
+          [0.95, 0.85, 0],
+          [-0.95, -0.75, 0],
+          [0.95, -0.75, 0],
         ],
-        bands: [-0.66, -0.22, 0.22, 0.66],
-        bw: 0.03,
-        bh: 0.34,
-        flowY: 0.42,
-        traceY: -0.25,
-        span: 0.85,
-        th: 0.55,
+        lk: 0.5,
+        ms: 0.72,
+        mix: [0, 0.1, 0],
+        mx: 0.6,
+        sx: 0.92,
+        is: 0.95,
+        ip: [0, 0.2, 0],
       };
     }
     return {
-      mols: [
-        { c: [-1.25, 0.6, 0.2], s: 1 },
-        { c: [1.2, 0.66, 0], s: 1 },
-        { c: [-1.15, -0.68, 0.1], s: 1 },
-        { c: [1.2, -0.62, -0.1], s: 1 },
+      lp: [
+        [-2.1, 0.18, 0],
+        [-0.7, 0.18, 0],
+        [0.7, 0.18, 0],
+        [2.1, 0.18, 0],
       ],
-      bands: [-1.35, -0.45, 0.45, 1.35],
-      bw: 0.05,
-      bh: 0.42,
-      flowY: 0.2,
-      traceY: -0.72,
-      span: 2.1,
-      th: 0.9,
+      lk: 0.42,
+      ms: 0.62,
+      mix: [0, 0.15, 0],
+      mx: 1,
+      sx: 1,
+      is: 1,
+      ip: [0, 0.12, 0],
     };
   }
 
-  function molPoint(M, L, local, g) {
+  function stageAt(p) {
+    for (let k = 0; k < KF.length; k += 1) {
+      if (p > KF[k].b) continue;
+      if (k === 0 || p >= KF[k].a) return { A: k, B: k, e: 0 };
+      return { A: k - 1, B: k, e: sm((p - KF[k - 1].b) / (KF[k].a - KF[k - 1].b)) };
+    }
+    return { A: KF.length - 1, B: KF.length - 1, e: 0 };
+  }
+  const localT = (k) => clamp((OP.p - KF[k].a) / (KF[k].b - KF[k].a), 0, 1);
+  const weightOf = (k) => {
+    const { A, B, e } = OP.st;
+    return (A === k ? 1 - e : 0) + (B === k && A !== k ? e : 0);
+  };
+
+  function objPoint(name, p, k, pos) {
+    const t = reduce ? 0 : S.t;
+    let q;
+    if (name === "tablet") q = rotX(rotZ(rotY(p, t * 0.3 + OP.molA), 0.3 + Math.sin(t * 0.4) * 0.08), 0.42);
+    else if (name === "drop") q = rotY(p, t * 0.2 + OP.molA);
+    else if (name === "food") q = rotX(rotZ(rotY(p, t * 0.25 + OP.molA), 0.35), 0.45);
+    else q = rotX(rotY(p, 0.62 + OP.molA * 0.6 + Math.sin(t * 0.2) * 0.12), 0.95);
+    return { w: [pos[0] + q[0] * k, pos[1] + q[1] * k, pos[2] + q[2] * k], depth: q[2] };
+  }
+
+  function objLook(name, p, seed) {
+    const t = reduce ? 0 : S.t;
+    if (name === "drop") {
+      const glint = p[0] < -0.25 && p[1] > 0.1 ? 1.8 : 1;
+      return { col: mixC(C.cyan, C.ice, 0.55), a: (Math.hypot(p[0], p[2]) < 0.5 && Math.abs(p[1]) < 0.6 ? 0.5 : 1) * glint };
+    }
+    if (name === "material") {
+      const sweep = Math.sin(t * 0.6) * 1.5;
+      return { col: mixC(C.steel, C.ice, 0.5), a: 1 + 1.6 * Math.exp(-((p[0] + p[2] * 0.7 - sweep) ** 2) / 0.04) };
+    }
+    if (name === "food") return { col: mixC(C.mint, C.ice, 0.72), a: 1 };
+    return { col: seed < 0.08 ? mixC(C.cyan, C.ice, 0.5) : C.ice, a: 1 };
+  }
+
+  function molLocal(M, local, g, k) {
     let [x, y, z] = local;
     if (M.tilt) {
       const c = Math.cos(M.tilt);
       const s = Math.sin(M.tilt);
       [y, z] = [y * c - z * s, y * s + z * c];
     }
-    const a = (reduce ? 0 : S.t * 0.22 * (g % 2 ? -1 : 1)) + g * 0.9 + OP.molA + OP.molSpin[g];
+    const a = (reduce ? 0 : S.t * 0.22 * (g % 2 ? -1 : 1)) + g * 0.9 + OP.molA;
     const c = Math.cos(a);
     const s = Math.sin(a);
-    const bob = reduce ? 0 : Math.sin(S.t * 0.7 + g) * 0.03;
-    return [L.c[0] + (x * c - z * s) * L.s, L.c[1] + bob + y * L.s, L.c[2] + (x * s + z * c) * L.s];
+    return [(x * c - z * s) * k, y * k, (x * s + z * c) * k];
   }
 
-  function mapGlobeToMolecules() {
-    const cs = Math.cos(S.globeSpin);
-    const sn = Math.sin(S.globeSpin);
-    const idx = OPEN_DOTS.map((d, i) => ({ i, x: d[0] * cs - d[2] * sn, y: d[1] })).sort((a, b) => b.y - a.y);
-    const half = idx.length / 2;
-    const groups = [idx.slice(0, half), idx.slice(half)].flatMap((h) => {
-      h.sort((a, b) => a.x - b.x);
-      return [h.slice(0, half / 2), h.slice(half / 2)];
-    });
-    OP.map = new Array(OPEN_DOTS.length);
-    groups.forEach((grp, g) => {
-      grp.sort((a, b) => b.y - a.y).forEach((d, j) => (OP.map[d.i] = MOL_PARTS[g][j]));
-    });
+  function sepBand(g, T) {
+    const len = SEP.XD - SEP.X0;
+    const d = T * SEP_K * SEP.speed[g] * len;
+    return { cx: SEP.X0 + d, bw: 0.03 + 0.08 * Math.min(1, d / len), past: d - len, len };
+  }
+  const sepTop = (g) => [SEP_PEAK[g].x, SEP.YT + SEP_PEAK[g].h * 0.9 + 0.34, 0];
+
+  function formAt(k, i, L) {
+    const seed = OPEN_SEED[i];
+    const g = i % 4;
+    const j = (i - g) / 4;
+    const live = reduce ? 0 : 1;
+    const t = reduce ? 0 : S.t;
+    const s = KF[k].s;
+    if (s === "globe") {
+      const d = OPEN_DOTS[i];
+      const br = 1 + 0.018 * Math.sin(S.t * 0.9 + seed * TAU) * live;
+      return {
+        w: [br * (d[0] * OP.cs - d[2] * OP.sn), br * d[1], br * (d[0] * OP.sn + d[2] * OP.cs)],
+        col: seed < 0.1 ? C.cyan : seed > 0.94 ? C.violet : C.ice,
+        size: seed < 0.1 ? 0.016 : 0.011,
+        a: 1,
+        globe: true,
+      };
+    }
+    if (OBJ.includes(s)) {
+      const p = SHAPES[s][i];
+      const o = objPoint(s, p, s === "drop" ? 0.85 : 1, [0, 0, 0]);
+      const look = objLook(s, p, seed);
+      return { w: o.w, col: look.col, size: 0.011, a: look.a * (0.4 + 0.6 * clamp((o.depth + 1) / 2, 0, 1)) };
+    }
+    if (s === "lineup") {
+      const name = OBJ[g];
+      const p = SHAPES[name][i];
+      const o = objPoint(name, p, L.lk * (name === "drop" ? 0.85 : 1), L.lp[g]);
+      const look = objLook(name, p, seed);
+      return { w: o.w, col: look.col, size: 0.013, a: look.a * (0.45 + 0.55 * clamp((o.depth + 1) / 2, 0, 1)) };
+    }
+    if (s === "micro") {
+      const part = MOL_PARTS[OBJ_MOL[g]][j];
+      return {
+        w: add(L.lp[g], molLocal(MOLS[OBJ_MOL[g]], part.local, g, L.ms)),
+        col: mixC(C[COMP[g]], C[part.col], 0.35),
+        size: part.atom ? 0.014 : 0.009,
+        a: 1,
+      };
+    }
+    if (s === "mixture") {
+      const grp = Math.floor(j / 6);
+      const c = MIX_POS[g][grp];
+      const ph = (g * 30 + grp) * 1.7;
+      const a = ((j % 6) / 6) * TAU + t * 0.8 + ph;
+      return {
+        w: [L.mix[0] + c[0] * L.mx + Math.sin(t * 0.6 + ph) * 0.07 + Math.cos(a) * 0.05, L.mix[1] + c[1] + Math.cos(t * 0.5 + ph * 1.3) * 0.06 + Math.sin(a) * 0.05, c[2]],
+        col: C[COMP[g]],
+        size: 0.011,
+        a: 1,
+      };
+    }
+    if (s === "separation") {
+      const T = localT(k);
+      const B = sepBand(g, T);
+      const [bx, by] = SEP_JIT[i];
+      if (B.past <= 0) return { w: [(B.cx + bx * B.bw) * L.sx, SEP.Y0 + by * 0.2, 0], col: C[COMP[g]], size: 0.011, a: 1 };
+      const u = ease(clamp(B.past / (B.len * 0.35), 0, 1));
+      const top = sepTop(g);
+      const mol = molLocal(ANA[g], ANA_PARTS[g][j].local, g, 0.34);
+      const end = [(top[0] + mol[0]) * L.sx, top[1] + mol[1], mol[2]];
+      return { w: bez([SEP.XD * L.sx + 0.12, SEP.Y0, 0], [end[0], SEP.Y0, 0], end, u), col: C[COMP[g]], size: 0.011, a: 1 };
+    }
+    if (s === "instrument") {
+      const p = INSTR.pts[i];
+      return { w: add(L.ip, [p[0] * L.is, p[1] * L.is, p[2] * L.is]), col: seed < 0.06 ? C.cyan : C.ice, size: 0.009, a: 0.85 };
+    }
+    const d = OPEN_DOTS[i];
+    return { w: [d[0] * 0.14, d[1] * 0.14, d[2] * 0.14], col: C.cyan, size: 0.01, a: 1 };
   }
 
   function startOpening(at = 0) {
     S.opening = true;
-    Object.assign(OP, { dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, m: 0, sep: 0, fin: 0, map: null, touching: false });
+    Object.assign(OP, { dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, sep: 0, touching: false, shock: false });
+    OP.st = stageAt(0);
     applyPalette(false);
     root.classList.remove("is-brand");
     root.classList.add("is-opening");
     els.intro.classList.add("is-gone");
     OP.ripples = [];
+    OP.flash = [-9, -9, -9, -9];
     OP.lensOn = false;
     OP.moved = 0;
     OP.drag = null;
@@ -1112,13 +1358,14 @@
       OP.p = OP.target = at;
       OP.age = 4;
       OP.dir = -1;
+      OP.st = stageAt(at);
     } else {
       S.zoom = S.narrow ? 1.4 : 0.66;
       S.shift = S.narrow ? 0 : S.w * 0.17;
       S.cam = [0, 0, 0];
       S.hud = 0.3;
     }
-    opEls.lines.concat(opEls.words, [opEls.cue, opEls.scale]).forEach((el) => {
+    opEls.lines.concat([opEls.cue, opEls.scale]).forEach((el) => {
       if (el) el._k = -1;
     });
   }
@@ -1126,7 +1373,7 @@
   function endOpening() {
     if (!S.opening) return;
     S.opening = false;
-    OP.after = OP.fin > 0.5 ? 1 : 0.4;
+    OP.after = OP.st.B === KI.core ? 1 : 0.4;
     root.classList.remove("is-opening");
     setBrandTheme(S.brand, { persist: false });
     S.assemble = 0;
@@ -1145,14 +1392,14 @@
     OP.idle = 0;
     OP.dir = dir;
     const t = OP.target;
-    if (dir > 0) OP.target = OPEN_STOPS.find((s) => s > t + 0.01) ?? 1;
-    else OP.target = [...OPEN_STOPS].reverse().find((s) => s < t - 0.01) ?? 0;
+    if (dir > 0) OP.target = OPEN_STOPS.find((s) => s > t + 0.005) ?? 1;
+    else OP.target = [...OPEN_STOPS].reverse().find((s) => s < t - 0.005) ?? 0;
   }
 
   function openingNudge(delta) {
     OP.idle = 0;
     if (delta) OP.dir = Math.sign(delta);
-    const breathe = OP.target > 0.66 && OP.target < 0.78 ? 0.6 : 1;
+    const breathe = OPEN_BREATHE.some(([a, b]) => OP.target > a && OP.target < b) ? 0.55 : 1;
     OP.target = clamp(OP.target + delta * breathe, 0, 1);
   }
 
@@ -1164,63 +1411,97 @@
       OP.molA += OP.spinV;
       OP.spinV *= Math.pow(0.05, dt);
     }
-    OP.molSpin = OP.molSpin.map((v, g) => v + (g === OP.molHot && !reduce ? dt * 1.4 : 0));
     OP.ripples.forEach((r) => (r.t += dt));
     OP.ripples = OP.ripples.filter((r) => r.t < 1.8);
     if (OP.idle > 0.7 && !OP.touching) {
       const t = OP.target;
       const near = OP.dir < 0 ? [...OPEN_STOPS].reverse().find((s) => s <= t) : OPEN_STOPS.find((s) => s >= t);
-      if (near != null && Math.abs(near - t) < 0.08) OP.target = lerp(OP.target, near, Math.min(1, dt * 4));
+      if (near != null && Math.abs(near - t) < 0.06) OP.target = lerp(OP.target, near, Math.min(1, dt * 4));
     }
-    OP.p = lerp(OP.p, OP.target, Math.min(1, dt * (reduce ? 9 : 2.3)));
+    OP.p = lerp(OP.p, OP.target, Math.min(1, dt * (reduce ? 9 : 2.1)));
     if (Math.abs(OP.p - OP.target) < 1e-4) OP.p = OP.target;
-    const p = OP.p;
-    OP.m = sm((p - 0.44) / 0.16);
-    OP.sep = sm((p - 0.79) / 0.09);
-    OP.fin = sm((p - 0.9) / 0.07);
-    if (!OP.m) OP.map = null;
-    else if (!OP.map) mapGlobeToMolecules();
-    if (OP.target >= 0.999 && p > 0.985) {
+    OP.st = stageAt(OP.p);
+    OP.sep = sm((OP.p - 0.72) / 0.04);
+    if (OP.target >= 0.999 && OP.p > 0.99) {
       OP.hold += dt;
-      if (OP.hold > 1.1) endOpening();
+      if (OP.hold > 2.2) endOpening();
     } else OP.hold = 0;
   }
 
   function openingCamera() {
-    const p = OP.p;
+    const { A, B, e } = OP.st;
+    const z = (k) => (KF[k].s === "core" ? (S.narrow ? 0.78 : 1) : KF[k].zoom * (S.narrow ? 1.85 : 1));
     const fly = reduce ? 1 : ease(OP.age / 3.2);
-    const machineZoom = S.narrow ? 0.78 : 1;
-    let zoom = (S.narrow ? 1.85 : 1) * lerp(0.74, 1.16, fly);
-    zoom *= 1 + 0.3 * sm(p / 0.44) + 0.4 * sm((p - 0.44) / 0.24) - 0.32 * sm((p - 0.78) / 0.1);
-    zoom = lerp(zoom, machineZoom, OP.fin * 0.55);
-    const textSide = 1 - sm((p - 0.55) / 0.09);
+    const ee = sm(e);
+    const side = lerp(KF[A].side, KF[B].side, ee);
+    const core = B === KI.core ? (A === B ? 1 : ee) : 0;
     return {
       cam: [0, 0, 0],
-      zoom,
-      shift: S.narrow ? 0 : S.w * 0.17 * textSide,
-      shiftY: S.narrow ? -S.h * 0.09 * (1 - OP.fin) : 0,
+      zoom: lerp(z(A), z(B), ee) * lerp(0.74, 1, fly),
+      shift: S.narrow ? 0 : S.w * 0.17 * side,
+      shiftY: (S.narrow ? -S.h * 0.1 : -S.h * 0.05 * (1 - side)) * (1 - core),
     };
   }
 
+  function canvasLabel(text, x, y, a, opts = {}) {
+    if (a <= 0.01) return;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.font = `500 ${opts.size || 10}px 'IBM Plex Mono', monospace`;
+    ctx.textAlign = opts.align || "center";
+    ctx.textBaseline = "middle";
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "2.5px";
+    ctx.fillStyle = rgba(opts.col || C.ice, a);
+    ctx.fillText(text.toUpperCase(), x, y);
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    ctx.textAlign = "start";
+    ctx.globalCompositeOperation = "lighter";
+  }
+
+  function drawBonds(M, at, g, k, a, colKey) {
+    if (a <= 0.01) return;
+    const pts = M.atoms.map((atom) => project(add(at, molLocal(M, atom.p, g, k))));
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = rgba(C[colKey], 0.38 * a);
+    ctx.beginPath();
+    M.bonds.forEach(([i, j]) => {
+      ctx.moveTo(pts[i].x, pts[i].y);
+      ctx.lineTo(pts[j].x, pts[j].y);
+    });
+    ctx.stroke();
+    if (M.hb.length) {
+      ctx.setLineDash([3, 5]);
+      ctx.strokeStyle = rgba(C.violet, 0.5 * a);
+      ctx.beginPath();
+      M.hb.forEach(([i, j]) => {
+        ctx.moveTo(pts[i].x, pts[i].y);
+        ctx.lineTo(pts[j].x, pts[j].y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    M.atoms.forEach((atom, i) => glow(pts[i].x, pts[i].y, 0.08 * pts[i].s * k, C[atom.k], 0.26 * a));
+  }
+
   function drawOpening() {
-    const { m, sep, fin } = OP;
-    const P = [0, 0, 0];
-    const appear = reduce ? 1 : ease(OP.age / 2.2);
-    const R = drawGlobe(P, appear * (1 - m) * (1 - fin), 1 / 0.58, { dots: false, sites: false });
+    const { A, B, e } = OP.st;
     const L = openLayout();
-    const pc = project(P);
-    const cs = Math.cos(S.globeSpin);
-    const sn = Math.sin(S.globeSpin);
+    const appear = reduce ? 1 : ease(OP.age / 2.2);
     const live = reduce ? 0 : 1;
+    const globeW = weightOf(KI.globe);
+    const R = drawGlobe([0, 0, 0], appear * globeW, 1 / 0.58, { dots: false, sites: false });
+    OP.cs = Math.cos(S.globeSpin);
+    OP.sn = Math.sin(S.globeSpin);
+    const pc = project([0, 0, 0]);
     const press = S.narrow ? 70 : 120;
     const reach = Math.max(S.w, S.h) * 0.75;
     const scanY = Math.sin(S.t * 0.45) * R * 1.1;
     const near = [];
-    ctx.globalCompositeOperation = "lighter";
-
     const hasPtr = S.px > -999 && (!coarse || S.t - OP.ptrT < 2.5);
     const lensR = S.narrow ? 56 : 78;
-    const lw = appear * (1 - sm((OP.p - 0.36) / 0.08)) * (1 - m);
+    const lw = appear * globeW;
+    const playful = B <= KI.lineup;
+    ctx.globalCompositeOperation = "lighter";
+
     const ltx = hasPtr ? S.px : pc.x + Math.cos(S.t * 0.37) * R * pc.s * 0.5;
     const lty = hasPtr ? S.py : pc.y + Math.sin(S.t * 0.53) * R * pc.s * 0.42;
     if (!OP.lensOn) {
@@ -1232,14 +1513,14 @@
     OP.ly = lerp(OP.ly, lty, hasPtr ? 0.35 : 0.06);
     const lensPts = [];
 
-    const dive = Math.sin(Math.PI * clamp(m * 1.25, 0, 1)) * live;
+    const dive = (A === KI.lineup && B === KI.micro ? Math.sin(Math.PI * e) : A === KI.globe && B === KI.tablet ? Math.sin(Math.PI * e) * 0.45 : 0) * live;
     if (dive > 0.01) {
       const far = Math.hypot(S.w, S.h) * 0.6;
       for (let i = 0; i < 110; i += 1) {
         const sd = OPEN_SEED[i * 6];
         const ang = sd * TAU * 7.3;
         const u = (sd * 3.1 + S.t * (0.35 + sd * 0.4)) % 1;
-        const r0 = lerp(R * pc.s * 0.25, far, u * u);
+        const r0 = lerp(pc.s * 0.25, far, u * u);
         const len = (20 + 140 * u) * dive;
         ctx.strokeStyle = rgba(i % 4 ? C.ice : C.cyan, 0.32 * dive * (1 - u * 0.6));
         ctx.lineWidth = 0.6 + u;
@@ -1259,37 +1540,33 @@
       ctx.stroke();
     }
 
-    for (let i = 0; i < OPEN_DOTS.length; i += 1) {
-      const d = OPEN_DOTS[i];
+    for (let i = 0; i < OPEN_N; i += 1) {
       const seed = OPEN_SEED[i];
-      const br = R * (1 + 0.018 * Math.sin(S.t * 0.9 + seed * TAU) * live);
-      let w = [br * (d[0] * cs - d[2] * sn), br * d[1], br * (d[0] * sn + d[2] * cs)];
-      let col = seed < 0.1 ? C.cyan : seed > 0.94 ? C.violet : C.ice;
-      let size = seed < 0.1 ? 0.016 : 0.011;
-      let e = 0;
-      const part = OP.map?.[i];
-      if (part) {
-        const tgt = molPoint(MOLS[part.mol], L.mols[part.mol], part.local, part.mol);
-        e = ease(clamp((m - seed * 0.35) / 0.65, 0, 1));
-        const swirl = Math.sin(e * Math.PI) * 0.22 * live;
-        w = [lerp(w[0], tgt[0], e) - w[1] * swirl, lerp(w[1], tgt[1], e) + w[0] * swirl, lerp(w[2], tgt[2], e) + swirl];
-        col = mixC(col, C[part.col], e);
-        size = lerp(size, part.atom ? 0.013 : 0.008, e);
-        if (sep > 0) {
-          const es = ease(clamp((sep - part.mol * 0.12) / 0.55, 0, 1));
-          w = mix(w, [L.bands[part.mol] + part.bx * L.bw, L.flowY + part.by * L.bh, 0], es);
-        }
-        if (fin > 0) {
-          const ef = ease(clamp((fin - seed * 0.3) / 0.7, 0, 1));
-          w = mix(w, [d[0] * 0.14, d[1] * 0.14, d[2] * 0.14], ef);
-        }
+      const fa = formAt(A, i, L);
+      let f = fa;
+      let ei = 0;
+      if (A !== B) {
+        const fb = formAt(B, i, L);
+        ei = ease(clamp((e - seed * 0.35) / 0.65, 0, 1));
+        const swirl = Math.sin(ei * Math.PI) * 0.2 * live;
+        const w = mix(fa.w, fb.w, ei);
+        f = {
+          w: [w[0] - (fb.w[1] - fa.w[1]) * swirl * 0.3, w[1] + (fb.w[0] - fa.w[0]) * swirl * 0.3, w[2] + swirl],
+          col: mixC(fa.col, fb.col, ei),
+          size: lerp(fa.size, fb.size, ei),
+          a: lerp(fa.a, fb.a, ei),
+        };
       }
-      const q = project(w);
+      const q = project(f.w);
       const front = q.z >= pc.z - 0.1;
-      let alpha = appear * (front ? 0.9 : lerp(0.14, 0.9, e)) * (0.65 + 0.35 * Math.sin(S.t * 1.4 + seed * 40));
-      const band = (1 - e) * Math.max(0, 1 - Math.abs(w[1] - scanY) / 0.14);
-      alpha *= 1 + band * 1.4;
-      size *= 1 + band * 0.5;
+      let alpha = appear * f.a * (0.65 + 0.35 * Math.sin(S.t * 1.4 + seed * 40));
+      let size = f.size;
+      if (fa.globe) {
+        alpha *= front ? 0.9 : lerp(0.14, 0.9, ei);
+        const band = (1 - ei) * Math.max(0, 1 - Math.abs(fa.w[1] - scanY) / 0.14);
+        alpha *= 1 + band * 1.4;
+        size *= 1 + band * 0.5;
+      }
       let { x, y } = q;
       for (const r of OP.ripples) {
         const rx = x - r.x;
@@ -1297,25 +1574,25 @@
         const rd = Math.hypot(rx, ry);
         const off = Math.abs(rd - r.t * reach);
         if (off < 60) {
-          const f = (1 - off / 60) * (1 - r.t / 1.8);
-          x += (rx / (rd || 1)) * f * 26;
-          y += (ry / (rd || 1)) * f * 26;
-          alpha *= 1 + f * 2.2;
+          const k = (1 - off / 60) * (1 - r.t / 1.8);
+          x += (rx / (rd || 1)) * k * 26;
+          y += (ry / (rd || 1)) * k * 26;
+          alpha *= 1 + k * 2.2;
         }
       }
       const dx = x - S.px;
       const dy = y - S.py;
       const dd = Math.hypot(dx, dy);
-      if (live && dd < press) {
-        const f = (1 - dd / press) ** 2;
-        x += (dx / (dd || 1)) * f * 22;
-        y += (dy / (dd || 1)) * f * 22;
-        alpha *= 1 + f * 2;
+      if (live && playful && dd < press) {
+        const k = (1 - dd / press) ** 2;
+        x += (dx / (dd || 1)) * k * 22;
+        y += (dy / (dd || 1)) * k * 22;
+        alpha *= 1 + k * 2;
       }
-      if (lw < 0.3 && dd < press && (front || e > 0.5) && near.length < 120) near.push({ x, y, f: 1 - dd / press, col });
-      if (lw > 0.01 && front && lensPts.length < 46 && Math.hypot(x - OP.lx, y - OP.ly) < lensR - 6) lensPts.push({ x, y, seed, col });
-      dot(x, y, size * q.s, col, alpha);
-      if (seed < 0.06 || seed > 0.97) glow(x, y, size * q.s * 6, col, 0.2 * alpha);
+      if (playful && lw < 0.3 && dd < press && near.length < 120) near.push({ x, y, f: 1 - dd / press });
+      if (lw > 0.01 && front && lensPts.length < 46 && Math.hypot(x - OP.lx, y - OP.ly) < lensR - 6) lensPts.push({ x, y, seed, col: f.col });
+      dot(x, y, size * q.s, f.col, alpha);
+      if (seed < 0.06 || seed > 0.97) glow(x, y, size * q.s * 6, f.col, 0.2 * alpha);
     }
 
     if (lw > 0.01) {
@@ -1350,6 +1627,7 @@
         ring.forEach(([x, y], j) => dot(x, y, 1.1, j % 3 ? C.cyan : C.violet, 0.9 * lw));
       }
       ctx.restore();
+      ctx.globalCompositeOperation = "lighter";
       ctx.strokeStyle = rgba(C.cyan, 0.6 * lw);
       ctx.lineWidth = 1.2;
       ctx.beginPath();
@@ -1357,27 +1635,15 @@
       ctx.stroke();
       for (let j = 0; j < 24; j += 1) {
         const a = (j / 24) * TAU + S.t * 0.15;
-        const t0 = lensR + 3;
-        const t1 = lensR + (j % 6 ? 6 : 11);
         ctx.strokeStyle = rgba(C.ice, (j % 6 ? 0.25 : 0.55) * lw);
         ctx.beginPath();
-        ctx.moveTo(OP.lx + Math.cos(a) * t0, OP.ly + Math.sin(a) * t0);
-        ctx.lineTo(OP.lx + Math.cos(a) * t1, OP.ly + Math.sin(a) * t1);
+        ctx.moveTo(OP.lx + Math.cos(a) * (lensR + 3), OP.ly + Math.sin(a) * (lensR + 3));
+        ctx.lineTo(OP.lx + Math.cos(a) * (lensR + (j % 6 ? 6 : 11)), OP.ly + Math.sin(a) * (lensR + (j % 6 ? 6 : 11)));
         ctx.stroke();
       }
       const hint = lw * clamp(1 - OP.moved / 900, 0, 1) * clamp((OP.age - 1.6) / 1, 0, 1);
-      if (hint > 0.01) {
-        ctx.globalCompositeOperation = "source-over";
-        ctx.font = "500 10px 'IBM Plex Mono', monospace";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = rgba(C.ice, 0.8 * hint);
-        if (S.narrow) {
-          ctx.textAlign = "center";
-          ctx.fillText("LOOK CLOSER", OP.lx, OP.ly + lensR + 22);
-          ctx.textAlign = "start";
-        } else ctx.fillText(hasPtr ? "LOOK CLOSER" : "LOOK CLOSER  ·  MOVE ME", OP.lx + lensR + 22, OP.ly);
-      }
-      ctx.globalCompositeOperation = "lighter";
+      if (S.narrow) canvasLabel("Look closer", OP.lx, OP.ly + lensR + 22, 0.8 * hint);
+      else canvasLabel(hasPtr ? "Look closer" : "Look closer  ·  move me", OP.lx + lensR + 22, OP.ly, 0.8 * hint, { align: "start" });
     }
 
     if (live && near.length > 1) {
@@ -1385,124 +1651,141 @@
       const link = S.narrow ? 34 : 46;
       for (let i = 0; i < near.length; i += 1) {
         for (let j = i + 1; j < near.length; j += 1) {
-          const A = near[i];
-          const B = near[j];
-          const d = Math.hypot(A.x - B.x, A.y - B.y);
+          const P1 = near[i];
+          const P2 = near[j];
+          const d = Math.hypot(P1.x - P2.x, P1.y - P2.y);
           if (d > link) continue;
-          ctx.strokeStyle = rgba(i % 3 ? C.cyan : C.violet, (1 - d / link) * 0.9 * Math.sqrt(Math.min(A.f, B.f)) * appear);
+          ctx.strokeStyle = rgba(i % 3 ? C.cyan : C.violet, (1 - d / link) * 0.9 * Math.sqrt(Math.min(P1.f, P2.f)) * appear);
           ctx.beginPath();
-          ctx.moveTo(A.x, A.y);
-          ctx.lineTo(B.x, B.y);
+          ctx.moveTo(P1.x, P1.y);
+          ctx.lineTo(P2.x, P2.y);
           ctx.stroke();
         }
       }
     }
 
-    const ma = sm((m - 0.55) / 0.45) * (1 - sm(sep * 3)) * (1 - fin);
-    OP.molHot = -1;
-    if (ma > 0.01) {
-      MOLS.forEach((M, g) => {
-        const pts = M.atoms.map((a) => project(molPoint(M, L.mols[g], a.p, g)));
-        const mc = project(L.mols[g].c);
-        const hot = Math.hypot(mc.x - S.px, mc.y - S.py) < 0.62 * mc.s * L.mols[g].s;
-        if (hot) OP.molHot = g;
-        const mh = ma * (hot ? 1.9 : 1);
-        if (hot) glow(mc.x, mc.y, 0.75 * mc.s * L.mols[g].s, C.blue, 0.16 * ma);
-        const qk = win(OP.p, OPEN_BEATS.question) * ma * live;
-        if (qk > 0.01) {
-          const u = (S.t * 0.42 + g * 0.25) % 1;
-          ctx.strokeStyle = rgba(g % 2 ? C.violet : C.cyan, 0.35 * qk * (1 - u));
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.arc(mc.x, mc.y, (0.25 + u * 0.7) * mc.s * L.mols[g].s, 0, TAU);
-          ctx.stroke();
-        }
-        ctx.lineWidth = hot ? 1.4 : 1;
-        M.bonds.forEach(([i, j]) => {
-          ctx.strokeStyle = rgba(C.cyan, 0.32 * mh);
-          ctx.beginPath();
-          ctx.moveTo(pts[i].x, pts[i].y);
-          ctx.lineTo(pts[j].x, pts[j].y);
-          ctx.stroke();
-        });
-        ctx.setLineDash([3, 5]);
-        M.hb.forEach(([i, j]) => {
-          ctx.strokeStyle = rgba(C.violet, 0.5 * mh);
-          ctx.beginPath();
-          ctx.moveTo(pts[i].x, pts[i].y);
-          ctx.lineTo(pts[j].x, pts[j].y);
-          ctx.stroke();
-        });
-        ctx.setLineDash([]);
-        M.atoms.forEach((a, i) => glow(pts[i].x, pts[i].y, 0.09 * pts[i].s * L.mols[g].s, C[a.k], 0.28 * mh));
-      });
-    }
-
-    const wa = Math.max(...[0, 1, 2, 3].map((i) => win(OP.p, OPEN_WORD(i)))) * (1 - m);
-    OP.anchors = OPEN_ANCHORS.map((v, i) => {
-      const q = project([v[0] * R, v[1] * R, v[2] * R]);
-      const k = win(OP.p, OPEN_WORD(i));
-      const left = v[0] < 0;
-      const hot = Math.hypot(q.x - S.px, q.y - S.py) < 48;
-      if (k > 0.01) {
-        glow(q.x, q.y, (hot ? 0.34 : 0.16) * q.s, C.cyan, (hot ? 1 : 0.7) * k);
-        dot(q.x, q.y, 0.022 * q.s, C.ice, k);
-        ctx.strokeStyle = rgba(C.ice, 0.4 * k);
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(q.x + (left ? -8 : 8), q.y);
-        ctx.lineTo(q.x + (left ? -32 : 32), q.y);
-        ctx.stroke();
+    OBJ.forEach((name, g) => {
+      const k = KI[name];
+      const a = weightOf(k) ** 2;
+      if (a > 0.01) {
+        const q = project([0, name === "drop" ? -1.35 : name === "material" ? -1.55 : -1.15, 0]);
+        canvasLabel(OBJ_LABEL[g], q.x, q.y + 18, 0.75 * a);
       }
-      return { x: q.x, y: q.y, left, hot, k: k * (wa > 0 ? 1 : 0) };
+      const la = weightOf(KI.lineup) ** 2;
+      if (la > 0.01) {
+        const q = project(add(L.lp[g], [0, -L.lk * 1.45, 0]));
+        canvasLabel(OBJ_LABEL[g], q.x, q.y + 12, 0.7 * la, { size: S.narrow ? 8 : 10 });
+      }
     });
 
-    const sa = sm(sep * 2) * (1 - fin);
-    const hs = [0.55, 0.9, 0.42, 0.7];
-    if (sa > 0.01) {
-      const head = -L.span + 2 * L.span * clamp(sep * 1.2, 0, 1);
-      ctx.setLineDash([2, 6]);
-      strokePts([project([-L.span, L.flowY, 0]), project([L.span, L.flowY, 0])], C.ice, 0.14 * sa, 1);
-      ctx.setLineDash([]);
-      const trace = [];
-      const sig = L.bw * 1.6;
-      L.bands.forEach((b, g) => {
-        const es = ease(clamp((sep - g * 0.12) / 0.55, 0, 1));
-        if (es < 0.5) OP.peakT[g] = -9;
-        else if (es > 0.97 && OP.peakT[g] < 0) OP.peakT[g] = S.t;
-        const ft = S.t - OP.peakT[g];
-        if (OP.peakT[g] > 0 && ft < 1.2) {
-          const q = project([b, L.traceY + hs[g] * L.th, 0]);
-          glow(q.x, q.y, (0.15 + ft * 0.5) * q.s, C.cyan, (1 - ft / 1.2) * 0.9 * sa);
-          const qb = project([b, L.flowY, 0]);
-          glow(qb.x, qb.y, 0.5 * qb.s, g % 2 ? C.violet : C.blue, (1 - ft / 1.2) * 0.35 * sa);
-        }
+    const mw = weightOf(KI.micro) ** 2;
+    if (mw > 0.01) OBJ_MOL.forEach((m, g) => drawBonds(MOLS[m], L.lp[g], g, L.ms, mw, COMP[g]));
+
+    const sw = weightOf(KI.separation);
+    if (sw > 0.01) {
+      const T = A === KI.separation || B === KI.separation ? localT(KI.separation) : 0;
+      const P = (x, y) => project([x * L.sx, y, 0]);
+      const top0 = P(SEP.X0, SEP.Y0 + 0.16);
+      const top1 = P(SEP.XD, SEP.Y0 + 0.16);
+      const bot0 = P(SEP.X0, SEP.Y0 - 0.16);
+      const bot1 = P(SEP.XD, SEP.Y0 - 0.16);
+      ctx.strokeStyle = rgba(C.ice, 0.35 * sw);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(top0.x, top0.y);
+      ctx.lineTo(top1.x, top1.y);
+      ctx.moveTo(bot0.x, bot0.y);
+      ctx.lineTo(bot1.x, bot1.y);
+      ctx.stroke();
+      const d0 = P(SEP.XD, SEP.Y0 + 0.24);
+      const d1 = P(SEP.XD + 0.24, SEP.Y0 - 0.24);
+      let hot = 0;
+      SEP.speed.forEach((_, g) => {
+        const b = sepBand(g, T);
+        const near = Math.max(0, 1 - Math.abs(b.cx - SEP.XD) / (b.bw * 3 + 0.05));
+        hot = Math.max(hot, near);
+        if (b.past > 0 && OP.flash[g] < 0) OP.flash[g] = S.t;
+        if (b.past <= 0) OP.flash[g] = -9;
       });
-      for (let x = -L.span; x <= head; x += L.span / 90) {
-        let y = L.traceY;
-        L.bands.forEach((b, g) => {
-          const es = ease(clamp((sep - g * 0.12) / 0.55, 0, 1));
-          y += hs[g] * L.th * es * Math.exp(-((x - b) ** 2) / (2 * sig * sig));
-        });
-        trace.push(project([x, y, 0]));
-      }
-      strokePts([project([-L.span, L.traceY, 0]), project([L.span, L.traceY, 0])], C.ice, 0.12 * sa, 1);
+      ctx.strokeStyle = rgba(C.cyan, (0.45 + hot * 0.55) * sw);
+      ctx.strokeRect(d0.x, d0.y, d1.x - d0.x, d1.y - d0.y);
+      glow((d0.x + d1.x) / 2, (d0.y + d1.y) / 2, (0.25 + hot * 0.3) * d0.s, C.cyan, (0.15 + hot * 0.6) * sw);
+      const lab = S.narrow ? 8 : 10;
+      canvasLabel("Sample", top0.x, top0.y - 16, 0.6 * sw, { size: lab, align: "start" });
+      const mid = P((SEP.X0 + SEP.XD) / 2, SEP.Y0 + 0.16);
+      canvasLabel("Column", mid.x, mid.y - 16, 0.6 * sw, { size: lab });
+      canvasLabel("Detector", (d0.x + d1.x) / 2, d0.y - 16, 0.75 * sw, { size: lab, col: C.cyan });
+
+      const base0 = P(SEP.T0, SEP.YT);
+      const base1 = P(SEP.T1, SEP.YT);
+      ctx.strokeStyle = rgba(C.ice, 0.2 * sw);
+      ctx.beginPath();
+      ctx.moveTo(base0.x, base0.y);
+      ctx.lineTo(base1.x, base1.y);
+      ctx.stroke();
+      canvasLabel("Time →", base1.x, base1.y + 18, 0.55 * sw, { size: lab, align: "end" });
+      canvasLabel("Signal", base0.x, base0.y - 18, 0.55 * sw, { size: lab, align: "start" });
+      const head = lerp(SEP.T0, SEP.T1, T);
+      const sig = (x) => SEP_PEAK.reduce((s, pk) => s + pk.h * Math.exp(-((x - pk.x) ** 2) / (2 * pk.sig * pk.sig)), 0);
+      SEP_PEAK.forEach((pk, g) => {
+        if (head < pk.x - pk.sig * 3) return;
+        ctx.fillStyle = rgba(C[COMP[g]], 0.16 * sw);
+        ctx.beginPath();
+        const x0 = pk.x - pk.sig * 3;
+        const x1 = Math.min(head, pk.x + pk.sig * 3);
+        ctx.moveTo(P(x0, SEP.YT).x, P(x0, SEP.YT).y);
+        for (let x = x0; x <= x1; x += pk.sig / 6) {
+          const q = P(x, SEP.YT + pk.h * Math.exp(-((x - pk.x) ** 2) / (2 * pk.sig * pk.sig)));
+          ctx.lineTo(q.x, q.y);
+        }
+        ctx.lineTo(P(x1, SEP.YT).x, P(x1, SEP.YT).y);
+        ctx.fill();
+      });
+      const trace = [];
+      for (let x = SEP.T0; x <= head; x += (SEP.T1 - SEP.T0) / 220) trace.push(P(x, SEP.YT + sig(x)));
       if (trace.length > 1) {
-        strokePts(trace, C.cyan, 0.85 * sa, 1.6);
+        strokePts(trace, C.cyan, 0.9 * sw, 1.6);
         const tip = trace[trace.length - 1];
-        if (sep < 0.99) glow(tip.x, tip.y, 0.12 * tip.s, C.cyan, 0.9 * sa);
+        if (T < 0.999) glow(tip.x, tip.y, 0.12 * tip.s, C.cyan, 0.9 * sw);
       }
+      SEP_PEAK.forEach((pk, g) => {
+        const ft = S.t - OP.flash[g];
+        if (OP.flash[g] > 0 && ft < 1.2) {
+          const q = P(pk.x, SEP.YT + pk.h);
+          glow(q.x, q.y, (0.15 + ft * 0.5) * q.s, C[COMP[g]], (1 - ft / 1.2) * 0.9 * sw);
+        }
+        const b = sepBand(g, T);
+        const settle = sm((b.past / (b.len * 0.35) - 0.8) / 0.2);
+        const tp = sepTop(g);
+        drawBonds(ANA[g], [tp[0] * L.sx, tp[1], 0], g, 0.34, settle * sw, COMP[g]);
+      });
     }
 
-    if (fin < 0.5) OP.shock = false;
-    else if (fin > 0.96 && !OP.shock) {
+    const iw = weightOf(KI.instrument) ** 2;
+    if (iw > 0.01) {
+      const lc = project(add(L.ip, [-1.4 * L.is, 1.15 * L.is, 0]));
+      const ms = project(add(L.ip, [0.75 * L.is, 0.5 * L.is, 0]));
+      canvasLabel("Liquid chromatography", lc.x, lc.y, 0.7 * iw, { size: S.narrow ? 7 : 10 });
+      canvasLabel("Mass spectrometry", ms.x, ms.y, 0.7 * iw, { size: S.narrow ? 7 : 10 });
+      for (let b = 0; b < 5; b += 1) {
+        const u = (S.t * 0.35 + b / 5) % 1;
+        const q = project(add(L.ip, INSTR.tube(u).map((v) => v * L.is)));
+        glow(q.x, q.y, 0.12 * q.s, COMP[b % 4] ? C[COMP[b % 4]] : C.cyan, 0.8 * iw);
+      }
+      const src = project(add(L.ip, [-0.15 * L.is, -0.3 * L.is, 0]));
+      glow(src.x, src.y, 0.3 * src.s, C.cyan, (0.35 + 0.2 * Math.sin(S.t * 3)) * iw);
+    }
+
+    const cw = weightOf(KI.core);
+    if (cw < 0.5) OP.shock = false;
+    else if (cw > 0.96 && !OP.shock) {
       OP.shock = true;
       if (live) OP.ripples.push({ x: pc.x, y: pc.y, t: 0 });
     }
-    if (fin > 0.01) {
-      glow(pc.x, pc.y, 1.3 * pc.s * fin, C.blue, 0.26 * fin);
-      glow(pc.x, pc.y, 0.45 * pc.s, C.cyan, 0.65 * fin);
-      glassSphere(pc.x, pc.y, 0.2 * pc.s * fin, C.cyan, fin);
+    if (cw > 0.01) {
+      glow(pc.x, pc.y, 1.3 * pc.s * cw, C.blue, 0.26 * cw);
+      glow(pc.x, pc.y, 0.45 * pc.s, C.cyan, 0.65 * cw);
+      glassSphere(pc.x, pc.y, 0.2 * pc.s * cw, C.cyan, cw);
     }
   }
 
@@ -1531,7 +1814,7 @@
       const W = OPEN_BEATS[el.dataset.beat];
       const k = win(p, W);
       const rising = p <= W[2];
-      const r = (rising ? k : 1) * (el.dataset.beat === "world" ? ready : 1);
+      const r = (rising ? k : 1) * (el.dataset.beat === "see" ? ready : 1);
       setOpenK(el, rising ? (r > 0 ? 1 : 0) : k, r);
     });
     if (opEls.scale) {
@@ -1544,23 +1827,9 @@
         if (mark) em.textContent = mark;
         em.classList.toggle("is-on", !!mark);
       }
-      setOpenK(opEls.scale, ready * (1 - sm((p - 0.74) / 0.05)));
+      setOpenK(opEls.scale, ready * (1 - sm((p - 0.7) / 0.03)));
     }
-    opEls.words.forEach((el, i) => {
-      const a = OP.anchors[i];
-      setOpenK(el, a ? a.k : 0);
-      if (!a) return;
-      if (!el._w || el._wAt !== S.w) {
-        el._w = el.firstElementChild.offsetWidth;
-        el._wAt = S.w;
-      }
-      const left = a.left && a.x - 42 - el._w > 10;
-      const x = left ? a.x - 42 : a.left ? Math.max(10, a.x - el._w / 2) : Math.min(a.x + 42, S.w - el._w - 10);
-      el.classList.toggle("is-left", left);
-      el.classList.toggle("is-hot", !!a.hot);
-      el.style.transform = `translate(${Math.round(x)}px, ${Math.round(a.y + (left || !a.left ? 0 : -22))}px)`;
-    });
-    setOpenK(opEls.cue, clamp((OP.age - 2.4) / 1, 0, 1) * (1 - sm(p / 0.06)));
+    setOpenK(opEls.cue, clamp((OP.age - 2.4) / 1, 0, 1) * (1 - sm(p / 0.04)));
     opEls.bar.style.transform = `scaleY(${p.toFixed(4)})`;
   }
 
@@ -1718,7 +1987,7 @@
     });
     els.rail.innerHTML =
       (opEls.box
-        ? `<button type="button" class="wm-rail-btn wm-rail-open" data-step="open" title="The unseen"><span>00</span><em>The unseen</em></button>`
+        ? `<button type="button" class="wm-rail-btn wm-rail-open" data-step="open" title="Prologue"><span>00</span><em>Prologue</em></button>`
         : "") +
       ORDER.map((id, i) => {
         const c = comp(id);
@@ -2142,7 +2411,7 @@
   }
 
   function step(dir) {
-    if (dir < 0 && !S.active && !S.finale && opEls.box) return enterOpening(0.965);
+    if (dir < 0 && !S.active && !S.finale && opEls.box) return enterOpening(0.99);
     if (S.finale) {
       if (dir < 0) goStep(ORDER.length - 1);
       return;
@@ -2271,7 +2540,7 @@
     e.preventDefault();
     if (S.opening) {
       const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? S.h : 1);
-      return openingNudge(clamp(px, -160, 160) / (S.h * 7));
+      return openingNudge(clamp(px, -160, 160) / (S.h * 12));
     }
     const now = performance.now();
     if (now < OP.quietUntil) return;
@@ -2373,7 +2642,7 @@
       S.px = e.touches[0]?.clientX ?? S.px;
       S.py = y;
       OP.ptrT = S.t;
-      openingNudge((OP.touchY - y) / (S.h * 4.2));
+      openingNudge((OP.touchY - y) / (S.h * 7));
       OP.touchY = y;
     },
     { passive: false }

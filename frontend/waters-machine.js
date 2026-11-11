@@ -989,7 +989,7 @@
     return parts.sort((p, q) => q.local[1] - p.local[1]);
   });
 
-  const OP = { quietUntil: 0, dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, m: 0, sep: 0, fin: 0, map: null, anchors: [], touching: false };
+  const OP = { ripples: [], molSpin: [0, 0, 0, 0], molA: 0, molHot: -1, spinV: 0, drag: null, quietUntil: 0, dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, m: 0, sep: 0, fin: 0, map: null, anchors: [], touching: false };
   const opEls = {
     box: $(".wm-open"),
     lines: [...root.querySelectorAll(".wm-open [data-beat]")],
@@ -1040,7 +1040,7 @@
       const s = Math.sin(M.tilt);
       [y, z] = [y * c - z * s, y * s + z * c];
     }
-    const a = (reduce ? 0 : S.t * 0.22 * (g % 2 ? -1 : 1)) + g * 0.9;
+    const a = (reduce ? 0 : S.t * 0.22 * (g % 2 ? -1 : 1)) + g * 0.9 + OP.molA + OP.molSpin[g];
     const c = Math.cos(a);
     const s = Math.sin(a);
     const bob = reduce ? 0 : Math.sin(S.t * 0.7 + g) * 0.03;
@@ -1062,17 +1062,26 @@
     });
   }
 
-  function startOpening() {
+  function startOpening(at = 0) {
     S.opening = true;
     Object.assign(OP, { dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, m: 0, sep: 0, fin: 0, map: null, touching: false });
     applyPalette(false);
     root.classList.remove("is-brand");
     root.classList.add("is-opening");
     els.intro.classList.add("is-gone");
-    S.zoom = S.narrow ? 1.4 : 0.66;
-    S.shift = S.narrow ? 0 : S.w * 0.17;
-    S.cam = [0, 0, 0];
-    S.hud = 0.3;
+    OP.ripples = [];
+    OP.drag = null;
+    OP.spinV = 0;
+    if (at > 0) {
+      OP.p = OP.target = at;
+      OP.age = 4;
+      OP.dir = -1;
+    } else {
+      S.zoom = S.narrow ? 1.4 : 0.66;
+      S.shift = S.narrow ? 0 : S.w * 0.17;
+      S.cam = [0, 0, 0];
+      S.hud = 0.3;
+    }
     opEls.lines.concat(opEls.words, [opEls.cue]).forEach((el) => {
       el._k = -1;
     });
@@ -1114,6 +1123,14 @@
   function tickOpening(dt) {
     OP.age += dt;
     OP.idle += dt;
+    if (!OP.drag) {
+      S.globeSpin += OP.spinV;
+      OP.molA += OP.spinV;
+      OP.spinV *= Math.pow(0.05, dt);
+    }
+    OP.molSpin = OP.molSpin.map((v, g) => v + (g === OP.molHot && !reduce ? dt * 1.4 : 0));
+    OP.ripples.forEach((r) => (r.t += dt));
+    OP.ripples = OP.ripples.filter((r) => r.t < 1.8);
     if (OP.idle > 0.7 && !OP.touching) {
       const t = OP.target;
       const near = OP.dir < 0 ? [...OPEN_STOPS].reverse().find((s) => s <= t) : OPEN_STOPS.find((s) => s >= t);
@@ -1160,7 +1177,19 @@
     const sn = Math.sin(S.globeSpin);
     const live = reduce ? 0 : 1;
     const press = S.narrow ? 70 : 120;
+    const reach = Math.max(S.w, S.h) * 0.75;
+    const scanY = Math.sin(S.t * 0.45) * R * 1.1;
+    const near = [];
     ctx.globalCompositeOperation = "lighter";
+
+    for (const r of OP.ripples) {
+      const k = 1 - r.t / 1.8;
+      ctx.strokeStyle = rgba(C.cyan, 0.22 * k * k);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.t * reach, 0, TAU);
+      ctx.stroke();
+    }
 
     for (let i = 0; i < OPEN_DOTS.length; i += 1) {
       const d = OPEN_DOTS[i];
@@ -1188,28 +1217,69 @@
         }
       }
       const q = project(w);
-      let alpha = appear * (q.z >= pc.z - 0.1 ? 0.9 : lerp(0.14, 0.9, e)) * (0.65 + 0.35 * Math.sin(S.t * 1.4 + seed * 40));
+      const front = q.z >= pc.z - 0.1;
+      let alpha = appear * (front ? 0.9 : lerp(0.14, 0.9, e)) * (0.65 + 0.35 * Math.sin(S.t * 1.4 + seed * 40));
+      const band = (1 - e) * Math.max(0, 1 - Math.abs(w[1] - scanY) / 0.14);
+      alpha *= 1 + band * 1.4;
+      size *= 1 + band * 0.5;
       let { x, y } = q;
+      for (const r of OP.ripples) {
+        const rx = x - r.x;
+        const ry = y - r.y;
+        const rd = Math.hypot(rx, ry);
+        const off = Math.abs(rd - r.t * reach);
+        if (off < 60) {
+          const f = (1 - off / 60) * (1 - r.t / 1.8);
+          x += (rx / (rd || 1)) * f * 26;
+          y += (ry / (rd || 1)) * f * 26;
+          alpha *= 1 + f * 2.2;
+        }
+      }
       const dx = x - S.px;
       const dy = y - S.py;
       const dd = Math.hypot(dx, dy);
       if (live && dd < press) {
         const f = (1 - dd / press) ** 2;
-        x += (dx / (dd || 1)) * f * 16;
-        y += (dy / (dd || 1)) * f * 16;
-        alpha *= 1 + f * 1.3;
+        x += (dx / (dd || 1)) * f * 22;
+        y += (dy / (dd || 1)) * f * 22;
+        alpha *= 1 + f * 2;
       }
+      if (dd < press && (front || e > 0.5) && near.length < 120) near.push({ x, y, f: 1 - dd / press, col });
       dot(x, y, size * q.s, col, alpha);
       if (seed < 0.06 || seed > 0.97) glow(x, y, size * q.s * 6, col, 0.2 * alpha);
     }
 
+    if (live && near.length > 1) {
+      ctx.lineWidth = 0.8;
+      const link = S.narrow ? 34 : 46;
+      for (let i = 0; i < near.length; i += 1) {
+        for (let j = i + 1; j < near.length; j += 1) {
+          const A = near[i];
+          const B = near[j];
+          const d = Math.hypot(A.x - B.x, A.y - B.y);
+          if (d > link) continue;
+          ctx.strokeStyle = rgba(i % 3 ? C.cyan : C.violet, (1 - d / link) * 0.9 * Math.sqrt(Math.min(A.f, B.f)) * appear);
+          ctx.beginPath();
+          ctx.moveTo(A.x, A.y);
+          ctx.lineTo(B.x, B.y);
+          ctx.stroke();
+        }
+      }
+    }
+
     const ma = sm((m - 0.55) / 0.45) * (1 - sm(sep * 3)) * (1 - fin);
+    OP.molHot = -1;
     if (ma > 0.01) {
       MOLS.forEach((M, g) => {
         const pts = M.atoms.map((a) => project(molPoint(M, L.mols[g], a.p, g)));
-        ctx.lineWidth = 1;
+        const mc = project(L.mols[g].c);
+        const hot = Math.hypot(mc.x - S.px, mc.y - S.py) < 0.62 * mc.s * L.mols[g].s;
+        if (hot) OP.molHot = g;
+        const mh = ma * (hot ? 1.9 : 1);
+        if (hot) glow(mc.x, mc.y, 0.75 * mc.s * L.mols[g].s, C.blue, 0.16 * ma);
+        ctx.lineWidth = hot ? 1.4 : 1;
         M.bonds.forEach(([i, j]) => {
-          ctx.strokeStyle = rgba(C.cyan, 0.32 * ma);
+          ctx.strokeStyle = rgba(C.cyan, 0.32 * mh);
           ctx.beginPath();
           ctx.moveTo(pts[i].x, pts[i].y);
           ctx.lineTo(pts[j].x, pts[j].y);
@@ -1217,14 +1287,14 @@
         });
         ctx.setLineDash([3, 5]);
         M.hb.forEach(([i, j]) => {
-          ctx.strokeStyle = rgba(C.violet, 0.5 * ma);
+          ctx.strokeStyle = rgba(C.violet, 0.5 * mh);
           ctx.beginPath();
           ctx.moveTo(pts[i].x, pts[i].y);
           ctx.lineTo(pts[j].x, pts[j].y);
           ctx.stroke();
         });
         ctx.setLineDash([]);
-        M.atoms.forEach((a, i) => glow(pts[i].x, pts[i].y, 0.09 * pts[i].s * L.mols[g].s, C[a.k], 0.28 * ma));
+        M.atoms.forEach((a, i) => glow(pts[i].x, pts[i].y, 0.09 * pts[i].s * L.mols[g].s, C[a.k], 0.28 * mh));
       });
     }
 
@@ -1233,8 +1303,9 @@
       const q = project([v[0] * R, v[1] * R, v[2] * R]);
       const k = win(OP.p, OPEN_WORD(i));
       const left = v[0] < 0;
+      const hot = Math.hypot(q.x - S.px, q.y - S.py) < 48;
       if (k > 0.01) {
-        glow(q.x, q.y, 0.16 * q.s, C.cyan, 0.7 * k);
+        glow(q.x, q.y, (hot ? 0.34 : 0.16) * q.s, C.cyan, (hot ? 1 : 0.7) * k);
         dot(q.x, q.y, 0.022 * q.s, C.ice, k);
         ctx.strokeStyle = rgba(C.ice, 0.4 * k);
         ctx.lineWidth = 1;
@@ -1243,7 +1314,7 @@
         ctx.lineTo(q.x + (left ? -32 : 32), q.y);
         ctx.stroke();
       }
-      return { x: q.x, y: q.y, left, k: k * (wa > 0 ? 1 : 0) };
+      return { x: q.x, y: q.y, left, hot, k: k * (wa > 0 ? 1 : 0) };
     });
 
     const sa = sm(sep * 2) * (1 - fin);
@@ -1308,6 +1379,7 @@
       const left = a.left && a.x - 42 - el._w > 10;
       const x = left ? a.x - 42 : a.left ? Math.max(10, a.x - el._w / 2) : Math.min(a.x + 42, S.w - el._w - 10);
       el.classList.toggle("is-left", left);
+      el.classList.toggle("is-hot", !!a.hot);
       el.style.transform = `translate(${Math.round(x)}px, ${Math.round(a.y + (left || !a.left ? 0 : -22))}px)`;
     });
     setOpenK(opEls.cue, clamp((OP.age - 2.4) / 1, 0, 1) * (1 - sm(p / 0.06)));
@@ -1463,13 +1535,16 @@
       b.addEventListener("click", () => select(b.dataset.part));
     });
     els.rail.innerHTML =
+      (opEls.box
+        ? `<button type="button" class="wm-rail-btn wm-rail-open" data-step="open" title="The unseen"><span>00</span><em>The unseen</em></button>`
+        : "") +
       ORDER.map((id, i) => {
         const c = comp(id);
         return `<button type="button" class="wm-rail-btn" data-step="${i}" title="${esc(c.label)}"><span>${c.index}</span><em>${esc(c.label)}</em></button>`;
       }).join("") +
       `<button type="button" class="wm-rail-btn wm-rail-ira" data-step="6" title="IRA"><span>IRA</span><em>What's next</em></button>`;
     els.rail.querySelectorAll(".wm-rail-btn").forEach((b) =>
-      b.addEventListener("click", () => goStep(Number(b.dataset.step)))
+      b.addEventListener("click", () => (b.dataset.step === "open" ? enterOpening(0) : goStep(Number(b.dataset.step))))
     );
     els.sources.querySelector(".wm-sources-list").innerHTML = S.data.sources
       .map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)}</a></li>`)
@@ -1870,7 +1945,21 @@
     select(ORDER[i]);
   }
 
+  function enterOpening(at = 0) {
+    if (!opEls.box) return;
+    leaveRide();
+    if (S.finale) leaveFinale();
+    S.active = null;
+    S.level = 1;
+    S.hover = null;
+    S.globeTarget = null;
+    renderPanel();
+    setHint();
+    startOpening(at);
+  }
+
   function step(dir) {
+    if (dir < 0 && !S.active && !S.finale && opEls.box) return enterOpening(0.965);
     if (S.finale) {
       if (dir < 0) goStep(ORDER.length - 1);
       return;
@@ -1974,7 +2063,11 @@
     const r = canvas.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
-    if (S.opening) return openingStop(1);
+    if (S.opening) {
+      if (OP.dragMoved > 6) return;
+      if (!reduce) OP.ripples.push({ x, y, t: 0 });
+      return;
+    }
     const hit = hitTest(x, y);
     if (S.intro) {
       hideIntro();
@@ -2044,7 +2137,32 @@
   }
 
   canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerdown", (e) => {
+    OP.dragMoved = 0;
+    if (!S.opening || e.pointerType === "touch") return;
+    OP.drag = { x: e.clientX };
+    OP.spinV = 0;
+    root.classList.add("is-dragging");
+    canvas.setPointerCapture?.(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!OP.drag) return;
+    const d = (e.clientX - OP.drag.x) * 0.006;
+    OP.drag.x = e.clientX;
+    OP.dragMoved += Math.abs(d / 0.006);
+    S.globeSpin += d;
+    OP.molA += d;
+    OP.spinV = lerp(OP.spinV, d, 0.6);
+  });
+  const endDrag = () => {
+    OP.drag = null;
+    root.classList.remove("is-dragging");
+  };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
   canvas.addEventListener("pointerleave", () => {
+    S.px = -9999;
+    S.py = -9999;
     S.hover = null;
     S.mx = 0;
     S.my = 0;
@@ -2066,6 +2184,8 @@
       if (!S.opening || OP.touchY == null) return;
       e.preventDefault();
       const y = e.touches[0]?.clientY ?? OP.touchY;
+      S.px = e.touches[0]?.clientX ?? S.px;
+      S.py = y;
       openingNudge((OP.touchY - y) / (S.h * 4.2));
       OP.touchY = y;
     },

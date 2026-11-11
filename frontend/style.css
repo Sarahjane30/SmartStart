@@ -4245,6 +4245,16 @@ body.wm-lock { overflow: hidden; }
   background: linear-gradient(180deg, transparent, #60d6ff); animation: wmCue 2.2s cubic-bezier(0.6, 0, 0.3, 1) infinite;
 }
 @keyframes wmCue { from { transform: translateY(-14px); } to { transform: translateY(38px); } }
+.wm.is-opening .wm-canvas { cursor: grab; }
+.wm.is-opening.is-dragging .wm-canvas { cursor: grabbing; }
+.wm-open-word span { transition: color 0.3s, letter-spacing 0.4s ease; }
+.wm-open-word.is-hot span { color: #60d6ff; letter-spacing: 0.32em; }
+.wm-rail-open span { color: #aa80ff; }
+.wm-open-cue .is-touch { display: none; }
+@media (hover: none) {
+  .wm-open-cue .is-desk { display: none; }
+  .wm-open-cue .is-touch { display: inline; }
+}
 .wm-open-progress { position: absolute; right: 1.5rem; top: 50%; width: 1px; height: 22vh; transform: translateY(-50%); background: rgba(160, 190, 255, 0.14); }
 .wm-open-progress i { position: absolute; inset: 0; background: linear-gradient(180deg, #60d6ff, #aa80ff); transform-origin: top; transform: scaleY(0); }
 

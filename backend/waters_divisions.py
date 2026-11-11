@@ -81,7 +81,7 @@ DIVISIONS = (
             "Immunology and vaccine research",
             "Cancer research and blood disorders",
             "Cell and gene therapy",
-            "Immune monitoring, such as CD4 counts in HIV care",
+            "Stem cell and single-cell research",
             "Drug discovery",
         ],
         "example": (
@@ -121,6 +121,7 @@ DIVISIONS = (
             "Respiratory and sexually transmitted infections",
             "Cervical cancer screening",
             "Gastrointestinal infections",
+            "Clinical flow cytometry, such as immunophenotyping and CD4 counts",
         ],
         "example": (
             "A patient arrives with suspected sepsis. Blood culture flags growth, the organism is "
@@ -243,3 +244,77 @@ IMPACT_MORE = (
     {"name": "Batteries and advanced materials", "what": "Understanding thermal stability, flow and strength of new materials.", "divisions": ["Materials Sciences"]},
     {"name": "Cancer research and screening", "what": "From studying tumour and immune cells to screening for HPV.", "divisions": ["Biosciences", "Advanced Diagnostics"]},
 )
+
+# Every product or capability mention is attributed and status-labelled. Nothing here is treated
+# as confirmed until validated with Waters stakeholders; flip "status" to "validated" per item.
+DIVISION_SOURCE = {
+    "analytical": "https://www.waters.com/",
+    "biosciences": "https://www.bdbiosciences.com/",
+    "diagnostics": "https://www.bd.com/",
+    "materials": "https://www.tainstruments.com/",
+}
+for _d in DIVISIONS:
+    _d.setdefault("label_status", "pending")
+    for _t in _d["tech"]:
+        _t.setdefault("status", "pending")
+        _t.setdefault("source", DIVISION_SOURCE[_d["id"]])
+
+# Chapter 03 — the Technology universe. Area names are working labels (see label_status) and
+# each area points at its division's content above; visuals are illustrative simulations.
+UNIVERSE = {
+    "title": "The technology universe",
+    "intro": "Four worlds of science. Turn the ring, choose a world and step inside.",
+    "legend": {
+        "simulation": "Illustrative simulation, not instrument data",
+        "labels": "Working area names, pending confirmation",
+        "products": "Product details pending validation",
+    },
+    "areas": [
+        {
+            "id": "analytical",
+            "division": "Analytical Sciences",
+            "accent": "cyan",
+            "visual": "column",
+            "question": "Which molecules are in this sample?",
+            "teaser": "Separate a mixture, then weigh every molecule in it.",
+            "experience": "available",
+            "journeys": [
+                {"label": "How LC works", "track": "observe", "kind": "lc", "what": "The LC system part by part: pump, injector, column, detector."},
+                {"label": "How MS works", "track": "observe", "kind": "ms", "what": "Ion source, quadrupole and detector, opened up."},
+                {"label": "Become the sample", "track": "ride", "kind": "lc", "what": "Choose a molecule and travel through the column yourself."},
+                {"label": "Ride the ions", "track": "ride", "kind": "ms", "what": "Ionise, fly through the mass spectrometer, land in the spectrum."},
+            ],
+        },
+        {
+            "id": "biosciences",
+            "division": "Biosciences",
+            "accent": "violet",
+            "visual": "flow",
+            "question": "Which cells are in this sample, and what are they doing?",
+            "teaser": "Cells pass a laser one at a time; the light they give off reveals what they are.",
+            "experience": "in-progress",
+            "coming": "Label cells, send them past the lasers, and gate the populations yourself.",
+        },
+        {
+            "id": "diagnostics",
+            "division": "Advanced Diagnostics",
+            "accent": "mint",
+            "visual": "culture",
+            "question": "Is this patient infected, with what, and what will treat it?",
+            "teaser": "Microbes growing in a blood culture slowly light the sensor until the bottle flags positive.",
+            "experience": "in-progress",
+            "coming": "Follow one patient sample from blood culture to identification and the right antibiotic.",
+            "note": "Clinical flow cytometry applications, such as immunophenotyping and CD4 counts, belong here; the technology itself is explained in Biosciences.",
+        },
+        {
+            "id": "materials",
+            "division": "Materials Sciences",
+            "accent": "blue",
+            "visual": "lattice",
+            "question": "How will this material behave when it's heated, stretched or made to flow?",
+            "teaser": "Heat a crystal: it vibrates harder, then loses its order at the melting point.",
+            "experience": "in-progress",
+            "coming": "Heat, stretch and shear a material, and read what the instruments see.",
+        },
+    ],
+}

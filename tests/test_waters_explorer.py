@@ -80,3 +80,37 @@ def test_understand_my_role_uses_the_same_chain() -> None:
         reply = [t for t in turns if t["role"] == "assistant"][-1]["text"]
         assert "Data Engineering Intern on the Data Platform team" in reply
         assert "Ava Chen" in reply and "Priya Nair" in reply
+
+
+def test_technology_universe_is_labelled_and_grounded() -> None:
+    with TestClient(app) as client:
+        story = client.get(f"/api/employee/{store.list_joiners()[0].id}/waters").json()
+        tech = story["components"][2]
+        assert tech["index"] == "03"
+        uni = tech["universe"]
+        names = {d["name"] for d in story["company"]["divisions"]}
+        assert [a["division"] for a in uni["areas"]] == [
+            "Analytical Sciences",
+            "Biosciences",
+            "Advanced Diagnostics",
+            "Materials Sciences",
+        ]
+        assert {a["division"] for a in uni["areas"]} <= names
+        assert len({a["visual"] for a in uni["areas"]}) == 4
+        assert set(uni["legend"]) == {"simulation", "labels", "products"}
+        analytical = uni["areas"][0]
+        assert analytical["experience"] == "available"
+        assert {(j["track"], j["kind"]) for j in analytical["journeys"]} == {
+            ("observe", "lc"),
+            ("observe", "ms"),
+            ("ride", "lc"),
+            ("ride", "ms"),
+        }
+        for area in uni["areas"][1:]:
+            assert area["experience"] == "in-progress" and area["coming"]
+        assert "Biosciences" in uni["areas"][2]["note"]
+        for d in story["company"]["divisions"]:
+            assert d["label_status"] == "pending"
+            for t in d["tech"]:
+                assert t["status"] == "pending"
+                assert t["source"].startswith("https://")

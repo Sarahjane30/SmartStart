@@ -11,7 +11,7 @@ import os
 from backend.database import DataStore, store
 from backend.models import Joiner, RoleType
 from backend.team_directory import _DEFAULT, _TEAMS
-from backend.waters_divisions import BEYOND_LCMS, DIVISION_SOURCES, DIVISIONS, IMPACT_DIVISIONS, IMPACT_MORE, TOGETHER
+from backend.waters_divisions import BEYOND_LCMS, DIVISION_SOURCES, DIVISIONS, IMPACT_DIVISIONS, IMPACT_MORE, TOGETHER, UNIVERSE
 
 SOURCES = (
     {
@@ -111,6 +111,7 @@ TECHNOLOGY = {
         "the core technology of the other three divisions."
     ),
     "beyond": list(BEYOND_LCMS),
+    "universe": UNIVERSE,
     "chambers": [
         {
             "name": "Liquid chromatography",

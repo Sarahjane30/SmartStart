@@ -175,6 +175,10 @@
     dust: [],
     iraOrb: null,
     brand: false,
+    hud: 1,
+    opening: false,
+    px: -9999,
+    py: -9999,
   };
   [...ORDER, "core"].forEach((id) => (S.fx[id] = { a: 0, k: 1, open: 0 }));
   for (let i = 0; i < 150; i += 1) {
@@ -294,7 +298,8 @@
     const cx = S.w / 2 + S.shift * 0.6;
     const cy = S.h * 0.5;
     const R = Math.max(S.w, S.h);
-    if (S.brand) {
+    const hud = S.hud;
+    if (S.brand && !S.opening) {
       const bg = ctx.createLinearGradient(0, 0, S.w, 0);
       bg.addColorStop(0, "#ffffff");
       bg.addColorStop(0.42, "#b7d9ee");
@@ -321,7 +326,7 @@
     const oy = cy + S.smy * -10;
     ctx.lineWidth = 1;
     [0.26, 0.4, 0.56].forEach((f, i) => {
-      ctx.strokeStyle = rgba(C.ice, i === 1 ? 0.06 : 0.035);
+      ctx.strokeStyle = rgba(C.ice, (i === 1 ? 0.06 : 0.035) * hud);
       ctx.setLineDash(i === 2 ? [2, 7] : []);
       ctx.beginPath();
       ctx.arc(ox, oy, m * f, 0, TAU);
@@ -333,13 +338,13 @@
     for (let i = 0; i < 144; i += 1) {
       const a = rot + (i / 144) * TAU;
       const len = i % 12 === 0 ? 12 : i % 3 === 0 ? 6 : 3;
-      ctx.strokeStyle = rgba(C.ice, i % 12 === 0 ? 0.12 : 0.05);
+      ctx.strokeStyle = rgba(C.ice, (i % 12 === 0 ? 0.12 : 0.05) * hud);
       ctx.beginPath();
       ctx.moveTo(ox + Math.cos(a) * tickR, oy + Math.sin(a) * tickR);
       ctx.lineTo(ox + Math.cos(a) * (tickR + len), oy + Math.sin(a) * (tickR + len));
       ctx.stroke();
     }
-    ctx.strokeStyle = rgba(C.ice, 0.035);
+    ctx.strokeStyle = rgba(C.ice, 0.035 * hud);
     ctx.setLineDash([4, 10]);
     ctx.beginPath();
     ctx.moveTo(0, oy);
@@ -350,7 +355,7 @@
     ctx.setLineDash([]);
 
     const base = S.h * 0.9;
-    ctx.strokeStyle = rgba(C.cyan, 0.07);
+    ctx.strokeStyle = rgba(C.cyan, 0.07 * hud);
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     const off = (S.t * 40) % S.w;
@@ -678,7 +683,7 @@
     });
   }
 
-  function drawGlobe(P, a, k) {
+  function drawGlobe(P, a, k, o = {}) {
     const open = S.fx.world.open;
     const R = (0.58 + open * 1.0) * k;
     if (S.globeTarget !== null) {
@@ -707,7 +712,7 @@
       for (let i = 0; i <= 48; i += 1) pts.push(project(sph(-90 * DEG + (i / 48) * Math.PI, (m / 12) * TAU)));
       strokePts(pts, C.blue, 0.22 * a, 0.8, pc.z, 0.1);
     }
-    for (const d of GLOBE_DOTS) {
+    if (o.dots !== false) for (const d of GLOBE_DOTS) {
       const p = project(add(P, [
         R * (d[0] * Math.cos(spin) - d[2] * Math.sin(spin)),
         R * d[1],
@@ -717,6 +722,7 @@
       dot(p.x, p.y, 0.012 * p.s, C.ice, 0.35 * a);
     }
     strokePts(ring(P, R * 1.28, 1.2, 0.35, S.t * 0.2, 80), C.cyan, 0.3 * a, 1, pc.z, 0.15);
+    if (o.sites === false) return R;
 
     const sites = S.data?.components.find((c) => c.id === "world")?.sites || [];
     const home = sites.find((s) => s.home);
@@ -858,11 +864,466 @@
     you: (P, a) => drawYou(P, a),
   };
 
+  /* ---------- opening: the globe tells the first story ---------- */
+
+  // Scroll track 0..1. Each window is [fade in from, fully in, hold until, gone by].
+  const OPEN_BEATS = {
+    world: [-1, 0, 0.1, 0.15],
+    depend: [0.15, 0.19, 0.27, 0.31],
+    behind: [0.43, 0.47, 0.55, 0.59],
+    question: [0.63, 0.67, 0.775, 0.805],
+    science: [0.8, 0.835, 0.885, 0.905],
+    waters: [0.905, 0.945, 2, 3],
+  };
+  const OPEN_WORD = (i) => [0.27 + i * 0.025, 0.3 + i * 0.025, 0.42, 0.47];
+  const OPEN_STOPS = [0, 0.23, 0.385, 0.51, 0.72, 0.86, 0.975, 1];
+  const OPEN_ANCHORS = [
+    [-0.56, 0.44, 0.7],
+    [0.6, 0.4, 0.69],
+    [-0.62, -0.38, 0.69],
+    [0.55, -0.48, 0.68],
+  ].map((v) => {
+    const l = Math.hypot(...v);
+    return v.map((c) => c / l);
+  });
+  const OPEN_DOTS = fib(720);
+  const OPEN_PER_MOL = OPEN_DOTS.length / 4;
+  const sm = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+  const win = (p, [a, b, c, d]) => (p <= a || p >= d ? 0 : p < b ? sm((p - a) / (b - a)) : p <= c ? 1 : 1 - sm((p - c) / (d - c)));
+  const mixC = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+
+  const seeded = (() => {
+    let s = 20240611;
+    return () => {
+      s = (s * 16807) % 2147483647;
+      return (s - 1) / 2147483646;
+    };
+  })();
+  const OPEN_SEED = OPEN_DOTS.map(() => seeded());
+
+  // Structural sketches only — never labelled as specific products.
+  const MOLS = (() => {
+    const ring = { atoms: [], bonds: [], hb: [] };
+    for (let i = 0; i < 6; i += 1) {
+      const a = Math.PI / 2 + (i / 6) * TAU;
+      ring.atoms.push({ p: [Math.cos(a) * 0.24, Math.sin(a) * 0.24, 0], k: "cyan" });
+      ring.bonds.push([i, (i + 1) % 6]);
+    }
+    ring.atoms.push(
+      { p: [0, 0.5, 0], k: "violet" },
+      { p: [0, -0.5, 0], k: "blue" },
+      { p: [0.22, -0.64, 0], k: "cyan" },
+      { p: [0.22, -0.88, 0], k: "violet" },
+      { p: [0.44, -0.52, 0], k: "cyan" }
+    );
+    ring.bonds.push([0, 6], [3, 7], [7, 8], [8, 9], [8, 10]);
+    ring.atoms.forEach((a) => (a.p = [-a.p[1], a.p[0], a.p[2]]));
+
+    const chain = { atoms: [], bonds: [], hb: [] };
+    for (let i = 0; i < 9; i += 1) {
+      chain.atoms.push({ p: [-0.5 + i * 0.115, i % 2 ? 0.07 : -0.07, Math.sin(i * 0.9) * 0.05], k: "cyan" });
+      if (i) chain.bonds.push([i - 1, i]);
+    }
+    chain.atoms.push({ p: [0.5, 0.2, 0], k: "violet" }, { p: [0.55, -0.16, 0], k: "violet" });
+    chain.bonds.push([8, 9], [8, 10]);
+
+    const water = { atoms: [], bonds: [], hb: [] };
+    const wc = [90, 210, 330].map((deg) => [Math.cos(deg * DEG) * 0.3, Math.sin(deg * DEG) * 0.3, (deg - 210) / 1200]);
+    wc.forEach((o, i) => {
+      const n = wc[(i + 1) % 3];
+      const th = Math.atan2(n[1] - o[1], n[0] - o[0]);
+      const base = water.atoms.length;
+      water.atoms.push({ p: o, k: "violet" });
+      [th, th + 104.5 * DEG].forEach((h) => water.atoms.push({ p: [o[0] + Math.cos(h) * 0.15, o[1] + Math.sin(h) * 0.15, o[2]], k: "ice" }));
+      water.bonds.push([base, base + 1], [base, base + 2]);
+      water.hb.push([base + 1, ((i + 1) % 3) * 3]);
+    });
+
+    const lattice = { atoms: [], bonds: [], hb: [], tilt: 0.55 };
+    const at = (x, y, z) => (x * 3 + y) * 3 + z;
+    for (let x = 0; x < 3; x += 1)
+      for (let y = 0; y < 3; y += 1)
+        for (let z = 0; z < 3; z += 1) {
+          lattice.atoms.push({ p: [(x - 1) * 0.19, (y - 1) * 0.19, (z - 1) * 0.19], k: (x + y + z) % 2 ? "violet" : "blue" });
+          if (x) lattice.bonds.push([at(x - 1, y, z), at(x, y, z)]);
+          if (y) lattice.bonds.push([at(x, y - 1, z), at(x, y, z)]);
+          if (z) lattice.bonds.push([at(x, y, z - 1), at(x, y, z)]);
+        }
+    const mols = [ring, chain, water, lattice];
+    mols.forEach((M) => {
+      const lo = [0, 1, 2].map((i) => Math.min(...M.atoms.map((a) => a.p[i])));
+      const hi = [0, 1, 2].map((i) => Math.max(...M.atoms.map((a) => a.p[i])));
+      M.atoms.forEach((a) => (a.p = a.p.map((v, i) => v - (lo[i] + hi[i]) / 2)));
+    });
+    return mols;
+  })();
+
+  const gauss = () => Math.sqrt(-2 * Math.log(seeded() + 1e-9)) * Math.cos(TAU * seeded());
+  const ballJitter = (r) => [(seeded() - 0.5) * 2 * r, (seeded() - 0.5) * 2 * r, (seeded() - 0.5) * 2 * r];
+  const MOL_PARTS = MOLS.map((M, mol) => {
+    const items = [
+      ...M.atoms.map((a) => ({ w: a.k === "ice" ? 0.55 : 1, a })),
+      ...M.bonds.map(([i, j]) => {
+        const A = M.atoms[i].p;
+        const B = M.atoms[j].p;
+        return { w: Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]) * 2.4, b: [A, B, M.atoms[i].k] };
+      }),
+    ];
+    const total = items.reduce((s, it) => s + it.w, 0);
+    const parts = [];
+    for (let j = 0; j < OPEN_PER_MOL; j += 1) {
+      let u = ((j + 0.5) / OPEN_PER_MOL) * total;
+      const it = items.find((x) => (u -= x.w) <= 0) || items[items.length - 1];
+      const part = { mol, bx: gauss(), by: seeded() - 0.5 };
+      if (it.a) {
+        part.local = add(it.a.p, ballJitter(0.04));
+        part.col = it.a.k;
+        part.atom = true;
+      } else {
+        part.local = add(mix(it.b[0], it.b[1], seeded()), ballJitter(0.012));
+        part.col = it.b[2] === "ice" ? "ice" : "blue";
+        part.atom = false;
+      }
+      parts.push(part);
+    }
+    return parts.sort((p, q) => q.local[1] - p.local[1]);
+  });
+
+  const OP = { quietUntil: 0, dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, m: 0, sep: 0, fin: 0, map: null, anchors: [], touching: false };
+  const opEls = {
+    box: $(".wm-open"),
+    lines: [...root.querySelectorAll(".wm-open [data-beat]")],
+    words: [...root.querySelectorAll(".wm-open [data-word]")],
+    cue: $(".wm-open-cue"),
+    bar: $(".wm-open-progress i"),
+  };
+
+  function openLayout() {
+    if (S.narrow) {
+      return {
+        mols: [
+          { c: [-0.5, 1.0, 0], s: 0.66 },
+          { c: [0.52, 1.04, 0], s: 0.66 },
+          { c: [-0.48, -0.95, 0], s: 0.66 },
+          { c: [0.52, -0.95, 0], s: 0.66 },
+        ],
+        bands: [-0.66, -0.22, 0.22, 0.66],
+        bw: 0.03,
+        bh: 0.34,
+        flowY: 0.42,
+        traceY: -0.25,
+        span: 0.85,
+        th: 0.55,
+      };
+    }
+    return {
+      mols: [
+        { c: [-1.25, 0.6, 0.2], s: 1 },
+        { c: [1.2, 0.66, 0], s: 1 },
+        { c: [-1.15, -0.68, 0.1], s: 1 },
+        { c: [1.2, -0.62, -0.1], s: 1 },
+      ],
+      bands: [-1.35, -0.45, 0.45, 1.35],
+      bw: 0.05,
+      bh: 0.42,
+      flowY: 0.2,
+      traceY: -0.72,
+      span: 2.1,
+      th: 0.9,
+    };
+  }
+
+  function molPoint(M, L, local, g) {
+    let [x, y, z] = local;
+    if (M.tilt) {
+      const c = Math.cos(M.tilt);
+      const s = Math.sin(M.tilt);
+      [y, z] = [y * c - z * s, y * s + z * c];
+    }
+    const a = (reduce ? 0 : S.t * 0.22 * (g % 2 ? -1 : 1)) + g * 0.9;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const bob = reduce ? 0 : Math.sin(S.t * 0.7 + g) * 0.03;
+    return [L.c[0] + (x * c - z * s) * L.s, L.c[1] + bob + y * L.s, L.c[2] + (x * s + z * c) * L.s];
+  }
+
+  function mapGlobeToMolecules() {
+    const cs = Math.cos(S.globeSpin);
+    const sn = Math.sin(S.globeSpin);
+    const idx = OPEN_DOTS.map((d, i) => ({ i, x: d[0] * cs - d[2] * sn, y: d[1] })).sort((a, b) => b.y - a.y);
+    const half = idx.length / 2;
+    const groups = [idx.slice(0, half), idx.slice(half)].flatMap((h) => {
+      h.sort((a, b) => a.x - b.x);
+      return [h.slice(0, half / 2), h.slice(half / 2)];
+    });
+    OP.map = new Array(OPEN_DOTS.length);
+    groups.forEach((grp, g) => {
+      grp.sort((a, b) => b.y - a.y).forEach((d, j) => (OP.map[d.i] = MOL_PARTS[g][j]));
+    });
+  }
+
+  function startOpening() {
+    S.opening = true;
+    Object.assign(OP, { dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, m: 0, sep: 0, fin: 0, map: null, touching: false });
+    applyPalette(false);
+    root.classList.remove("is-brand");
+    root.classList.add("is-opening");
+    els.intro.classList.add("is-gone");
+    S.zoom = S.narrow ? 1.4 : 0.66;
+    S.shift = S.narrow ? 0 : S.w * 0.17;
+    S.cam = [0, 0, 0];
+    S.hud = 0.3;
+    opEls.lines.concat(opEls.words, [opEls.cue]).forEach((el) => {
+      el._k = -1;
+    });
+  }
+
+  function endOpening() {
+    if (!S.opening) return;
+    S.opening = false;
+    OP.after = OP.fin > 0.5 ? 1 : 0.4;
+    root.classList.remove("is-opening");
+    setBrandTheme(S.brand, { persist: false });
+    S.assemble = 0;
+    S.intro = true;
+    S.wheelAcc = 0;
+    OP.quietUntil = performance.now() + 2200;
+    setHint();
+    setTimeout(() => {
+      if (!S.open || S.opening || !S.intro) return;
+      els.intro.classList.remove("is-gone");
+      $(".wm-begin").focus({ preventScroll: true });
+    }, 650);
+  }
+
+  function openingStop(dir) {
+    OP.idle = 0;
+    OP.dir = dir;
+    const t = OP.target;
+    if (dir > 0) OP.target = OPEN_STOPS.find((s) => s > t + 0.01) ?? 1;
+    else OP.target = [...OPEN_STOPS].reverse().find((s) => s < t - 0.01) ?? 0;
+  }
+
+  function openingNudge(delta) {
+    OP.idle = 0;
+    if (delta) OP.dir = Math.sign(delta);
+    const breathe = OP.target > 0.66 && OP.target < 0.78 ? 0.6 : 1;
+    OP.target = clamp(OP.target + delta * breathe, 0, 1);
+  }
+
+  function tickOpening(dt) {
+    OP.age += dt;
+    OP.idle += dt;
+    if (OP.idle > 0.7 && !OP.touching) {
+      const t = OP.target;
+      const near = OP.dir < 0 ? [...OPEN_STOPS].reverse().find((s) => s <= t) : OPEN_STOPS.find((s) => s >= t);
+      if (near != null && Math.abs(near - t) < 0.08) OP.target = lerp(OP.target, near, Math.min(1, dt * 4));
+    }
+    OP.p = lerp(OP.p, OP.target, Math.min(1, dt * (reduce ? 9 : 2.3)));
+    if (Math.abs(OP.p - OP.target) < 1e-4) OP.p = OP.target;
+    const p = OP.p;
+    OP.m = sm((p - 0.44) / 0.16);
+    OP.sep = sm((p - 0.79) / 0.09);
+    OP.fin = sm((p - 0.9) / 0.07);
+    if (!OP.m) OP.map = null;
+    else if (!OP.map) mapGlobeToMolecules();
+    if (OP.target >= 0.999 && p > 0.985) {
+      OP.hold += dt;
+      if (OP.hold > 1.1) endOpening();
+    } else OP.hold = 0;
+  }
+
+  function openingCamera() {
+    const p = OP.p;
+    const fly = reduce ? 1 : ease(OP.age / 3.2);
+    const machineZoom = S.narrow ? 0.78 : 1;
+    let zoom = (S.narrow ? 1.85 : 1) * lerp(0.74, 1.16, fly);
+    zoom *= 1 + 0.3 * sm(p / 0.44) + 0.4 * sm((p - 0.44) / 0.24) - 0.32 * sm((p - 0.78) / 0.1);
+    zoom = lerp(zoom, machineZoom, OP.fin * 0.55);
+    const textSide = 1 - sm((p - 0.55) / 0.09);
+    return {
+      cam: [0, 0, 0],
+      zoom,
+      shift: S.narrow ? 0 : S.w * 0.17 * textSide,
+      shiftY: S.narrow ? -S.h * 0.09 * (1 - OP.fin) : 0,
+    };
+  }
+
+  function drawOpening() {
+    const { m, sep, fin } = OP;
+    const P = [0, 0, 0];
+    const appear = reduce ? 1 : ease(OP.age / 2.2);
+    const R = drawGlobe(P, appear * (1 - m) * (1 - fin), 1 / 0.58, { dots: false, sites: false });
+    const L = openLayout();
+    const pc = project(P);
+    const cs = Math.cos(S.globeSpin);
+    const sn = Math.sin(S.globeSpin);
+    const live = reduce ? 0 : 1;
+    const press = S.narrow ? 70 : 120;
+    ctx.globalCompositeOperation = "lighter";
+
+    for (let i = 0; i < OPEN_DOTS.length; i += 1) {
+      const d = OPEN_DOTS[i];
+      const seed = OPEN_SEED[i];
+      const br = R * (1 + 0.018 * Math.sin(S.t * 0.9 + seed * TAU) * live);
+      let w = [br * (d[0] * cs - d[2] * sn), br * d[1], br * (d[0] * sn + d[2] * cs)];
+      let col = seed < 0.1 ? C.cyan : seed > 0.94 ? C.violet : C.ice;
+      let size = seed < 0.1 ? 0.016 : 0.011;
+      let e = 0;
+      const part = OP.map?.[i];
+      if (part) {
+        const tgt = molPoint(MOLS[part.mol], L.mols[part.mol], part.local, part.mol);
+        e = ease(clamp((m - seed * 0.35) / 0.65, 0, 1));
+        const swirl = Math.sin(e * Math.PI) * 0.22 * live;
+        w = [lerp(w[0], tgt[0], e) - w[1] * swirl, lerp(w[1], tgt[1], e) + w[0] * swirl, lerp(w[2], tgt[2], e) + swirl];
+        col = mixC(col, C[part.col], e);
+        size = lerp(size, part.atom ? 0.013 : 0.008, e);
+        if (sep > 0) {
+          const es = ease(clamp((sep - part.mol * 0.12) / 0.55, 0, 1));
+          w = mix(w, [L.bands[part.mol] + part.bx * L.bw, L.flowY + part.by * L.bh, 0], es);
+        }
+        if (fin > 0) {
+          const ef = ease(clamp((fin - seed * 0.3) / 0.7, 0, 1));
+          w = mix(w, [d[0] * 0.14, d[1] * 0.14, d[2] * 0.14], ef);
+        }
+      }
+      const q = project(w);
+      let alpha = appear * (q.z >= pc.z - 0.1 ? 0.9 : lerp(0.14, 0.9, e)) * (0.65 + 0.35 * Math.sin(S.t * 1.4 + seed * 40));
+      let { x, y } = q;
+      const dx = x - S.px;
+      const dy = y - S.py;
+      const dd = Math.hypot(dx, dy);
+      if (live && dd < press) {
+        const f = (1 - dd / press) ** 2;
+        x += (dx / (dd || 1)) * f * 16;
+        y += (dy / (dd || 1)) * f * 16;
+        alpha *= 1 + f * 1.3;
+      }
+      dot(x, y, size * q.s, col, alpha);
+      if (seed < 0.06 || seed > 0.97) glow(x, y, size * q.s * 6, col, 0.2 * alpha);
+    }
+
+    const ma = sm((m - 0.55) / 0.45) * (1 - sm(sep * 3)) * (1 - fin);
+    if (ma > 0.01) {
+      MOLS.forEach((M, g) => {
+        const pts = M.atoms.map((a) => project(molPoint(M, L.mols[g], a.p, g)));
+        ctx.lineWidth = 1;
+        M.bonds.forEach(([i, j]) => {
+          ctx.strokeStyle = rgba(C.cyan, 0.32 * ma);
+          ctx.beginPath();
+          ctx.moveTo(pts[i].x, pts[i].y);
+          ctx.lineTo(pts[j].x, pts[j].y);
+          ctx.stroke();
+        });
+        ctx.setLineDash([3, 5]);
+        M.hb.forEach(([i, j]) => {
+          ctx.strokeStyle = rgba(C.violet, 0.5 * ma);
+          ctx.beginPath();
+          ctx.moveTo(pts[i].x, pts[i].y);
+          ctx.lineTo(pts[j].x, pts[j].y);
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+        M.atoms.forEach((a, i) => glow(pts[i].x, pts[i].y, 0.09 * pts[i].s * L.mols[g].s, C[a.k], 0.28 * ma));
+      });
+    }
+
+    const wa = Math.max(...[0, 1, 2, 3].map((i) => win(OP.p, OPEN_WORD(i)))) * (1 - m);
+    OP.anchors = OPEN_ANCHORS.map((v, i) => {
+      const q = project([v[0] * R, v[1] * R, v[2] * R]);
+      const k = win(OP.p, OPEN_WORD(i));
+      const left = v[0] < 0;
+      if (k > 0.01) {
+        glow(q.x, q.y, 0.16 * q.s, C.cyan, 0.7 * k);
+        dot(q.x, q.y, 0.022 * q.s, C.ice, k);
+        ctx.strokeStyle = rgba(C.ice, 0.4 * k);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(q.x + (left ? -8 : 8), q.y);
+        ctx.lineTo(q.x + (left ? -32 : 32), q.y);
+        ctx.stroke();
+      }
+      return { x: q.x, y: q.y, left, k: k * (wa > 0 ? 1 : 0) };
+    });
+
+    const sa = sm(sep * 2) * (1 - fin);
+    if (sa > 0.01) {
+      const head = -L.span + 2 * L.span * clamp(sep * 1.2, 0, 1);
+      ctx.setLineDash([2, 6]);
+      strokePts([project([-L.span, L.flowY, 0]), project([L.span, L.flowY, 0])], C.ice, 0.14 * sa, 1);
+      ctx.setLineDash([]);
+      const trace = [];
+      const sig = L.bw * 1.6;
+      const hs = [0.55, 0.9, 0.42, 0.7];
+      for (let x = -L.span; x <= head; x += L.span / 90) {
+        let y = L.traceY;
+        L.bands.forEach((b, g) => {
+          const es = ease(clamp((sep - g * 0.12) / 0.55, 0, 1));
+          y += hs[g] * L.th * es * Math.exp(-((x - b) ** 2) / (2 * sig * sig));
+        });
+        trace.push(project([x, y, 0]));
+      }
+      strokePts([project([-L.span, L.traceY, 0]), project([L.span, L.traceY, 0])], C.ice, 0.12 * sa, 1);
+      if (trace.length > 1) {
+        strokePts(trace, C.cyan, 0.85 * sa, 1.6);
+        const tip = trace[trace.length - 1];
+        if (sep < 0.99) glow(tip.x, tip.y, 0.12 * tip.s, C.cyan, 0.9 * sa);
+      }
+    }
+
+    if (fin > 0.01) {
+      glow(pc.x, pc.y, 1.3 * pc.s * fin, C.blue, 0.26 * fin);
+      glow(pc.x, pc.y, 0.45 * pc.s, C.cyan, 0.65 * fin);
+      glassSphere(pc.x, pc.y, 0.2 * pc.s * fin, C.cyan, fin);
+    }
+  }
+
+  function drawOpeningAfterglow(dt) {
+    OP.after = Math.max(0, OP.after - dt / 0.9);
+    const c = project([0, 0, 0]);
+    ctx.globalCompositeOperation = "lighter";
+    glow(c.x, c.y, 0.6 * c.s, C.cyan, 0.55 * OP.after);
+  }
+
+  function setOpenK(el, k) {
+    const v = Math.round(clamp(k, 0, 1) * 1000) / 1000;
+    if (el._k === v) return;
+    el._k = v;
+    el.style.setProperty("--k", v);
+    el.style.visibility = v <= 0.001 ? "hidden" : "visible";
+  }
+
+  function syncOpening() {
+    const p = OP.p;
+    const ready = reduce ? 1 : clamp((OP.age - 0.9) / 1.4, 0, 1);
+    opEls.lines.forEach((el) => setOpenK(el, win(p, OPEN_BEATS[el.dataset.beat]) * (el.dataset.beat === "world" ? ready : 1)));
+    opEls.words.forEach((el, i) => {
+      const a = OP.anchors[i];
+      setOpenK(el, a ? a.k : 0);
+      if (!a) return;
+      if (!el._w || el._wAt !== S.w) {
+        el._w = el.firstElementChild.offsetWidth;
+        el._wAt = S.w;
+      }
+      const left = a.left && a.x - 42 - el._w > 10;
+      const x = left ? a.x - 42 : a.left ? Math.max(10, a.x - el._w / 2) : Math.min(a.x + 42, S.w - el._w - 10);
+      el.classList.toggle("is-left", left);
+      el.style.transform = `translate(${Math.round(x)}px, ${Math.round(a.y + (left || !a.left ? 0 : -22))}px)`;
+    });
+    setOpenK(opEls.cue, clamp((OP.age - 2.4) / 1, 0, 1) * (1 - sm(p / 0.06)));
+    opEls.bar.style.transform = `scaleY(${p.toFixed(4)})`;
+  }
+
   /* ---------- frame ---------- */
 
   function targets() {
     const active = S.active;
     const youLit = active === "you" && S.youT > 5.4;
+    if (S.opening) {
+      ORDER.forEach((id) => Object.assign(S.fx[id], { ta: 0, tk: 1, topen: 0 }));
+      S.fx.core.ta = 0;
+      return;
+    }
     ORDER.forEach((id) => {
       const fx = S.fx[id];
       let a;
@@ -889,6 +1350,7 @@
   }
 
   function cameraTargets() {
+    if (S.opening) return openingCamera();
     const active = S.active;
     let cam = [0, 0, 0];
     let zoom = S.narrow ? 0.78 : 1;
@@ -916,7 +1378,7 @@
     S.last = time;
     const speed = reduce ? 0.25 : 1;
     S.t += dt * speed;
-    S.assemble = Math.min(1, S.assemble + dt / (reduce ? 0.2 : 2.4));
+    S.assemble = S.opening ? 0 : Math.min(1, S.assemble + dt / (reduce ? 0.2 : 2.4));
     S.closing = clamp(S.closing + (S.finale ? dt / 1.4 : -dt / 0.8), 0, 1);
     if (S.active === "you") S.youT += dt;
     S.smx = lerp(S.smx, S.mx, Math.min(1, dt * 3));
@@ -924,6 +1386,7 @@
 
     if (S.ride) return;
 
+    if (S.opening) tickOpening(dt);
     targets();
     const k6 = Math.min(1, dt * 5);
     [...ORDER, "core"].forEach((id) => {
@@ -938,9 +1401,10 @@
     S.zoom = lerp(S.zoom, ct.zoom * (1 + Math.sin(S.t * 0.7) * 0.01), kc);
     S.shift = lerp(S.shift, ct.shift, kc);
     S.shiftY = lerp(S.shiftY, ct.shiftY, kc);
-    const idleYaw = S.active ? 0 : Math.sin(S.t * 0.11) * 0.3;
-    S.yaw = lerp(S.yaw, idleYaw + S.smx * (S.active ? 0.14 : 0.38), kc);
-    S.pitch = lerp(S.pitch, 0.16 + S.smy * (S.active ? 0.06 : 0.16), kc);
+    const idleYaw = S.active ? 0 : Math.sin(S.t * 0.11) * (S.opening ? 0.12 : 0.3);
+    S.yaw = lerp(S.yaw, idleYaw + S.smx * (S.active ? 0.14 : S.opening ? 0.22 : 0.38), kc);
+    S.pitch = lerp(S.pitch, 0.16 + S.smy * (S.active ? 0.06 : S.opening ? 0.1 : 0.16), kc);
+    S.hud = lerp(S.hud, S.opening ? 0.3 * (1 - OP.sep) : 1, Math.min(1, dt * 1.5));
 
     for (const d of S.dust) {
       d.p[0] += d.v[0] * dt * speed;
@@ -950,6 +1414,14 @@
 
     ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
     drawBackdrop();
+    if (S.opening) {
+      drawOpening();
+      ctx.globalCompositeOperation = "source-over";
+      syncOpening();
+      S.raf = requestAnimationFrame(frame);
+      return;
+    }
+    if (OP.after > 0) drawOpeningAfterglow(dt);
     drawPipes();
     const order = ORDER.map((id) => ({ id, P: posOf(id) }))
       .map((o) => ({ ...o, z: project(o.P).z }))
@@ -1470,7 +1942,9 @@
     const r = canvas.getBoundingClientRect();
     S.mx = ((e.clientX - r.left) / r.width) * 2 - 1;
     S.my = ((e.clientY - r.top) / r.height) * 2 - 1;
-    if (S.intro || S.finale) return;
+    S.px = e.clientX - r.left;
+    S.py = e.clientY - r.top;
+    if (S.intro || S.finale || S.opening) return;
     const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
     if (!S.active) S.hover = hit;
     canvas.style.cursor = hit ? "pointer" : "default";
@@ -1500,6 +1974,7 @@
     const r = canvas.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
+    if (S.opening) return openingStop(1);
     const hit = hitTest(x, y);
     if (S.intro) {
       hideIntro();
@@ -1515,7 +1990,12 @@
     const inPanel = e.target.closest(".wm-panel, .wm-sources");
     if (inPanel && inPanel.scrollHeight > inPanel.clientHeight + 2) return;
     e.preventDefault();
+    if (S.opening) {
+      const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? S.h : 1);
+      return openingNudge(clamp(px, -160, 160) / (S.h * 7));
+    }
     const now = performance.now();
+    if (now < OP.quietUntil) return;
     S.wheelAcc += e.deltaY;
     if (now < S.wheelLock) return;
     if (Math.abs(S.wheelAcc) > 40) {
@@ -1527,6 +2007,16 @@
 
   function onKey(e) {
     if (!S.open || S.ride) return;
+    if (S.opening) {
+      if (e.target.closest("button") && (e.key === "Enter" || e.key === " ")) return;
+      const fwd = ["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(e.key);
+      const back = ["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key);
+      if (e.key === "Escape") endOpening();
+      else if (fwd || back) openingStop(fwd ? 1 : -1);
+      else return;
+      e.preventDefault();
+      return;
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       if (!els.sources.hidden) els.sources.hidden = true;
@@ -1561,10 +2051,34 @@
   });
   canvas.addEventListener("click", onClick);
   root.addEventListener("wheel", onWheel, { passive: false });
-  root.addEventListener("touchstart", (e) => (S.touchY = e.touches[0]?.clientY ?? null), { passive: true });
+  root.addEventListener(
+    "touchstart",
+    (e) => {
+      S.touchY = e.touches[0]?.clientY ?? null;
+      OP.touchY = S.touchY;
+      OP.touching = S.opening;
+    },
+    { passive: true }
+  );
+  root.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!S.opening || OP.touchY == null) return;
+      e.preventDefault();
+      const y = e.touches[0]?.clientY ?? OP.touchY;
+      openingNudge((OP.touchY - y) / (S.h * 4.2));
+      OP.touchY = y;
+    },
+    { passive: false }
+  );
   root.addEventListener(
     "touchend",
     (e) => {
+      OP.touching = false;
+      if (S.opening) {
+        S.touchY = null;
+        return;
+      }
       if (S.touchY === null || e.target.closest(".wm-panel")) return;
       const dy = S.touchY - (e.changedTouches[0]?.clientY ?? S.touchY);
       if (Math.abs(dy) > 50) step(dy > 0 ? 1 : -1);
@@ -1575,6 +2089,7 @@
   document.addEventListener("keydown", onKey);
   window.addEventListener("resize", () => S.open && resize());
   $(".wm-close").addEventListener("click", () => close());
+  $(".wm-open-skip")?.addEventListener("click", () => endOpening());
   $(".wm-begin").addEventListener("click", () => goStep(0));
   $(".wm-free").addEventListener("click", () => {
     hideIntro();
@@ -1628,6 +2143,13 @@
     leaveFinale();
     renderPanel();
     resize();
+    root.classList.remove("is-opening");
+    S.opening = false;
+    if (opts.opening !== false && opEls.box) {
+      startOpening();
+      cancelAnimationFrame(S.raf);
+      S.raf = requestAnimationFrame(frame);
+    }
     requestAnimationFrame(() => root.classList.add("is-open"));
     if (!S.data) {
       try {
@@ -1642,6 +2164,7 @@
     buildLabels();
     buildFinale();
     setHint();
+    if (S.opening) return;
     cancelAnimationFrame(S.raf);
     S.raf = requestAnimationFrame(frame);
     $(".wm-begin").focus({ preventScroll: true });
@@ -1653,7 +2176,8 @@
     cancelAnimationFrame(S.raf);
     leaveRide();
     els.intro.classList.add("is-gone");
-    root.classList.remove("is-open", "is-ride", "is-active", "is-finale");
+    S.opening = false;
+    root.classList.remove("is-open", "is-ride", "is-active", "is-finale", "is-opening");
     document.body.classList.remove("wm-lock");
     els.sources.hidden = true;
     setTimeout(() => {

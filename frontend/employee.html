@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=69" />
+  <link rel="stylesheet" href="/static/style.css?v=70" />
 </head>
 <body class="employee-page">
   <div id="workspace" class="wx">
@@ -327,6 +327,7 @@
       <div class="wm-brand"><strong>Waters</strong><span>//</span>How it all connects</div>
       <nav class="wm-rail" aria-label="Chapters"></nav>
       <div class="wm-top-actions">
+        <button type="button" class="wm-open-skip">Skip intro</button>
         <button type="button" class="wm-src-btn">Sources</button>
         <button type="button" class="wm-close" aria-label="Close">×</button>
       </div>
@@ -336,6 +337,21 @@
       <span class="wm-theme-toggle-swatch" aria-hidden="true"></span>
       <span class="wm-theme-toggle-text">Brand</span>
     </button>
+
+    <section class="wm-open" aria-label="What is Waters? Opening">
+      <p class="wm-open-line is-hero" data-beat="world">The world is shaped by things <em>we cannot see.</em></p>
+      <p class="wm-open-line" data-beat="depend">Every day, we depend on things <em>we cannot see.</em></p>
+      <div class="wm-open-word" data-word="0"><span>Medicines.</span></div>
+      <div class="wm-open-word" data-word="1"><span>Food.</span></div>
+      <div class="wm-open-word" data-word="2"><span>Water.</span></div>
+      <div class="wm-open-word" data-word="3"><span>Materials.</span></div>
+      <p class="wm-open-line" data-beat="behind">Behind each of them is an invisible world of <em>molecules, compounds and interactions.</em></p>
+      <p class="wm-open-line is-center" data-beat="question">But how do we understand what we cannot see?</p>
+      <p class="wm-open-line is-caption" data-beat="science"><span>Analytical science</span>Separating, identifying and measuring the molecules in a sample.</p>
+      <p class="wm-open-line is-reveal" data-beat="waters">This is where <strong>Waters</strong> comes in.</p>
+      <div class="wm-open-cue" aria-hidden="true"><span>Scroll</span><i></i></div>
+      <div class="wm-open-progress" aria-hidden="true"><i></i></div>
+    </section>
 
     <section class="wm-intro">
       <p class="wm-intro-kicker">Waters // How it all connects</p>
@@ -385,7 +401,7 @@
   <script src="/static/waters-ride.js?v=6"></script>
   <script src="/static/waters-ride-observe.js?v=4"></script>
   <script src="/static/waters-ride-play.js?v=2"></script>
-  <script src="/static/waters-machine.js?v=14"></script>
+  <script src="/static/waters-machine.js?v=15"></script>
   <script src="/static/answer-feedback.js?v=1"></script>
   <script src="/static/employee.js?v=42"></script>
 </body>

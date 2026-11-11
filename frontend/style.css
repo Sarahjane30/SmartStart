@@ -4172,6 +4172,107 @@ body.wm-lock { overflow: hidden; }
   .wm-grain, .wx-waters-art, .wx-waters-art b, .wm-chamber.is-on .wm-steps li { animation: none; }
 }
 
+/* ---------- What is Waters · opening on the globe ---------- */
+.wm-open { position: absolute; inset: 0; z-index: 7; pointer-events: none; opacity: 1; transition: opacity 0.9s ease, visibility 0s; }
+.wm:not(.is-opening) .wm-open { opacity: 0; visibility: hidden; transition: opacity 0.55s ease, visibility 0s 0.55s; }
+.wm.is-opening .wm-brand, .wm.is-opening .wm-rail, .wm.is-opening .wm-src-btn, .wm.is-opening .wm-theme-toggle,
+.wm.is-opening .wm-hint, .wm.is-opening .wm-labels, .wm.is-opening .wm-markers, .wm.is-opening .wm-net,
+.wm.is-opening .wm-panel { opacity: 0 !important; pointer-events: none !important; visibility: hidden; }
+.wm-open-skip { display: none; }
+.wm.is-opening .wm-open-skip {
+  display: inline-flex; cursor: pointer; padding: 0.42rem 0.8rem; border-radius: 999px;
+  border: 1px solid rgba(160, 190, 255, 0.18); background: rgba(8, 14, 36, 0.3); color: rgba(223, 231, 255, 0.72);
+  font-family: "IBM Plex Mono", monospace !important; font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase;
+  transition: color 0.25s, border-color 0.25s;
+}
+.wm.is-opening .wm-open-skip:hover { color: #fff; border-color: rgba(96, 214, 255, 0.6); }
+.wm-open-skip:focus-visible { outline: 2px solid #60d6ff; outline-offset: 3px; }
+
+.wm-open-line {
+  --k: 0;
+  position: absolute; left: 7vw; top: 50%; margin: 0; max-width: min(33rem, 36vw);
+  font-size: clamp(1.9rem, 3vw, 3rem); line-height: 1.12; font-weight: 500; letter-spacing: -0.032em;
+  color: #eef3ff; text-wrap: balance; visibility: hidden;
+  opacity: var(--k);
+  transform: translate3d(0, calc(-50% + (1 - var(--k)) * 22px), 0);
+  filter: blur(calc((1 - var(--k)) * 5px));
+  text-shadow: 0 0 40px rgba(6, 12, 34, 0.9);
+}
+.wm-open-line em {
+  font-style: normal; color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(90deg, #60d6ff 0%, #6088ff 55%, #aa80ff 100%);
+}
+.wm-open-line.is-hero { font-size: clamp(2.3rem, 4vw, 4.1rem); line-height: 1.04; letter-spacing: -0.04em; max-width: min(38rem, 38vw); }
+.wm-open-line.is-center {
+  left: 50%; text-align: center; max-width: min(44rem, 62vw); font-size: clamp(2.1rem, 3.7vw, 3.8rem); line-height: 1.06; letter-spacing: -0.04em;
+  transform: translate3d(-50%, calc(-50% + (1 - var(--k)) * 22px), 0);
+}
+.wm-open-line.is-caption {
+  left: 50%; top: auto; bottom: 10vh; text-align: center; max-width: 30rem;
+  font-size: 1rem; line-height: 1.55; font-weight: 400; letter-spacing: 0; color: rgba(215, 226, 255, 0.74);
+  transform: translate3d(-50%, calc((1 - var(--k)) * 14px), 0);
+}
+.wm-open-line.is-caption span {
+  display: block; margin-bottom: 0.55rem; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+  letter-spacing: 0.26em; text-transform: uppercase; color: #60d6ff;
+}
+.wm-open-line.is-reveal {
+  left: 50%; top: calc(50% + max(9rem, 17vh)); text-align: center; max-width: 90vw; white-space: nowrap;
+  font-size: clamp(2rem, 3.4vw, 3.5rem); letter-spacing: -0.04em;
+  transform: translate3d(-50%, calc(-50% + (1 - var(--k)) * 22px), 0);
+}
+.wm-open-line.is-reveal strong {
+  font-weight: 700; color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(180deg, #ffffff 25%, #60d6ff 100%);
+}
+
+.wm-open-word { --k: 0; position: absolute; left: 0; top: 0; visibility: hidden; opacity: var(--k); will-change: transform; }
+.wm-open-word span {
+  display: block; white-space: nowrap; transform: translate(calc((1 - var(--k)) * 10px), -50%);
+  font-family: "IBM Plex Mono", monospace; font-size: 0.84rem; letter-spacing: 0.26em; text-transform: uppercase; color: #e6eeff;
+  text-shadow: 0 0 18px rgba(6, 12, 34, 0.95);
+}
+.wm-open-word.is-left span { transform: translate(calc(-100% - (1 - var(--k)) * 10px), -50%); }
+
+.wm-open-cue {
+  --k: 0; position: absolute; left: 50%; bottom: 4.5vh; display: flex; flex-direction: column; align-items: center; gap: 0.7rem;
+  transform: translateX(-50%); opacity: var(--k); visibility: hidden;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; letter-spacing: 0.32em; text-transform: uppercase; color: rgba(215, 226, 255, 0.6);
+}
+.wm-open-cue i { width: 1px; height: 38px; overflow: hidden; position: relative; background: rgba(160, 190, 255, 0.16); }
+.wm-open-cue i::after {
+  content: ""; position: absolute; left: 0; top: 0; width: 1px; height: 14px;
+  background: linear-gradient(180deg, transparent, #60d6ff); animation: wmCue 2.2s cubic-bezier(0.6, 0, 0.3, 1) infinite;
+}
+@keyframes wmCue { from { transform: translateY(-14px); } to { transform: translateY(38px); } }
+.wm-open-progress { position: absolute; right: 1.5rem; top: 50%; width: 1px; height: 22vh; transform: translateY(-50%); background: rgba(160, 190, 255, 0.14); }
+.wm-open-progress i { position: absolute; inset: 0; background: linear-gradient(180deg, #60d6ff, #aa80ff); transform-origin: top; transform: scaleY(0); }
+
+@media (max-width: 899px) {
+  .wm-open-line {
+    left: 1.4rem; right: 1.4rem; top: auto; bottom: 12vh; max-width: none;
+    font-size: clamp(1.5rem, 6.4vw, 2.1rem); transform: translate3d(0, calc((1 - var(--k)) * 18px), 0);
+  }
+  .wm-open-line.is-hero { font-size: clamp(1.9rem, 8.4vw, 2.7rem); max-width: none; }
+  .wm-open-line.is-center {
+    left: 1.4rem; right: 1.4rem; top: 50%; bottom: auto; max-width: none; font-size: clamp(1.7rem, 7.4vw, 2.4rem);
+    transform: translate3d(0, calc(-50% + (1 - var(--k)) * 18px), 0);
+  }
+  .wm-open-line.is-caption { left: 1.4rem; right: 1.4rem; bottom: 9vh; max-width: none; font-size: 0.92rem; transform: translate3d(0, calc((1 - var(--k)) * 14px), 0); }
+  .wm-open-line.is-reveal {
+    left: 1.4rem; right: 1.4rem; top: auto; bottom: 18vh; white-space: normal; max-width: none;
+    font-size: clamp(1.7rem, 7.6vw, 2.5rem); transform: translate3d(0, calc((1 - var(--k)) * 18px), 0);
+  }
+  .wm-open-word span { font-size: 0.64rem; letter-spacing: 0.2em; }
+  .wm-open-line.is-reveal { top: calc(50% + 5.5rem); bottom: auto; }
+  .wm-open-progress { right: 0.7rem; height: 16vh; }
+  .wm-open-cue { bottom: 3vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wm-open-line { filter: none; }
+  .wm-open-cue i::after { animation: none; transform: translateY(12px); }
+}
+
 /* ---------- Command Center · live new-hire simulation ---------- */
 
 .btn-sim {

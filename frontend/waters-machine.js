@@ -103,6 +103,7 @@
     overview: "Move to look around · hover a part to light it up · click to open · scroll to travel",
     active: "Click the part again to zoom · scroll or → for next · Esc to step back",
     deep: "Scroll or → for next · Esc to step back",
+    universe: "Choose an area to explore · scroll or ↓ for the next chapter · Esc to step back",
   };
 
   const fib = (n) =>
@@ -162,6 +163,7 @@
     youT: 0,
     youStage: 0,
     chamber: -1,
+    division: 0,
     site: null,
     node: null,
     area: -1,
@@ -175,6 +177,13 @@
     dust: [],
     iraOrb: null,
     brand: false,
+    hud: 1,
+    opening: false,
+    px: -9999,
+    py: -9999,
+    uni: null,
+    uniK: 0,
+    uniText: false,
   };
   [...ORDER, "core"].forEach((id) => (S.fx[id] = { a: 0, k: 1, open: 0 }));
   for (let i = 0; i < 150; i += 1) {
@@ -294,7 +303,8 @@
     const cx = S.w / 2 + S.shift * 0.6;
     const cy = S.h * 0.5;
     const R = Math.max(S.w, S.h);
-    if (S.brand) {
+    const hud = S.hud;
+    if (S.brand && !S.opening) {
       const bg = ctx.createLinearGradient(0, 0, S.w, 0);
       bg.addColorStop(0, "#ffffff");
       bg.addColorStop(0.42, "#b7d9ee");
@@ -321,7 +331,7 @@
     const oy = cy + S.smy * -10;
     ctx.lineWidth = 1;
     [0.26, 0.4, 0.56].forEach((f, i) => {
-      ctx.strokeStyle = rgba(C.ice, i === 1 ? 0.06 : 0.035);
+      ctx.strokeStyle = rgba(C.ice, (i === 1 ? 0.06 : 0.035) * hud);
       ctx.setLineDash(i === 2 ? [2, 7] : []);
       ctx.beginPath();
       ctx.arc(ox, oy, m * f, 0, TAU);
@@ -333,13 +343,13 @@
     for (let i = 0; i < 144; i += 1) {
       const a = rot + (i / 144) * TAU;
       const len = i % 12 === 0 ? 12 : i % 3 === 0 ? 6 : 3;
-      ctx.strokeStyle = rgba(C.ice, i % 12 === 0 ? 0.12 : 0.05);
+      ctx.strokeStyle = rgba(C.ice, (i % 12 === 0 ? 0.12 : 0.05) * hud);
       ctx.beginPath();
       ctx.moveTo(ox + Math.cos(a) * tickR, oy + Math.sin(a) * tickR);
       ctx.lineTo(ox + Math.cos(a) * (tickR + len), oy + Math.sin(a) * (tickR + len));
       ctx.stroke();
     }
-    ctx.strokeStyle = rgba(C.ice, 0.035);
+    ctx.strokeStyle = rgba(C.ice, 0.035 * hud);
     ctx.setLineDash([4, 10]);
     ctx.beginPath();
     ctx.moveTo(0, oy);
@@ -350,7 +360,7 @@
     ctx.setLineDash([]);
 
     const base = S.h * 0.9;
-    ctx.strokeStyle = rgba(C.cyan, 0.07);
+    ctx.strokeStyle = rgba(C.cyan, 0.07 * hud);
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     const off = (S.t * 40) % S.w;
@@ -580,7 +590,7 @@
   }
 
   /* The LC/MS ride is its own full-screen film; the machine sleeps underneath until it ends. */
-  function enterRide(kind, trackName = "observe") {
+  function enterRide(kind, trackName = "observe", back = null) {
     if (!window.WatersRide) return;
     hideIntro();
     if (S.finale) leaveFinale();
@@ -594,10 +604,42 @@
         S.ride = false;
         root.classList.remove("is-ride");
         if (!S.open) return;
-        overview();
+        if (back === "universe" && S.active === "technology" && uniOn()) S.uni.redive();
+        else overview();
         S.last = 0;
         cancelAnimationFrame(S.raf);
         S.raf = requestAnimationFrame(frame);
+      },
+    });
+  }
+
+  /* Chapter 03 hub. The universe draws on this canvas so the rail and camera stay put;
+     the chapter panel becomes its text version. Without the module the old panel remains. */
+  const uniOn = () => !!S.uni && S.active === "technology" && !S.uniText && !S.finale;
+
+  function makeUniverse() {
+    if (S.uni || !window.WatersUniverse || !window.WatersSim) return;
+    S.uni = window.WatersUniverse.create({
+      ctx,
+      C,
+      rgba,
+      glow,
+      dot,
+      lerp,
+      clamp,
+      ease,
+      TAU,
+      reduce,
+      S,
+      esc,
+      root,
+      cursor: (c) => (canvas.style.cursor = c),
+      onJourney: (track, kind) => enterRide(kind, track, "universe"),
+      onText: () => {
+        S.uniText = true;
+        renderPanel();
+        setHint();
+        requestAnimationFrame(() => els.panel.querySelector("h2")?.focus({ preventScroll: true }));
       },
     });
   }
@@ -678,7 +720,7 @@
     });
   }
 
-  function drawGlobe(P, a, k) {
+  function drawGlobe(P, a, k, o = {}) {
     const open = S.fx.world.open;
     const R = (0.58 + open * 1.0) * k;
     if (S.globeTarget !== null) {
@@ -707,7 +749,7 @@
       for (let i = 0; i <= 48; i += 1) pts.push(project(sph(-90 * DEG + (i / 48) * Math.PI, (m / 12) * TAU)));
       strokePts(pts, C.blue, 0.22 * a, 0.8, pc.z, 0.1);
     }
-    for (const d of GLOBE_DOTS) {
+    if (o.dots !== false) for (const d of GLOBE_DOTS) {
       const p = project(add(P, [
         R * (d[0] * Math.cos(spin) - d[2] * Math.sin(spin)),
         R * d[1],
@@ -717,6 +759,7 @@
       dot(p.x, p.y, 0.012 * p.s, C.ice, 0.35 * a);
     }
     strokePts(ring(P, R * 1.28, 1.2, 0.35, S.t * 0.2, 80), C.cyan, 0.3 * a, 1, pc.z, 0.15);
+    if (o.sites === false) return R;
 
     const sites = S.data?.components.find((c) => c.id === "world")?.sites || [];
     const home = sites.find((s) => s.home);
@@ -858,19 +901,1242 @@
     you: (P, a) => drawYou(P, a),
   };
 
+  /* ---------- opening: seeing is not the same as understanding ---------- */
+
+  // Scroll track 0..1. Each window is [fade in from, fully in, hold until, gone by].
+  const OPEN_BEATS = {
+    see: [-1, 0, 0.028, 0.04],
+    understand: [0.042, 0.054, 0.085, 0.097],
+    medicine: [0.1, 0.112, 0.16, 0.172],
+    water: [0.177, 0.189, 0.23, 0.242],
+    food: [0.247, 0.259, 0.295, 0.307],
+    material: [0.312, 0.324, 0.36, 0.372],
+    appearance: [0.377, 0.389, 0.43, 0.442],
+    within: [0.457, 0.469, 0.5, 0.512],
+    identity: [0.512, 0.524, 0.545, 0.556],
+    observe: [0.556, 0.565, 0.576, 0.585],
+    separate: [0.585, 0.594, 0.606, 0.616],
+    analytical: [0.616, 0.627, 0.675, 0.687],
+    bio: [0.692, 0.705, 0.755, 0.767],
+    dx: [0.772, 0.785, 0.835, 0.847],
+    heat: [0.852, 0.865, 0.91, 0.92],
+    together: [0.922, 0.932, 0.952, 0.96],
+    waters: [0.962, 0.97, 0.98, 0.986],
+    mark: [0.986, 0.993, 2, 3],
+  };
+  const OPEN_STOPS = [0, 0.07, 0.14, 0.21, 0.277, 0.343, 0.41, 0.49, 0.535, 0.571, 0.6, 0.632, 0.712, 0.792, 0.872, 0.945, 0.976, 0.995, 1];
+  const OPEN_BREATHE = [
+    [0.054, 0.085],
+    [0.389, 0.43],
+    [0.932, 0.952],
+    [0.97, 0.98],
+  ];
+  // One continuous particle timeline: each keyframe is a formation held over [a, b].
+  // Keyframes with `dur` also run on their own clock while held, so the science plays out without scrolling.
+  const KF = [
+    { s: "globe", a: -1, b: 0.085, zoom: 1.16, side: 1 },
+    { s: "tablet", a: 0.115, b: 0.165, zoom: 1.3, side: 1 },
+    { s: "drop", a: 0.19, b: 0.232, zoom: 1.3, side: 1 },
+    { s: "food", a: 0.257, b: 0.297, zoom: 1.3, side: 1 },
+    { s: "material", a: 0.322, b: 0.362, zoom: 1.22, side: 1 },
+    { s: "lineup", a: 0.388, b: 0.435, zoom: 0.95, side: 0 },
+    { s: "micro", a: 0.47, b: 0.55, zoom: 1.35, side: 0 },
+    { s: "mixture", a: 0.566, b: 0.605, zoom: 1.45, side: 0 },
+    { s: "separation", a: 0.628, b: 0.68, zoom: 1, side: 0, dur: 7 },
+    { s: "cells", a: 0.708, b: 0.76, zoom: 1.2, side: 0, dur: 9 },
+    { s: "dx", a: 0.788, b: 0.84, zoom: 1.2, side: 0, dur: 7 },
+    { s: "heat", a: 0.868, b: 0.915, zoom: 1.2, side: 0, dur: 8 },
+    { s: "quad", a: 0.935, b: 0.955, zoom: 1.05, side: 0 },
+    { s: "core", a: 0.975, b: 2, zoom: 1, side: 0 },
+  ];
+  const KI = Object.fromEntries(KF.map((k, i) => [k.s, i]));
+  const OBJ = ["tablet", "drop", "food", "material"];
+  const OBJ_LABEL = ["A medicine tablet", "A drop of water", "A food sample", "A material surface"];
+  const OBJ_MOL = [0, 2, 1, 3];
+  const COMP = ["cyan", "violet", "mint", "blue"];
+  const DIVISIONS = ["Analytical Sciences", "Biosciences", "Advanced Diagnostics", "Materials Sciences"];
+
+  const OPEN_DOTS = fib(720);
+  const OPEN_N = OPEN_DOTS.length;
+  const OPEN_PER_MOL = OPEN_N / 4;
+  const sm = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+  const win = (p, [a, b, c, d]) => (p <= a || p >= d ? 0 : p < b ? sm((p - a) / (b - a)) : p <= c ? 1 : 1 - sm((p - c) / (d - c)));
+  const mixC = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+  const rotX = ([x, y, z], a) => [x, y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+  const rotY = ([x, y, z], a) => [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)];
+  const rotZ = ([x, y, z], a) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a), z];
+
+  const seeded = (() => {
+    let s = 20240611;
+    return () => {
+      s = (s * 16807) % 2147483647;
+      return (s - 1) / 2147483646;
+    };
+  })();
+  const OPEN_SEED = OPEN_DOTS.map(() => seeded());
+  const gauss = () => Math.sqrt(-2 * Math.log(seeded() + 1e-9)) * Math.cos(TAU * seeded());
+  const ballJitter = (r) => [(seeded() - 0.5) * 2 * r, (seeded() - 0.5) * 2 * r, (seeded() - 0.5) * 2 * r];
+
+  function recenter(M) {
+    const lo = [0, 1, 2].map((i) => Math.min(...M.atoms.map((a) => a.p[i])));
+    const hi = [0, 1, 2].map((i) => Math.max(...M.atoms.map((a) => a.p[i])));
+    M.atoms.forEach((a) => (a.p = a.p.map((v, i) => v - (lo[i] + hi[i]) / 2)));
+    return M;
+  }
+
+  // Structural sketches only — never labelled as specific products.
+  const MOLS = (() => {
+    const ring = { atoms: [], bonds: [], hb: [] };
+    for (let i = 0; i < 6; i += 1) {
+      const a = Math.PI / 2 + (i / 6) * TAU;
+      ring.atoms.push({ p: [Math.cos(a) * 0.24, Math.sin(a) * 0.24, 0], k: "cyan" });
+      ring.bonds.push([i, (i + 1) % 6]);
+    }
+    ring.atoms.push(
+      { p: [0, 0.5, 0], k: "violet" },
+      { p: [0, -0.5, 0], k: "blue" },
+      { p: [0.22, -0.64, 0], k: "cyan" },
+      { p: [0.22, -0.88, 0], k: "violet" },
+      { p: [0.44, -0.52, 0], k: "cyan" }
+    );
+    ring.bonds.push([0, 6], [3, 7], [7, 8], [8, 9], [8, 10]);
+    ring.atoms.forEach((a) => (a.p = [-a.p[1], a.p[0], a.p[2]]));
+
+    const chain = { atoms: [], bonds: [], hb: [] };
+    for (let i = 0; i < 9; i += 1) {
+      chain.atoms.push({ p: [-0.5 + i * 0.115, i % 2 ? 0.07 : -0.07, Math.sin(i * 0.9) * 0.05], k: "cyan" });
+      if (i) chain.bonds.push([i - 1, i]);
+    }
+    chain.atoms.push({ p: [0.5, 0.2, 0], k: "violet" }, { p: [0.55, -0.16, 0], k: "violet" });
+    chain.bonds.push([8, 9], [8, 10]);
+
+    const water = { atoms: [], bonds: [], hb: [] };
+    const wc = [90, 210, 330].map((deg) => [Math.cos(deg * DEG) * 0.3, Math.sin(deg * DEG) * 0.3, (deg - 210) / 1200]);
+    wc.forEach((o, i) => {
+      const n = wc[(i + 1) % 3];
+      const th = Math.atan2(n[1] - o[1], n[0] - o[0]);
+      const base = water.atoms.length;
+      water.atoms.push({ p: o, k: "violet" });
+      [th, th + 104.5 * DEG].forEach((h) => water.atoms.push({ p: [o[0] + Math.cos(h) * 0.15, o[1] + Math.sin(h) * 0.15, o[2]], k: "ice" }));
+      water.bonds.push([base, base + 1], [base, base + 2]);
+      water.hb.push([base + 1, ((i + 1) % 3) * 3]);
+    });
+
+    const lattice = { atoms: [], bonds: [], hb: [], tilt: 0.55 };
+    const at = (x, y, z) => (x * 3 + y) * 3 + z;
+    for (let x = 0; x < 3; x += 1)
+      for (let y = 0; y < 3; y += 1)
+        for (let z = 0; z < 3; z += 1) {
+          lattice.atoms.push({ p: [(x - 1) * 0.19, (y - 1) * 0.19, (z - 1) * 0.19], k: (x + y + z) % 2 ? "violet" : "blue" });
+          if (x) lattice.bonds.push([at(x - 1, y, z), at(x, y, z)]);
+          if (y) lattice.bonds.push([at(x, y - 1, z), at(x, y, z)]);
+          if (z) lattice.bonds.push([at(x, y, z - 1), at(x, y, z)]);
+        }
+    return [ring, chain, water, lattice].map(recenter);
+  })();
+
+  // Small, generic analyte sketches for the separation scene — illustrative, never named.
+  const ANA = (() => {
+    const hex = (cx, cy) => Array.from({ length: 6 }, (_, i) => [cx + Math.cos(Math.PI / 6 + (i * TAU) / 6) * 0.24, cy + Math.sin(Math.PI / 6 + (i * TAU) / 6) * 0.24, 0]);
+    const cyc = (o) => Array.from({ length: 6 }, (_, i) => [o + i, o + ((i + 1) % 6)]);
+    const mk = (atoms, bonds) => recenter({ atoms: atoms.map(([p, k]) => ({ p, k })), bonds, hb: [] });
+    const phenol = mk([...hex(0, 0).map((p) => [p, "cyan"]), [[0, 0.5, 0], "violet"]], [...cyc(0), [1, 6]]);
+    const chainAtoms = Array.from({ length: 6 }, (_, i) => [[-0.36 + i * 0.13, i % 2 ? 0.07 : -0.07, 0], "cyan"]);
+    const chain = mk([...chainAtoms, [[0.46, 0.2, 0], "violet"]], [...Array.from({ length: 5 }, (_, i) => [i, i + 1]), [5, 6]]);
+    const fused = mk([...hex(-0.208, 0), ...hex(0.208, 0)].map((p) => [p, "cyan"]), [...cyc(0), ...cyc(6)]);
+    return [phenol, chain, MOLS[0], fused];
+  })();
+
+  function allocParts(M) {
+    const items = [
+      ...M.atoms.map((a) => ({ w: a.k === "ice" ? 0.55 : 1, a })),
+      ...M.bonds.map(([i, j]) => {
+        const A = M.atoms[i].p;
+        const B = M.atoms[j].p;
+        return { w: Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]) * 2.4, b: [A, B, M.atoms[i].k] };
+      }),
+    ];
+    const total = items.reduce((s, it) => s + it.w, 0);
+    const parts = [];
+    for (let j = 0; j < OPEN_PER_MOL; j += 1) {
+      let u = ((j + 0.5) / OPEN_PER_MOL) * total;
+      const it = items.find((x) => (u -= x.w) <= 0) || items[items.length - 1];
+      if (it.a) parts.push({ local: add(it.a.p, ballJitter(0.04)), col: it.a.k, atom: true });
+      else parts.push({ local: add(mix(it.b[0], it.b[1], seeded()), ballJitter(0.012)), col: it.b[2] === "ice" ? "ice" : "blue", atom: false });
+    }
+    return parts.sort((p, q) => q.local[1] - p.local[1]);
+  }
+  const MOL_PARTS = MOLS.map(allocParts);
+  const ANA_PARTS = ANA.map(allocParts);
+
+  const tear = (d, s) => {
+    const t = Math.acos(clamp(d[1], -1, 1));
+    const az = Math.atan2(d[2], d[0]);
+    const r = Math.sin(t) * Math.pow(Math.sin(t / 2), 0.9) * 1.05 * s;
+    return [Math.cos(az) * r, (Math.cos(t) * 1.15 + 0.05) * s, Math.sin(az) * r];
+  };
+  // Everyday objects, sampled as particle surfaces in their own local frame.
+  const SHAPES = {
+    tablet: OPEN_DOTS.map(() => {
+      const u = seeded();
+      const th = seeded() * TAU;
+      if (u < 0.52) {
+        const r = Math.sqrt(seeded()) * 0.94;
+        let x = Math.cos(th) * r;
+        if (Math.abs(x) < 0.05) x = Math.sign(x || 1) * (0.05 + seeded() * 0.02);
+        return [x, 0.17 + 0.05 * (1 - r * r), Math.sin(th) * r];
+      }
+      if (u < 0.64) {
+        const r = Math.sqrt(seeded()) * 0.94;
+        return [Math.cos(th) * r, -0.17 - 0.05 * (1 - r * r), Math.sin(th) * r];
+      }
+      const y = (seeded() - 0.5) * 0.34;
+      const r = 1 - 0.07 * ((2 * Math.abs(y)) / 0.34) ** 2;
+      return [Math.cos(th) * r, y, Math.sin(th) * r];
+    }),
+    drop: OPEN_DOTS.map((d, i) => (seeded() < 0.1 ? tear(OPEN_DOTS[(i * 37) % OPEN_N], 0.3 + seeded() * 0.5) : tear(d, 1))),
+    food: OPEN_DOTS.map(([x, y, z]) => {
+      let Y = y * 0.62;
+      if (Y > 0 && Math.abs(z) < 0.18) Y *= 0.5 + Math.abs(z) * 2.7;
+      return [x * 1.25, Y, z * 0.64];
+    }),
+    material: OPEN_DOTS.map((d, i) => {
+      if (i < 576) return [((i % 24) / 23) * 2 - 1, 0.04, (Math.floor(i / 24) / 23) * 2 - 1];
+      const e = i % 4;
+      const t = seeded() * 2 - 1;
+      const y = (seeded() - 0.5) * 0.09;
+      return e === 0 ? [t, y, 1.02] : e === 1 ? [t, y, -1.02] : e === 2 ? [1.02, y, t] : [-1.02, y, t];
+    }),
+  };
+
+  // Liquid chromatography in miniature: components move at different speeds, broaden, and elute in turn.
+  const SEP = { X0: -2.1, XD: 1.0, Y0: 0.85, T0: -2.1, T1: 2.1, YT: -0.48, speed: [1, 0.74, 0.55, 0.42] };
+  const SEP_K = 1 / (0.86 * SEP.speed[3]);
+  const SEP_PEAK = SEP.speed.map((v) => {
+    const t = 1 / (SEP_K * v);
+    const sig = 0.05 + 0.12 * t;
+    return { t, x: lerp(SEP.T0, SEP.T1, t), sig, h: 0.075 / sig };
+  });
+  const SEP_JIT = OPEN_DOTS.map(() => [gauss(), seeded() - 0.5]);
+  const MIX_POS = COMP.map(() => Array.from({ length: 30 }, () => [gauss() * 0.72, gauss() * 0.36, gauss() * 0.3]));
+
+  // Biosciences: cells pass a laser one at a time; each lands in its population on a two-marker plot.
+  const CELLS = (() => {
+    const n = OPEN_N / 12;
+    const pop = Array.from({ length: n }, (_, c) => c % 3);
+    for (let c = n - 1; c > 0; c -= 1) {
+      const r = Math.floor(seeded() * (c + 1));
+      [pop[c], pop[r]] = [pop[r], pop[c]];
+    }
+    const centre = [
+      [0.22, 0.24],
+      [0.74, 0.3],
+      [0.7, 0.76],
+    ];
+    const plot = pop.map((g) => [clamp(centre[g][0] + gauss() * 0.07, 0.03, 0.97), clamp(centre[g][1] + gauss() * 0.07, 0.03, 0.97)]);
+    return { n, pop, plot, col: ["cyan", "violet", "mint"], LX: -0.6, SY: 0.05, X0: 0.35, X1: 2.05, Y0: -0.85, Y1: 0.75 };
+  })();
+
+  // Diagnostics: a few target organisms hide among many other particles until the test captures them.
+  const DX = (() => {
+    const rods = 8;
+    const cx = -1.2;
+    const cy = 0.1;
+    return {
+      rods,
+      cx,
+      cy,
+      probe: [0.05, 0.1],
+      start: Array.from({ length: rods }, () => [cx + clamp(gauss() * 0.4, -0.8, 0.8), cy + clamp(gauss() * 0.24, -0.45, 0.45), 0]),
+      tc: Array.from({ length: rods }, (_, r) => 0.12 + r * 0.075),
+      bg: OPEN_DOTS.map(() => [cx + clamp(gauss() * 0.55, -1.05, 1.05), cy + clamp(gauss() * 0.32, -0.6, 0.6), gauss() * 0.2]),
+      G: { X0: 0.75, X1: 2.1, Y0: -0.55, Y1: 0.65, thr: 0.45 },
+    };
+  })();
+  const dxCaptured = (T) => DX.tc.reduce((s, t) => s + sm((T - t - 0.12) / 0.03), 0) / DX.rods;
+
+  // Materials: a heated crystal vibrates harder, loses its order at the melting point and flows.
+  const HEAT = {
+    X: -1.15,
+    Y: 0.1,
+    Tm: 0.6,
+    sig: 0.045,
+    liquid: OPEN_DOTS.map(() => [clamp(gauss() * 0.45, -1, 1), -0.45 + Math.abs(gauss()) * 0.09, clamp(gauss() * 0.3, -0.5, 0.5)]),
+    G: { X0: 0.45, X1: 2.1, Y0: -0.45, Y1: 0.75 },
+  };
+  const heatMelt = (T) => sm((T - (HEAT.Tm - 0.08)) / 0.16);
+  const heatFlow = (T) => 0.06 * T + 0.85 * Math.exp(-((T - HEAT.Tm) ** 2) / (2 * HEAT.sig * HEAT.sig));
+
+  // Narrow screens stack each vignette: the specimen above, its measurement below.
+  const VSTACK = {
+    cells: [
+      [-1.42, 0.05],
+      [1.2, -0.05],
+    ],
+    dx: [
+      [-1.0, 0.1],
+      [1.425, 0.05],
+    ],
+    heat: [
+      [-1.3, 0.1],
+      [1.275, 0.15],
+    ],
+  };
+  function vmap(name, part, x, y) {
+    if (!S.narrow) return [x, y];
+    const c = VSTACK[name][part];
+    return [x - c[0], y - c[1] + (part ? -0.8 : 0.95)];
+  }
+
+  function quadLocal(g, j, i) {
+    if (g === 0) return MOL_PARTS[0][j].local.map((v) => v * 0.42);
+    if (g === 3) return MOL_PARTS[3][j].local.map((v) => v * 0.45);
+    if (g === 1) {
+      if (j < 140) {
+        const a = (j / 140) * TAU;
+        return [Math.cos(a) * 0.26, Math.sin(a) * 0.26, OPEN_DOTS[i][2] * 0.03];
+      }
+      return OPEN_DOTS[i].map((v) => v * 0.08);
+    }
+    const x = lerp(-0.25, 0.25, (j % 45) / 44);
+    const a = Math.floor(j / 45) * (TAU / 4) + x * 4;
+    const r = 0.075 * Math.sqrt(Math.max(0, 1 - (x / 0.27) ** 8));
+    return [x, Math.cos(a) * r, Math.sin(a) * r];
+  }
+
+  const coarse = window.matchMedia("(hover: none)").matches;
+  const OP = {
+    ptrT: -9,
+    lx: 0,
+    ly: 0,
+    lensOn: false,
+    moved: 0,
+    flash: [-9, -9, -9, -9],
+    shock: false,
+    ripples: [],
+    molA: 0,
+    spinV: 0,
+    drag: null,
+    quietUntil: 0,
+    dir: 1,
+    p: 0,
+    target: 0,
+    age: 0,
+    idle: 0,
+    hold: 0,
+    after: 0,
+    sep: 0,
+    clk: KF.map(() => 0),
+    st: { A: 0, B: 0, e: 0 },
+    cs: 1,
+    sn: 0,
+    touching: false,
+  };
+  const opEls = {
+    box: $(".wm-open"),
+    lines: [...root.querySelectorAll(".wm-open [data-beat]")],
+    cue: $(".wm-open-cue"),
+    bar: $(".wm-open-progress i"),
+    scale: $(".wm-open-scale"),
+  };
+  const SCALE_MARKS = { 7: "Earth", "-2": "Everyday objects", "-9": "Molecules" };
+
+  function splitWords(el) {
+    let i = 0;
+    const walk = (node) => {
+      [...node.childNodes].forEach((c) => {
+        if (c.nodeType === 1) return walk(c);
+        if (c.nodeType !== 3) return;
+        const frag = document.createDocumentFragment();
+        c.textContent.split(/(\s+)/).forEach((t) => {
+          if (!t) return;
+          if (/^\s+$/.test(t)) return frag.append(t);
+          const w = document.createElement("span");
+          w.className = "w";
+          w.style.setProperty("--i", i++);
+          w.textContent = t;
+          frag.append(w);
+        });
+        c.replaceWith(frag);
+      });
+    };
+    walk(el);
+    el.style.setProperty("--n", i);
+  }
+  opEls.lines.forEach(splitWords);
+
+  function scaleExp(p) {
+    if (p < 0.09) return 7;
+    if (p < 0.112) return Math.round(lerp(7, -2, sm((p - 0.09) / 0.022)));
+    if (p < 0.43) return -2;
+    return Math.round(lerp(-2, -9, sm((p - 0.43) / 0.04)));
+  }
+
+  function openLayout() {
+    if (S.narrow) {
+      return {
+        lp: [
+          [-0.95, 0.85, 0],
+          [0.95, 0.85, 0],
+          [-0.95, -0.75, 0],
+          [0.95, -0.75, 0],
+        ],
+        lk: 0.5,
+        ms: 0.72,
+        mix: [0, 0.1, 0],
+        mx: 0.6,
+        sx: 0.92,
+        qr: 0.85,
+        qy: 1.25,
+      };
+    }
+    return {
+      lp: [
+        [-2.1, 0.18, 0],
+        [-0.7, 0.18, 0],
+        [0.7, 0.18, 0],
+        [2.1, 0.18, 0],
+      ],
+      lk: 0.42,
+      ms: 0.62,
+      mix: [0, 0.15, 0],
+      mx: 1,
+      sx: 1,
+      qr: 1.35,
+      qy: 0.62,
+    };
+  }
+
+  function stageAt(p) {
+    for (let k = 0; k < KF.length; k += 1) {
+      if (p > KF[k].b) continue;
+      if (k === 0 || p >= KF[k].a) return { A: k, B: k, e: 0 };
+      return { A: k - 1, B: k, e: sm((p - KF[k - 1].b) / (KF[k].a - KF[k - 1].b)) };
+    }
+    return { A: KF.length - 1, B: KF.length - 1, e: 0 };
+  }
+  const localT = (k) => {
+    const K = KF[k];
+    const scroll = clamp((OP.p - (K.a + 0.004)) / (K.b - K.a - 0.004), 0, 1);
+    return K.dur ? Math.max(scroll, clamp(OP.clk[k] / K.dur, 0, 1)) : scroll;
+  };
+  const weightOf = (k) => {
+    const { A, B, e } = OP.st;
+    return (A === k ? 1 - e : 0) + (B === k && A !== k ? e : 0);
+  };
+
+  function objPoint(name, p, k, pos) {
+    const t = reduce ? 0 : S.t;
+    let q;
+    if (name === "tablet") q = rotX(rotZ(rotY(p, t * 0.3 + OP.molA), 0.3 + Math.sin(t * 0.4) * 0.08), 0.42);
+    else if (name === "drop") q = rotY(p, t * 0.2 + OP.molA);
+    else if (name === "food") q = rotX(rotZ(rotY(p, t * 0.25 + OP.molA), 0.35), 0.45);
+    else q = rotX(rotY(p, 0.62 + OP.molA * 0.6 + Math.sin(t * 0.2) * 0.12), 0.95);
+    return { w: [pos[0] + q[0] * k, pos[1] + q[1] * k, pos[2] + q[2] * k], depth: q[2] };
+  }
+
+  function objLook(name, p, seed) {
+    const t = reduce ? 0 : S.t;
+    if (name === "drop") {
+      const glint = p[0] < -0.25 && p[1] > 0.1 ? 1.8 : 1;
+      return { col: mixC(C.cyan, C.ice, 0.55), a: (Math.hypot(p[0], p[2]) < 0.5 && Math.abs(p[1]) < 0.6 ? 0.5 : 1) * glint };
+    }
+    if (name === "material") {
+      const sweep = Math.sin(t * 0.6) * 1.5;
+      return { col: mixC(C.steel, C.ice, 0.5), a: 1 + 1.6 * Math.exp(-((p[0] + p[2] * 0.7 - sweep) ** 2) / 0.04) };
+    }
+    if (name === "food") return { col: mixC(C.mint, C.ice, 0.72), a: 1 };
+    return { col: seed < 0.08 ? mixC(C.cyan, C.ice, 0.5) : C.ice, a: 1 };
+  }
+
+  function molLocal(M, local, g, k) {
+    let [x, y, z] = local;
+    if (M.tilt) {
+      const c = Math.cos(M.tilt);
+      const s = Math.sin(M.tilt);
+      [y, z] = [y * c - z * s, y * s + z * c];
+    }
+    const a = (reduce ? 0 : S.t * 0.22 * (g % 2 ? -1 : 1)) + g * 0.9 + OP.molA;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    return [(x * c - z * s) * k, y * k, (x * s + z * c) * k];
+  }
+
+  function sepBand(g, T) {
+    const len = SEP.XD - SEP.X0;
+    const d = T * SEP_K * SEP.speed[g] * len;
+    return { cx: SEP.X0 + d, bw: 0.03 + 0.08 * Math.min(1, d / len), past: d - len, len };
+  }
+  const sepTop = (g) => [SEP_PEAK[g].x, SEP.YT + SEP_PEAK[g].h * 0.9 + 0.34, 0];
+
+  function formAt(k, i, L) {
+    const seed = OPEN_SEED[i];
+    const g = i % 4;
+    const j = (i - g) / 4;
+    const live = reduce ? 0 : 1;
+    const t = reduce ? 0 : S.t;
+    const s = KF[k].s;
+    if (s === "globe") {
+      const d = OPEN_DOTS[i];
+      const br = 1 + 0.018 * Math.sin(S.t * 0.9 + seed * TAU) * live;
+      return {
+        w: [br * (d[0] * OP.cs - d[2] * OP.sn), br * d[1], br * (d[0] * OP.sn + d[2] * OP.cs)],
+        col: seed < 0.1 ? C.cyan : seed > 0.94 ? C.violet : C.ice,
+        size: seed < 0.1 ? 0.016 : 0.011,
+        a: 1,
+        globe: true,
+      };
+    }
+    if (OBJ.includes(s)) {
+      const p = SHAPES[s][i];
+      const o = objPoint(s, p, s === "drop" ? 0.85 : 1, [0, 0, 0]);
+      const look = objLook(s, p, seed);
+      return { w: o.w, col: look.col, size: 0.011, a: look.a * (0.4 + 0.6 * clamp((o.depth + 1) / 2, 0, 1)) };
+    }
+    if (s === "lineup") {
+      const name = OBJ[g];
+      const p = SHAPES[name][i];
+      const o = objPoint(name, p, L.lk * (name === "drop" ? 0.85 : 1), L.lp[g]);
+      const look = objLook(name, p, seed);
+      return { w: o.w, col: look.col, size: 0.013, a: look.a * (0.45 + 0.55 * clamp((o.depth + 1) / 2, 0, 1)) };
+    }
+    if (s === "micro") {
+      const part = MOL_PARTS[OBJ_MOL[g]][j];
+      return {
+        w: add(L.lp[g], molLocal(MOLS[OBJ_MOL[g]], part.local, g, L.ms)),
+        col: mixC(C[COMP[g]], C[part.col], 0.35),
+        size: part.atom ? 0.014 : 0.009,
+        a: 1,
+      };
+    }
+    if (s === "mixture") {
+      const grp = Math.floor(j / 6);
+      const c = MIX_POS[g][grp];
+      const ph = (g * 30 + grp) * 1.7;
+      const a = ((j % 6) / 6) * TAU + t * 0.8 + ph;
+      return {
+        w: [L.mix[0] + c[0] * L.mx + Math.sin(t * 0.6 + ph) * 0.07 + Math.cos(a) * 0.05, L.mix[1] + c[1] + Math.cos(t * 0.5 + ph * 1.3) * 0.06 + Math.sin(a) * 0.05, c[2]],
+        col: C[COMP[g]],
+        size: 0.011,
+        a: 1,
+      };
+    }
+    if (s === "separation") {
+      const T = localT(k);
+      const B = sepBand(g, T);
+      const [bx, by] = SEP_JIT[i];
+      if (B.past <= 0) return { w: [(B.cx + bx * B.bw) * L.sx, SEP.Y0 + by * 0.2, 0], col: C[COMP[g]], size: 0.011, a: 1 };
+      const u = ease(clamp(B.past / (B.len * 0.35), 0, 1));
+      const top = sepTop(g);
+      const mol = molLocal(ANA[g], ANA_PARTS[g][j].local, g, 0.34);
+      const end = [(top[0] + mol[0]) * L.sx, top[1] + mol[1], mol[2]];
+      return { w: bez([SEP.XD * L.sx + 0.12, SEP.Y0, 0], [end[0], SEP.Y0, 0], end, u), col: C[COMP[g]], size: 0.011, a: 1 };
+    }
+    if (s === "cells") {
+      const T = localT(k);
+      const c = Math.floor(i / 12);
+      const slot = i % 12;
+      const V = CELLS;
+      const sp = (T - (c / V.n) * 0.72) / 0.22;
+      const loc = slot < 10 ? [Math.cos((slot / 10) * TAU + c) * 0.045, Math.sin((slot / 10) * TAU + c) * 0.045, 0] : [(slot - 10.5) * 0.024, 0, 0.01];
+      const pc = C[V.col[V.pop[c]]];
+      if (sp <= 1) {
+        const x = lerp(-2.25, V.LX, sp);
+        const wob = Math.sin(t * 2 + c) * 0.006;
+        const at = vmap("cells", 0, x + loc[0], V.SY + loc[1] + wob);
+        return {
+          w: [at[0], at[1], loc[2]],
+          col: sp > 0.9 ? mixC(C.ice, pc, (sp - 0.9) / 0.1) : C.ice,
+          size: slot < 10 ? 0.009 : 0.013,
+          a: clamp(1 + (x + 2.25) / 0.35, 0, 1) * (1 + 2.2 * Math.max(0, 1 - Math.abs(sp - 1) / 0.12)),
+        };
+      }
+      const u = ease(clamp((sp - 1) / 0.55, 0, 1));
+      const P = V.plot[c];
+      const end = [...vmap("cells", 1, lerp(V.X0, V.X1, P[0]), lerp(V.Y0, V.Y1, P[1])), 0];
+      const from = [...vmap("cells", 0, V.LX, V.SY), 0];
+      const ctl = S.narrow ? [from[0] + 0.5, (from[1] + end[1]) / 2, 0] : [V.LX + 0.7, V.SY, 0];
+      const at = bez(from, ctl, end, u);
+      const shrink = 1 - u * 0.75;
+      return { w: [at[0] + loc[0] * shrink, at[1] + loc[1] * shrink, 0], col: pc, size: lerp(0.01, 0.012, u), a: 1 + 1.5 * Math.max(0, 1 - (sp - 1) / 0.15) };
+    }
+    if (s === "dx") {
+      const T = localT(k);
+      const drift = [Math.sin(t * 0.5 + seed * 20) * 0.03, Math.cos(t * 0.4 + seed * 31) * 0.025, 0];
+      if (i % 9) {
+        const b = add(DX.bg[i], drift);
+        const at = vmap("dx", 0, b[0], b[1]);
+        return { w: [at[0], at[1], b[2]], col: mixC(C.ice, C.violet, 0.25), size: 0.01, a: 0.42 };
+      }
+      const r = Math.floor(i / 90);
+      const slot = (i / 9) % 10;
+      const loc = [lerp(-0.065, 0.065, (slot % 5) / 4), slot < 5 ? 0.02 : -0.02, 0];
+      const u = ease(clamp((T - DX.tc[r]) / 0.12, 0, 1));
+      const ang = (r / DX.rods) * TAU;
+      const home = add(DX.start[r], drift);
+      const at = mix(home, [DX.probe[0] + Math.cos(ang) * 0.2, DX.probe[1] + Math.sin(ang) * 0.2, 0], u);
+      const q = rotZ(loc, lerp(r * 0.7, ang + Math.PI / 2, u));
+      const lit = sm((T - 0.03) / 0.08);
+      const w = vmap("dx", 0, at[0] + q[0], at[1] + q[1]);
+      return { w: [w[0], w[1], 0], col: mixC(mixC(C.ice, C.violet, 0.25), C.mint, lit), size: lerp(0.01, 0.013, lit), a: lerp(0.42, 1.4, lit) };
+    }
+    if (s === "heat") {
+      const T = localT(k);
+      const m = heatMelt(T);
+      const ix = i % 12;
+      const iy = Math.floor(i / 12) % 10;
+      const iz = Math.floor(i / 120);
+      const lat = rotX(rotY([(ix - 5.5) * 0.085, (iy - 4.5) * 0.085, (iz - 2.5) * 0.085], 0.55), 0.22);
+      const amp = (0.003 + 0.024 * Math.min(T, HEAT.Tm)) * live;
+      const vib = [Math.sin(t * 9 + seed * 50) * amp, Math.cos(t * 8 + seed * 70) * amp, Math.sin(t * 7 + seed * 90) * amp];
+      const liq = HEAT.liquid[i];
+      const flow = [Math.sin(t * 0.7 + seed * 40) * 0.04 * m, 0, Math.cos(t * 0.6 + seed * 40) * 0.04 * m];
+      const p = add(add(mix(lat, liq, m), vib), flow);
+      const at = vmap("heat", 0, HEAT.X + p[0], HEAT.Y + p[1]);
+      return { w: [at[0], at[1], p[2]], col: mixC(mixC(C.blue, C.violet, Math.min(1, T * 1.4)), C.cyan, m * 0.4), size: 0.011, a: 0.95 };
+    }
+    if (s === "quad") {
+      const a = (g / 4) * TAU - Math.PI * 0.75 + t * 0.12;
+      const c = [Math.cos(a) * L.qr, Math.sin(a) * L.qr * L.qy + 0.05, 0];
+      const ql = quadLocal(g, j, i);
+      const q = g === 1 ? rotZ(rotX(ql, 0.35), t * 0.4) : g === 2 ? rotZ(rotX(ql, t * 1.2), 0.5) : rotY(ql, t * 0.4 + g);
+      return { w: add(c, q), col: C[COMP[g]], size: 0.011, a: 1 };
+    }
+    const d = OPEN_DOTS[i];
+    return { w: [d[0] * 0.14, d[1] * 0.14, d[2] * 0.14], col: C.cyan, size: 0.01, a: 1 };
+  }
+
+  function startOpening(at = 0) {
+    S.opening = true;
+    Object.assign(OP, { dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, sep: 0, touching: false, shock: false });
+    OP.st = stageAt(0);
+    applyPalette(false);
+    root.classList.remove("is-brand");
+    root.classList.add("is-opening");
+    els.intro.classList.add("is-gone");
+    OP.ripples = [];
+    OP.clk = KF.map(() => 0);
+    OP.flash = [-9, -9, -9, -9];
+    OP.lensOn = false;
+    OP.moved = 0;
+    OP.drag = null;
+    OP.spinV = 0;
+    if (at > 0) {
+      OP.p = OP.target = at;
+      OP.age = 4;
+      OP.dir = -1;
+      OP.st = stageAt(at);
+    } else {
+      S.zoom = S.narrow ? 1.4 : 0.66;
+      S.shift = S.narrow ? 0 : S.w * 0.17;
+      S.cam = [0, 0, 0];
+      S.hud = 0.3;
+    }
+    opEls.lines.concat([opEls.cue, opEls.scale]).forEach((el) => {
+      if (el) el._k = -1;
+    });
+  }
+
+  function endOpening() {
+    if (!S.opening) return;
+    S.opening = false;
+    OP.after = OP.st.B === KI.core ? 1 : 0.4;
+    root.classList.remove("is-opening");
+    setBrandTheme(S.brand, { persist: false });
+    S.assemble = 0;
+    S.intro = true;
+    S.wheelAcc = 0;
+    OP.quietUntil = performance.now() + 2200;
+    setHint();
+    setTimeout(() => {
+      if (!S.open || S.opening || !S.intro) return;
+      els.intro.classList.remove("is-gone");
+      $(".wm-begin").focus({ preventScroll: true });
+    }, 650);
+  }
+
+  function openingStop(dir) {
+    OP.idle = 0;
+    OP.dir = dir;
+    const t = OP.target;
+    if (dir > 0) OP.target = OPEN_STOPS.find((s) => s > t + 0.005) ?? 1;
+    else OP.target = [...OPEN_STOPS].reverse().find((s) => s < t - 0.005) ?? 0;
+  }
+
+  function openingNudge(delta) {
+    OP.idle = 0;
+    if (delta) OP.dir = Math.sign(delta);
+    const breathe = OPEN_BREATHE.some(([a, b]) => OP.target > a && OP.target < b) ? 0.55 : 1;
+    OP.target = clamp(OP.target + delta * breathe, 0, 1);
+  }
+
+  function tickOpening(dt) {
+    OP.age += dt;
+    OP.idle += dt;
+    if (!OP.drag) {
+      S.globeSpin += OP.spinV;
+      OP.molA += OP.spinV;
+      OP.spinV *= Math.pow(0.05, dt);
+    }
+    OP.ripples.forEach((r) => (r.t += dt));
+    OP.ripples = OP.ripples.filter((r) => r.t < 1.8);
+    if (OP.idle > 0.7 && !OP.touching) {
+      const t = OP.target;
+      const near = OP.dir < 0 ? [...OPEN_STOPS].reverse().find((s) => s <= t) : OPEN_STOPS.find((s) => s >= t);
+      if (near != null && Math.abs(near - t) < 0.06) OP.target = lerp(OP.target, near, Math.min(1, dt * 4));
+    }
+    OP.p = lerp(OP.p, OP.target, Math.min(1, dt * (reduce ? 9 : 2.1)));
+    if (Math.abs(OP.p - OP.target) < 1e-4) OP.p = OP.target;
+    OP.st = stageAt(OP.p);
+    KF.forEach((K, k) => {
+      if (!K.dur) return;
+      if (OP.st.A === k && OP.st.B === k) OP.clk[k] += dt;
+      else if (OP.st.A !== k && OP.st.B !== k) OP.clk[k] = 0;
+    });
+    OP.sep = sm((OP.p - 0.555) / 0.04);
+    if (OP.target >= 0.999 && OP.p > 0.99) {
+      OP.hold += dt;
+      if (OP.hold > 2.2) endOpening();
+    } else OP.hold = 0;
+  }
+
+  function openingCamera() {
+    const { A, B, e } = OP.st;
+    const z = (k) => (KF[k].s === "core" ? (S.narrow ? 0.78 : 1) : KF[k].zoom * (S.narrow ? 1.85 : 1));
+    const fly = reduce ? 1 : ease(OP.age / 3.2);
+    const ee = sm(e);
+    const side = lerp(KF[A].side, KF[B].side, ee);
+    const core = B === KI.core ? (A === B ? 1 : ee) : 0;
+    return {
+      cam: [0, 0, 0],
+      zoom: lerp(z(A), z(B), ee) * lerp(0.74, 1, fly),
+      shift: S.narrow ? 0 : S.w * 0.17 * side,
+      shiftY: (S.narrow ? -S.h * 0.1 : -S.h * 0.05 * (1 - side)) * (1 - core),
+    };
+  }
+
+  function canvasLabel(text, x, y, a, opts = {}) {
+    if (a <= 0.01) return;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.font = `500 ${opts.size || 10}px 'IBM Plex Mono', monospace`;
+    ctx.textAlign = opts.align || "center";
+    ctx.textBaseline = "middle";
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "2.5px";
+    ctx.fillStyle = rgba(opts.col || C.ice, a);
+    ctx.fillText(text.toUpperCase(), x, y);
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    ctx.textAlign = "start";
+    ctx.globalCompositeOperation = "lighter";
+  }
+
+  function drawBonds(M, at, g, k, a, colKey) {
+    if (a <= 0.01) return;
+    const pts = M.atoms.map((atom) => project(add(at, molLocal(M, atom.p, g, k))));
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = rgba(C[colKey], 0.38 * a);
+    ctx.beginPath();
+    M.bonds.forEach(([i, j]) => {
+      ctx.moveTo(pts[i].x, pts[i].y);
+      ctx.lineTo(pts[j].x, pts[j].y);
+    });
+    ctx.stroke();
+    if (M.hb.length) {
+      ctx.setLineDash([3, 5]);
+      ctx.strokeStyle = rgba(C.violet, 0.5 * a);
+      ctx.beginPath();
+      M.hb.forEach(([i, j]) => {
+        ctx.moveTo(pts[i].x, pts[i].y);
+        ctx.lineTo(pts[j].x, pts[j].y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    M.atoms.forEach((atom, i) => glow(pts[i].x, pts[i].y, 0.08 * pts[i].s * k, C[atom.k], 0.26 * a));
+  }
+
+  function drawOpening() {
+    const { A, B, e } = OP.st;
+    const L = openLayout();
+    const appear = reduce ? 1 : ease(OP.age / 2.2);
+    const live = reduce ? 0 : 1;
+    const globeW = weightOf(KI.globe);
+    const R = drawGlobe([0, 0, 0], appear * globeW, 1 / 0.58, { dots: false, sites: false });
+    OP.cs = Math.cos(S.globeSpin);
+    OP.sn = Math.sin(S.globeSpin);
+    const pc = project([0, 0, 0]);
+    const press = S.narrow ? 70 : 120;
+    const reach = Math.max(S.w, S.h) * 0.75;
+    const scanY = Math.sin(S.t * 0.45) * R * 1.1;
+    const near = [];
+    const hasPtr = S.px > -999 && (!coarse || S.t - OP.ptrT < 2.5);
+    const lensR = S.narrow ? 56 : 78;
+    const lw = appear * globeW;
+    const playful = B <= KI.lineup;
+    ctx.globalCompositeOperation = "lighter";
+
+    const ltx = hasPtr ? S.px : pc.x + Math.cos(S.t * 0.37) * R * pc.s * 0.5;
+    const lty = hasPtr ? S.py : pc.y + Math.sin(S.t * 0.53) * R * pc.s * 0.42;
+    if (!OP.lensOn) {
+      OP.lx = ltx;
+      OP.ly = lty;
+      OP.lensOn = true;
+    }
+    OP.lx = lerp(OP.lx, ltx, hasPtr ? 0.35 : 0.06);
+    OP.ly = lerp(OP.ly, lty, hasPtr ? 0.35 : 0.06);
+    const lensPts = [];
+
+    const dive = (A === KI.lineup && B === KI.micro ? Math.sin(Math.PI * e) : A === KI.globe && B === KI.tablet ? Math.sin(Math.PI * e) * 0.45 : 0) * live;
+    if (dive > 0.01) {
+      const far = Math.hypot(S.w, S.h) * 0.6;
+      for (let i = 0; i < 110; i += 1) {
+        const sd = OPEN_SEED[i * 6];
+        const ang = sd * TAU * 7.3;
+        const u = (sd * 3.1 + S.t * (0.35 + sd * 0.4)) % 1;
+        const r0 = lerp(pc.s * 0.25, far, u * u);
+        const len = (20 + 140 * u) * dive;
+        ctx.strokeStyle = rgba(i % 4 ? C.ice : C.cyan, 0.32 * dive * (1 - u * 0.6));
+        ctx.lineWidth = 0.6 + u;
+        ctx.beginPath();
+        ctx.moveTo(pc.x + Math.cos(ang) * r0, pc.y + Math.sin(ang) * r0);
+        ctx.lineTo(pc.x + Math.cos(ang) * (r0 + len), pc.y + Math.sin(ang) * (r0 + len));
+        ctx.stroke();
+      }
+    }
+
+    for (const r of OP.ripples) {
+      const k = 1 - r.t / 1.8;
+      ctx.strokeStyle = rgba(C.cyan, 0.22 * k * k);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.t * reach, 0, TAU);
+      ctx.stroke();
+    }
+
+    for (let i = 0; i < OPEN_N; i += 1) {
+      const seed = OPEN_SEED[i];
+      const fa = formAt(A, i, L);
+      let f = fa;
+      let ei = 0;
+      if (A !== B) {
+        const fb = formAt(B, i, L);
+        ei = ease(clamp((e - seed * 0.35) / 0.65, 0, 1));
+        const swirl = Math.sin(ei * Math.PI) * 0.2 * live;
+        const w = mix(fa.w, fb.w, ei);
+        f = {
+          w: [w[0] - (fb.w[1] - fa.w[1]) * swirl * 0.3, w[1] + (fb.w[0] - fa.w[0]) * swirl * 0.3, w[2] + swirl],
+          col: mixC(fa.col, fb.col, ei),
+          size: lerp(fa.size, fb.size, ei),
+          a: lerp(fa.a, fb.a, ei),
+        };
+      }
+      const q = project(f.w);
+      const front = q.z >= pc.z - 0.1;
+      let alpha = appear * f.a * (0.65 + 0.35 * Math.sin(S.t * 1.4 + seed * 40));
+      let size = f.size;
+      if (fa.globe) {
+        alpha *= front ? 0.9 : lerp(0.14, 0.9, ei);
+        const band = (1 - ei) * Math.max(0, 1 - Math.abs(fa.w[1] - scanY) / 0.14);
+        alpha *= 1 + band * 1.4;
+        size *= 1 + band * 0.5;
+      }
+      let { x, y } = q;
+      for (const r of OP.ripples) {
+        const rx = x - r.x;
+        const ry = y - r.y;
+        const rd = Math.hypot(rx, ry);
+        const off = Math.abs(rd - r.t * reach);
+        if (off < 60) {
+          const k = (1 - off / 60) * (1 - r.t / 1.8);
+          x += (rx / (rd || 1)) * k * 26;
+          y += (ry / (rd || 1)) * k * 26;
+          alpha *= 1 + k * 2.2;
+        }
+      }
+      const dx = x - S.px;
+      const dy = y - S.py;
+      const dd = Math.hypot(dx, dy);
+      if (live && playful && dd < press) {
+        const k = (1 - dd / press) ** 2;
+        x += (dx / (dd || 1)) * k * 22;
+        y += (dy / (dd || 1)) * k * 22;
+        alpha *= 1 + k * 2;
+      }
+      if (playful && lw < 0.3 && dd < press && near.length < 120) near.push({ x, y, f: 1 - dd / press });
+      if (lw > 0.01 && front && lensPts.length < 46 && Math.hypot(x - OP.lx, y - OP.ly) < lensR - 6) lensPts.push({ x, y, seed, col: f.col });
+      dot(x, y, size * q.s, f.col, alpha);
+      if (seed < 0.06 || seed > 0.97) glow(x, y, size * q.s * 6, f.col, 0.2 * alpha);
+    }
+
+    if (lw > 0.01) {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(OP.lx, OP.ly, lensR, 0, TAU);
+      ctx.clip();
+      ctx.fillStyle = `rgba(4, 9, 28, ${0.72 * lw})`;
+      ctx.fillRect(OP.lx - lensR, OP.ly - lensR, lensR * 2, lensR * 2);
+      ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createRadialGradient(OP.lx, OP.ly, 0, OP.lx, OP.ly, lensR);
+      g.addColorStop(0, rgba(C.blue, 0.16 * lw));
+      g.addColorStop(1, rgba(C.blue, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(OP.lx - lensR, OP.ly - lensR, lensR * 2, lensR * 2);
+      for (const q of lensPts) {
+        const rr = S.narrow ? 4.2 : 5.6;
+        const rot = q.seed * TAU + S.t * 0.6 * live;
+        const ring = [];
+        for (let j = 0; j < 6; j += 1) ring.push([q.x + Math.cos(rot + (j * TAU) / 6) * rr, q.y + Math.sin(rot + (j * TAU) / 6) * rr]);
+        ctx.strokeStyle = rgba(q.col, 0.75 * lw);
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ring.forEach(([x, y], j) => (j ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.closePath();
+        if (q.seed < 0.5) {
+          ctx.moveTo(ring[0][0], ring[0][1]);
+          ctx.lineTo(ring[0][0] + Math.cos(rot) * rr, ring[0][1] + Math.sin(rot) * rr);
+        }
+        ctx.stroke();
+        ring.forEach(([x, y], j) => dot(x, y, 1.1, j % 3 ? C.cyan : C.violet, 0.9 * lw));
+      }
+      ctx.restore();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = rgba(C.cyan, 0.6 * lw);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(OP.lx, OP.ly, lensR, 0, TAU);
+      ctx.stroke();
+      for (let j = 0; j < 24; j += 1) {
+        const a = (j / 24) * TAU + S.t * 0.15;
+        ctx.strokeStyle = rgba(C.ice, (j % 6 ? 0.25 : 0.55) * lw);
+        ctx.beginPath();
+        ctx.moveTo(OP.lx + Math.cos(a) * (lensR + 3), OP.ly + Math.sin(a) * (lensR + 3));
+        ctx.lineTo(OP.lx + Math.cos(a) * (lensR + (j % 6 ? 6 : 11)), OP.ly + Math.sin(a) * (lensR + (j % 6 ? 6 : 11)));
+        ctx.stroke();
+      }
+      const hint = lw * clamp(1 - OP.moved / 900, 0, 1) * clamp((OP.age - 1.6) / 1, 0, 1);
+      if (S.narrow) canvasLabel("Look closer", OP.lx, OP.ly + lensR + 22, 0.8 * hint);
+      else canvasLabel(hasPtr ? "Look closer" : "Look closer  ·  move me", OP.lx + lensR + 22, OP.ly, 0.8 * hint, { align: "start" });
+    }
+
+    if (live && near.length > 1) {
+      ctx.lineWidth = 0.8;
+      const link = S.narrow ? 34 : 46;
+      for (let i = 0; i < near.length; i += 1) {
+        for (let j = i + 1; j < near.length; j += 1) {
+          const P1 = near[i];
+          const P2 = near[j];
+          const d = Math.hypot(P1.x - P2.x, P1.y - P2.y);
+          if (d > link) continue;
+          ctx.strokeStyle = rgba(i % 3 ? C.cyan : C.violet, (1 - d / link) * 0.9 * Math.sqrt(Math.min(P1.f, P2.f)) * appear);
+          ctx.beginPath();
+          ctx.moveTo(P1.x, P1.y);
+          ctx.lineTo(P2.x, P2.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    OBJ.forEach((name, g) => {
+      const k = KI[name];
+      const a = weightOf(k) ** 2;
+      if (a > 0.01) {
+        const q = project([0, name === "drop" ? -1.35 : name === "material" ? -1.55 : -1.15, 0]);
+        canvasLabel(OBJ_LABEL[g], q.x, q.y + 18, 0.75 * a);
+      }
+      const la = weightOf(KI.lineup) ** 2;
+      if (la > 0.01) {
+        const q = project(add(L.lp[g], [0, -L.lk * 1.45, 0]));
+        canvasLabel(OBJ_LABEL[g], q.x, q.y + 12, 0.7 * la, { size: S.narrow ? 8 : 10 });
+      }
+    });
+
+    const mw = weightOf(KI.micro) ** 2;
+    if (mw > 0.01) OBJ_MOL.forEach((m, g) => drawBonds(MOLS[m], L.lp[g], g, L.ms, mw, COMP[g]));
+
+    const sw = weightOf(KI.separation);
+    if (sw > 0.01) {
+      const T = A === KI.separation || B === KI.separation ? localT(KI.separation) : 0;
+      const P = (x, y) => project([x * L.sx, y, 0]);
+      const top0 = P(SEP.X0, SEP.Y0 + 0.16);
+      const top1 = P(SEP.XD, SEP.Y0 + 0.16);
+      const bot0 = P(SEP.X0, SEP.Y0 - 0.16);
+      const bot1 = P(SEP.XD, SEP.Y0 - 0.16);
+      ctx.strokeStyle = rgba(C.ice, 0.35 * sw);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(top0.x, top0.y);
+      ctx.lineTo(top1.x, top1.y);
+      ctx.moveTo(bot0.x, bot0.y);
+      ctx.lineTo(bot1.x, bot1.y);
+      ctx.stroke();
+      const d0 = P(SEP.XD, SEP.Y0 + 0.24);
+      const d1 = P(SEP.XD + 0.24, SEP.Y0 - 0.24);
+      let hot = 0;
+      SEP.speed.forEach((_, g) => {
+        const b = sepBand(g, T);
+        const near = Math.max(0, 1 - Math.abs(b.cx - SEP.XD) / (b.bw * 3 + 0.05));
+        hot = Math.max(hot, near);
+        if (b.past > 0 && OP.flash[g] < 0) OP.flash[g] = S.t;
+        if (b.past <= 0) OP.flash[g] = -9;
+      });
+      ctx.strokeStyle = rgba(C.cyan, (0.45 + hot * 0.55) * sw);
+      ctx.strokeRect(d0.x, d0.y, d1.x - d0.x, d1.y - d0.y);
+      glow((d0.x + d1.x) / 2, (d0.y + d1.y) / 2, (0.25 + hot * 0.3) * d0.s, C.cyan, (0.15 + hot * 0.6) * sw);
+      const lab = S.narrow ? 8 : 10;
+      canvasLabel("Sample", top0.x, top0.y - 16, 0.6 * sw, { size: lab, align: "start" });
+      const mid = P((SEP.X0 + SEP.XD) / 2, SEP.Y0 + 0.16);
+      canvasLabel("Column", mid.x, mid.y - 16, 0.6 * sw, { size: lab });
+      canvasLabel("Detector", (d0.x + d1.x) / 2, d0.y - 16, 0.75 * sw, { size: lab, col: C.cyan });
+
+      const base0 = P(SEP.T0, SEP.YT);
+      const base1 = P(SEP.T1, SEP.YT);
+      ctx.strokeStyle = rgba(C.ice, 0.2 * sw);
+      ctx.beginPath();
+      ctx.moveTo(base0.x, base0.y);
+      ctx.lineTo(base1.x, base1.y);
+      ctx.stroke();
+      canvasLabel("Time →", base1.x, base1.y + 18, 0.55 * sw, { size: lab, align: "end" });
+      canvasLabel("Signal", base0.x, base0.y - 18, 0.55 * sw, { size: lab, align: "start" });
+      const head = lerp(SEP.T0, SEP.T1, T);
+      const sig = (x) => SEP_PEAK.reduce((s, pk) => s + pk.h * Math.exp(-((x - pk.x) ** 2) / (2 * pk.sig * pk.sig)), 0);
+      SEP_PEAK.forEach((pk, g) => {
+        if (head < pk.x - pk.sig * 3) return;
+        ctx.fillStyle = rgba(C[COMP[g]], 0.16 * sw);
+        ctx.beginPath();
+        const x0 = pk.x - pk.sig * 3;
+        const x1 = Math.min(head, pk.x + pk.sig * 3);
+        ctx.moveTo(P(x0, SEP.YT).x, P(x0, SEP.YT).y);
+        for (let x = x0; x <= x1; x += pk.sig / 6) {
+          const q = P(x, SEP.YT + pk.h * Math.exp(-((x - pk.x) ** 2) / (2 * pk.sig * pk.sig)));
+          ctx.lineTo(q.x, q.y);
+        }
+        ctx.lineTo(P(x1, SEP.YT).x, P(x1, SEP.YT).y);
+        ctx.fill();
+      });
+      const trace = [];
+      for (let x = SEP.T0; x <= head; x += (SEP.T1 - SEP.T0) / 220) trace.push(P(x, SEP.YT + sig(x)));
+      if (trace.length > 1) {
+        strokePts(trace, C.cyan, 0.9 * sw, 1.6);
+        const tip = trace[trace.length - 1];
+        if (T < 0.999) glow(tip.x, tip.y, 0.12 * tip.s, C.cyan, 0.9 * sw);
+      }
+      SEP_PEAK.forEach((pk, g) => {
+        const ft = S.t - OP.flash[g];
+        if (OP.flash[g] > 0 && ft < 1.2) {
+          const q = P(pk.x, SEP.YT + pk.h);
+          glow(q.x, q.y, (0.15 + ft * 0.5) * q.s, C[COMP[g]], (1 - ft / 1.2) * 0.9 * sw);
+        }
+        const b = sepBand(g, T);
+        const settle = sm((b.past / (b.len * 0.35) - 0.8) / 0.2);
+        const tp = sepTop(g);
+        drawBonds(ANA[g], [tp[0] * L.sx, tp[1], 0], g, 0.34, settle * sw, COMP[g]);
+      });
+    }
+
+    let vig = "cells";
+    const P2 = (x, y, part = 1) => project([...vmap(vig, part, x, y), 0]);
+    const lab = S.narrow ? 8 : 10;
+    const axes = (G, a, xl, yl) => {
+      const o = P2(G.X0, G.Y0);
+      const xe = P2(G.X1, G.Y0);
+      const ye = P2(G.X0, G.Y1);
+      ctx.strokeStyle = rgba(C.ice, 0.22 * a);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(ye.x, ye.y);
+      ctx.lineTo(o.x, o.y);
+      ctx.lineTo(xe.x, xe.y);
+      ctx.stroke();
+      canvasLabel(xl, xe.x, xe.y + 16, 0.55 * a, { size: lab, align: "end" });
+      canvasLabel(yl, ye.x, ye.y - 14, 0.55 * a, { size: lab, align: "start" });
+    };
+    const curve = (G, f, head, a, col) => {
+      const pts = [];
+      for (let u = 0; u <= head; u += 1 / 160) pts.push(P2(lerp(G.X0, G.X1, u), lerp(G.Y0, G.Y1, f(u))));
+      if (pts.length < 2) return null;
+      strokePts(pts, col, 0.9 * a, 1.6);
+      const tip = pts[pts.length - 1];
+      if (head < 0.999) glow(tip.x, tip.y, 0.12 * tip.s, col, 0.9 * a);
+      return tip;
+    };
+
+    const bw = weightOf(KI.cells);
+    if (bw > 0.01) {
+      const T = localT(KI.cells);
+      const V = CELLS;
+      vig = "cells";
+      const l0 = P2(V.LX, V.SY + 0.32, 0);
+      const l1 = P2(V.LX, V.SY - 0.32, 0);
+      const near = Array.from({ length: V.n }, (_, c) => Math.max(0, 1 - Math.abs((T - (c / V.n) * 0.72) / 0.22 - 1) / 0.08)).reduce((m, v) => Math.max(m, v), 0);
+      const lg = ctx.createLinearGradient(l0.x, l0.y, l1.x, l1.y);
+      lg.addColorStop(0, rgba(C.cyan, 0));
+      lg.addColorStop(0.5, rgba(C.cyan, (0.55 + near * 0.45) * bw));
+      lg.addColorStop(1, rgba(C.cyan, 0));
+      ctx.strokeStyle = lg;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(l0.x, l0.y);
+      ctx.lineTo(l1.x, l1.y);
+      ctx.stroke();
+      const lc = P2(V.LX, V.SY, 0);
+      glow(lc.x, lc.y, (0.12 + near * 0.2) * lc.s, C.cyan, (0.3 + near * 0.6) * bw);
+      canvasLabel("Laser", l0.x, l0.y - 12, 0.75 * bw, { size: lab, col: C.cyan });
+      const s0 = P2(-2.15, V.SY + 0.16, 0);
+      canvasLabel("Cells, single file", s0.x, s0.y, 0.6 * bw, { size: lab, align: "start" });
+      axes({ X0: V.X0, X1: V.X1, Y0: V.Y0, Y1: V.Y1 }, bw, "Marker 1 →", "Marker 2 ↑");
+    }
+
+    const dw = weightOf(KI.dx);
+    if (dw > 0.01) {
+      const T = localT(KI.dx);
+      const G = DX.G;
+      vig = "dx";
+      const pr = P2(DX.probe[0], DX.probe[1], 0);
+      const got = dxCaptured(T);
+      ctx.strokeStyle = rgba(C.mint, (0.35 + got * 0.5) * dw);
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.arc(pr.x, pr.y, 0.2 * pr.s * (S.narrow ? 0.92 : 1), 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      glow(pr.x, pr.y, 0.25 * pr.s, C.mint, (0.15 + got * 0.5) * dw);
+      const sl = P2(DX.cx, DX.cy + 0.78, 0);
+      canvasLabel("Patient sample", sl.x, sl.y, 0.6 * dw, { size: lab });
+      canvasLabel("Capture", pr.x, pr.y - 0.32 * pr.s, 0.6 * dw, { size: lab, col: C.mint });
+      axes(G, dw, "Time →", "Signal");
+      const th0 = P2(G.X0, lerp(G.Y0, G.Y1, G.thr));
+      const th1 = P2(G.X1, lerp(G.Y0, G.Y1, G.thr));
+      ctx.strokeStyle = rgba(C.violet, 0.5 * dw);
+      ctx.setLineDash([4, 5]);
+      ctx.beginPath();
+      ctx.moveTo(th0.x, th0.y);
+      ctx.lineTo(th1.x, th1.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      canvasLabel("Threshold", th1.x, th1.y - 12, 0.5 * dw, { size: lab, align: "end", col: C.violet });
+      curve(G, (u) => 0.04 + dxCaptured(u) * 0.9 + Math.sin(u * 90) * 0.006, T, dw, C.mint);
+      if (got > G.thr) {
+        const k = sm((got - G.thr) / 0.08);
+        const q = P2((G.X0 + G.X1) / 2, G.Y1 + 0.34);
+        canvasLabel("Target detected", q.x, q.y, k * dw, { size: lab + 2, col: C.mint });
+      }
+    }
+
+    const hw = weightOf(KI.heat);
+    if (hw > 0.01) {
+      const T = localT(KI.heat);
+      const G = HEAT.G;
+      vig = "heat";
+      const m = heatMelt(T);
+      axes(G, hw, "Temperature →", "Heat flow");
+      const tip = curve(G, (u) => 0.08 + heatFlow(u) * 0.95, T, hw, C.violet);
+      const pk = P2(lerp(G.X0, G.X1, HEAT.Tm), lerp(G.Y0, G.Y1, 0.08 + heatFlow(HEAT.Tm) * 0.95));
+      if (T > HEAT.Tm + 0.02) canvasLabel("Melting point", pk.x + 12, pk.y + 4, sm((T - HEAT.Tm - 0.02) / 0.05) * hw, { size: lab, col: C.violet, align: "start" });
+      const st = P2(HEAT.X, HEAT.Y + 0.72, 0);
+      canvasLabel(m < 0.2 ? "Solid" : m < 0.85 ? "Melting" : "Liquid", st.x, st.y, 0.7 * hw, { size: lab });
+      if (tip) {
+        const bar0 = P2(HEAT.X - 1.05, HEAT.Y - 0.3, 0);
+        const bar1 = P2(HEAT.X - 1.05, HEAT.Y + 0.5, 0);
+        ctx.strokeStyle = rgba(C.ice, 0.18 * hw);
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(bar0.x, bar0.y);
+        ctx.lineTo(bar1.x, bar1.y);
+        ctx.stroke();
+        ctx.strokeStyle = rgba(mixC(C.blue, C.violet, T), 0.9 * hw);
+        ctx.beginPath();
+        ctx.moveTo(bar0.x, bar0.y);
+        ctx.lineTo(bar0.x, lerp(bar0.y, bar1.y, T));
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        canvasLabel("Heat", bar0.x, bar0.y + 14, 0.55 * hw, { size: lab });
+      }
+    }
+
+    const qw = weightOf(KI.quad) ** 2;
+    if (qw > 0.01) {
+      DIVISIONS.forEach((name, g) => {
+        const a = (g / 4) * TAU - Math.PI * 0.75 + (reduce ? 0 : S.t) * 0.12;
+        const q = project([Math.cos(a) * L.qr, Math.sin(a) * L.qr * L.qy + 0.05 - 0.42, 0]);
+        canvasLabel(name, q.x, q.y, 0.8 * qw, { size: lab, col: C[COMP[g]] });
+      });
+    }
+
+    const cw = weightOf(KI.core);
+    if (cw < 0.5) OP.shock = false;
+    else if (cw > 0.96 && !OP.shock) {
+      OP.shock = true;
+      if (live) OP.ripples.push({ x: pc.x, y: pc.y, t: 0 });
+    }
+    if (cw > 0.01) {
+      glow(pc.x, pc.y, 1.3 * pc.s * cw, C.blue, 0.26 * cw);
+      glow(pc.x, pc.y, 0.45 * pc.s, C.cyan, 0.65 * cw);
+      glassSphere(pc.x, pc.y, 0.2 * pc.s * cw, C.cyan, cw);
+    }
+  }
+
+  function drawOpeningAfterglow(dt) {
+    OP.after = Math.max(0, OP.after - dt / 0.9);
+    const c = project([0, 0, 0]);
+    ctx.globalCompositeOperation = "lighter";
+    glow(c.x, c.y, 0.6 * c.s, C.cyan, 0.55 * OP.after);
+  }
+
+  function setOpenK(el, k, r = 1) {
+    const v = Math.round(clamp(k, 0, 1) * 1000) / 1000;
+    const rv = Math.round(clamp(r, 0, 1) * 1000) / 1000;
+    if (el._k === v && el._r === rv) return;
+    el._k = v;
+    el._r = rv;
+    el.style.setProperty("--k", v);
+    el.style.setProperty("--r", rv);
+    el.style.visibility = v <= 0.001 ? "hidden" : "visible";
+  }
+
+  function syncOpening() {
+    const p = OP.p;
+    const ready = reduce ? 1 : clamp((OP.age - 0.9) / 1.4, 0, 1);
+    opEls.lines.forEach((el) => {
+      const W = OPEN_BEATS[el.dataset.beat];
+      const k = win(p, W);
+      const rising = p <= W[2];
+      const r = (rising ? k : 1) * (el.dataset.beat === "see" ? ready : 1);
+      setOpenK(el, rising ? (r > 0 ? 1 : 0) : k, r);
+    });
+    if (opEls.scale) {
+      const n = scaleExp(p);
+      if (opEls.scale._n !== n) {
+        opEls.scale._n = n;
+        opEls.scale.querySelector("b").innerHTML = `≈ 10<sup>${n < 0 ? "−" + -n : n}</sup> m`;
+        const mark = SCALE_MARKS[n];
+        const em = opEls.scale.querySelector("em");
+        if (mark) em.textContent = mark;
+        em.classList.toggle("is-on", !!mark);
+      }
+      setOpenK(opEls.scale, ready * (1 - sm((p - 0.55) / 0.03)));
+    }
+    setOpenK(opEls.cue, clamp((OP.age - 2.4) / 1, 0, 1) * (1 - sm(p / 0.04)));
+    opEls.bar.style.transform = `scaleY(${p.toFixed(4)})`;
+  }
+
   /* ---------- frame ---------- */
 
   function targets() {
     const active = S.active;
     const youLit = active === "you" && S.youT > 5.4;
+    if (S.opening) {
+      ORDER.forEach((id) => Object.assign(S.fx[id], { ta: 0, tk: 1, topen: 0 }));
+      S.fx.core.ta = 0;
+      return;
+    }
     ORDER.forEach((id) => {
       const fx = S.fx[id];
       let a;
       if (S.finale) a = 1 - ease(S.closing * 1.2);
       else if (active) a = id === active ? 1 : active === "you" ? (youLit ? 0.22 : 0.04) : 0.15;
       else if (S.hover) a = id === S.hover ? 1 : 0.26;
-      else a = id === "you" ? 0.6 : 0.92;
-      fx.ta = a * ease(S.assemble * 1.3 - ORDER.indexOf(id) * 0.08);
+      else a = S.intro ? (id === "you" ? 0.45 : 0.72) : id === "you" ? 0.6 : 0.92;
+      fx.ta = a * ease(S.assemble * 1.3 - ORDER.indexOf(id) * 0.08) * (1 - ease(S.uniK));
       fx.tk = id === active || id === S.hover ? 1.08 : 1;
       fx.topen = id === active ? (id === "technology" ? (S.level > 1 || S.chamber >= 0 ? 1 : 0.35) : 1) : 0;
     });
@@ -886,9 +2152,11 @@
           : S.hover
             ? 0.4
             : 1;
+    core.ta *= 1 - ease(S.uniK);
   }
 
   function cameraTargets() {
+    if (S.opening) return openingCamera();
     const active = S.active;
     let cam = [0, 0, 0];
     let zoom = S.narrow ? 0.78 : 1;
@@ -905,8 +2173,18 @@
       if (active === "science") cam = [cam[0] + 0.35, cam[1], cam[2]];
       if (!S.narrow) shift = -S.w * 0.19;
     }
+    if (S.intro && !active && !S.finale && !S.narrow) {
+      shift = S.w * 0.16;
+      zoom = 0.86;
+    }
     if (S.finale) zoom = (S.narrow ? 0.78 : 1) * (1 - ease(S.closing) * 0.25);
-    const shiftY = S.narrow && !S.finale ? -S.h * (active ? 0.27 : S.intro ? 0.16 : 0) : 0;
+    let shiftY = S.narrow && !S.finale ? -S.h * (active ? 0.27 : S.intro ? 0.16 : 0) : 0;
+    if (S.uniK > 0.001) {
+      const u = ease(S.uniK);
+      zoom *= 1 + 1.6 * u;
+      shift *= 1 - u;
+      shiftY *= 1 - u;
+    }
     return { cam, zoom, shift, shiftY };
   }
 
@@ -916,7 +2194,7 @@
     S.last = time;
     const speed = reduce ? 0.25 : 1;
     S.t += dt * speed;
-    S.assemble = Math.min(1, S.assemble + dt / (reduce ? 0.2 : 2.4));
+    S.assemble = S.opening ? 0 : Math.min(1, S.assemble + dt / (reduce ? 0.2 : 2.4));
     S.closing = clamp(S.closing + (S.finale ? dt / 1.4 : -dt / 0.8), 0, 1);
     if (S.active === "you") S.youT += dt;
     S.smx = lerp(S.smx, S.mx, Math.min(1, dt * 3));
@@ -924,6 +2202,8 @@
 
     if (S.ride) return;
 
+    S.uniK = lerp(S.uniK, uniOn() ? 1 : 0, Math.min(1, dt * (reduce ? 8 : 1.6)));
+    if (S.opening) tickOpening(dt);
     targets();
     const k6 = Math.min(1, dt * 5);
     [...ORDER, "core"].forEach((id) => {
@@ -938,9 +2218,10 @@
     S.zoom = lerp(S.zoom, ct.zoom * (1 + Math.sin(S.t * 0.7) * 0.01), kc);
     S.shift = lerp(S.shift, ct.shift, kc);
     S.shiftY = lerp(S.shiftY, ct.shiftY, kc);
-    const idleYaw = S.active ? 0 : Math.sin(S.t * 0.11) * 0.3;
-    S.yaw = lerp(S.yaw, idleYaw + S.smx * (S.active ? 0.14 : 0.38), kc);
-    S.pitch = lerp(S.pitch, 0.16 + S.smy * (S.active ? 0.06 : 0.16), kc);
+    const idleYaw = S.active ? 0 : Math.sin(S.t * 0.11) * (S.opening ? 0.12 : 0.3);
+    S.yaw = lerp(S.yaw, idleYaw + S.smx * (S.active ? 0.14 : S.opening ? 0.22 : 0.38), kc);
+    S.pitch = lerp(S.pitch, 0.16 + S.smy * (S.active ? 0.06 : S.opening ? 0.1 : 0.16), kc);
+    S.hud = lerp(S.hud, S.opening ? 0.3 * (1 - OP.sep) : S.intro ? 0.4 : 1, Math.min(1, dt * 1.5));
 
     for (const d of S.dust) {
       d.p[0] += d.v[0] * dt * speed;
@@ -950,6 +2231,15 @@
 
     ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
     drawBackdrop();
+    if (S.opening) {
+      S.uni?.draw(dt, 0);
+      drawOpening();
+      ctx.globalCompositeOperation = "source-over";
+      syncOpening();
+      S.raf = requestAnimationFrame(frame);
+      return;
+    }
+    if (OP.after > 0) drawOpeningAfterglow(dt);
     drawPipes();
     const order = ORDER.map((id) => ({ id, P: posOf(id) }))
       .map((o) => ({ ...o, z: project(o.P).z }))
@@ -966,6 +2256,7 @@
     }
     if (!coreDrawn) drawCore();
     ctx.globalCompositeOperation = "source-over";
+    S.uni?.draw(dt, S.uniK, S.proj.technology);
 
     syncDom();
     if (S.finale && S.closing > 0.85 && !S.finaleShown) showFinale();
@@ -991,13 +2282,16 @@
       b.addEventListener("click", () => select(b.dataset.part));
     });
     els.rail.innerHTML =
+      (opEls.box
+        ? `<button type="button" class="wm-rail-btn wm-rail-open" data-step="open" title="Prologue"><span>00</span><em>Prologue</em></button>`
+        : "") +
       ORDER.map((id, i) => {
         const c = comp(id);
         return `<button type="button" class="wm-rail-btn" data-step="${i}" title="${esc(c.label)}"><span>${c.index}</span><em>${esc(c.label)}</em></button>`;
       }).join("") +
       `<button type="button" class="wm-rail-btn wm-rail-ira" data-step="6" title="IRA"><span>IRA</span><em>What's next</em></button>`;
     els.rail.querySelectorAll(".wm-rail-btn").forEach((b) =>
-      b.addEventListener("click", () => goStep(Number(b.dataset.step)))
+      b.addEventListener("click", () => (b.dataset.step === "open" ? enterOpening(0) : goStep(Number(b.dataset.step))))
     );
     els.sources.querySelector(".wm-sources-list").innerHTML = S.data.sources
       .map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)}</a></li>`)
@@ -1035,6 +2329,7 @@
   }
 
   function syncDom() {
+    root.classList.toggle("is-intro", S.intro);
     const showLabels = !S.intro && !S.active && !S.finale && S.assemble > 0.7;
     els.labels.classList.toggle("is-show", showLabels);
     const boxes = [];
@@ -1135,6 +2430,50 @@
     </footer>`;
   }
 
+  const DIV_COLORS = ["cyan", "violet", "mint", "blue"];
+  const divColor = (name) => {
+    const i = (S.data?.company.divisions || []).findIndex((d) => d.name === name);
+    return rgba(C[DIV_COLORS[Math.max(0, i)]], 1);
+  };
+  const divChips = (names) =>
+    `<span class="wm-div-chips">${names.map((n) => `<span style="--c:${divColor(n)}">${esc(n)}</span>`).join("")}</span>`;
+
+  function divisionHTML(d) {
+    return `<p class="wm-div-her">${esc(d.heritage)}</p>
+      <p class="wm-div-q">${esc(d.question)}</p>
+      <p class="wm-div-simple">${esc(d.simple)}</p>
+      <h4>How it works</h4>
+      <p class="wm-div-how">${esc(d.how)}</p>
+      <h4>Key technologies</h4>
+      <ul class="wm-div-tech">${d.tech
+        .map(
+          (t) => `<li><strong>${esc(t.name)}</strong><span>${esc(t.what)}</span>${
+            t.status === "pending"
+              ? `<small class="wm-pending">Pending validation${t.source ? ` · <a href="${esc(t.source)}" target="_blank" rel="noopener">source</a>` : ""}</small>`
+              : ""
+          }</li>`
+        )
+        .join("")}</ul>
+      <h4>Where it's used</h4>
+      <div class="wm-div-used">${d.used.map((u) => `<span>${esc(u)}</span>`).join("")}</div>
+      <p class="wm-plain"><span>For example</span>${esc(d.example)}</p>`;
+  }
+
+  function uniTextHTML(u) {
+    return `<button type="button" class="wm-uni-return">← Back to the interactive universe</button>
+      <p class="wm-uni-tlegend">${esc(u.legend.simulation)}. ${esc(u.legend.labels)}. ${esc(u.legend.products)}.</p>
+      <h3>${esc(u.title)}</h3>
+      <ul class="wm-uni-tlist">${u.areas
+        .map(
+          (a) => `<li style="--c:${divColor(a.division)}"><strong>${esc(a.division)}</strong>
+            <span>${esc(a.subtitle)}. ${esc(a.tagline)}</span>
+            <span>${esc(a.teaser)}</span>
+            <em>${a.steps ? `Interactive: ${a.steps.map((x) => esc(x.title)).join(" · ")}` : a.experience === "available" ? "Interactive journeys available" : "Interactive experience in progress"}</em>
+            ${a.note ? `<span class="wm-muted">${esc(a.note)}</span>` : ""}</li>`
+        )
+        .join("")}</ul>`;
+  }
+
   const PANELS = {
     science(c) {
       const divs = S.data.company.divisions;
@@ -1150,7 +2489,14 @@
           )
           .join("")}</div>
         <h3>Four divisions <small>since Feb 2026</small></h3>
-        <ul class="wm-divs">${divs.map((d) => `<li><strong>${esc(d.name)}</strong><span>${esc(d.what)}</span></li>`).join("")}</ul>`;
+        <div class="wm-div-tabs" role="tablist" aria-label="Waters divisions">${divs
+          .map(
+            (d, i) => `<button type="button" role="tab" class="wm-div-tab${i === S.division ? " is-on" : ""}" data-div="${i}"
+              aria-selected="${i === S.division}" style="--c:${rgba(C[DIV_COLORS[i]], 1)}"><i></i><strong>${esc(d.name)}</strong><span>${esc(d.what)}</span></button>`
+          )
+          .join("")}</div>
+        <article class="wm-div" role="tabpanel" style="--c:${rgba(C[DIV_COLORS[S.division]], 1)}">${divisionHTML(divs[S.division])}</article>
+        <p class="wm-plain"><span>How they fit together</span>${esc(c.together)}</p>`;
     },
     impact(c) {
       return `${kicker(c)}<h2>${esc(c.title)}</h2>
@@ -1158,13 +2504,22 @@
         <ul class="wm-areas">${c.areas
           .map(
             (a, i) => `<li data-area="${i}" tabindex="0"><i style="--c:${rgba(AREA_COLORS[i], 1)}"></i>
-              <div><strong>${esc(a.name)}</strong><span>${esc(a.what)}</span></div></li>`
+              <div><strong>${esc(a.name)}</strong><span>${esc(a.what)}</span>${a.divisions ? divChips(a.divisions) : ""}</div></li>`
           )
           .join("")}</ul>
+        ${
+          c.more
+            ? `<h3>And beyond</h3><ul class="wm-areas is-more">${c.more
+                .map((a) => `<li><div><strong>${esc(a.name)}</strong><span>${esc(a.what)}</span>${divChips(a.divisions)}</div></li>`)
+                .join("")}</ul>`
+            : ""
+        }
         <p class="wm-plain"><span>The point</span>Not just measuring things — helping scientists make better decisions.</p>`;
     },
     technology(c) {
-      return `${kicker(c)}<h2>${esc(c.title)}</h2>
+      const u = S.uni && c.universe;
+      return `${kicker(c)}<h2 tabindex="-1">${esc(c.title)}</h2>
+        ${u ? uniTextHTML(c.universe) : ""}
         <p class="wm-lead">${esc(c.lead)}</p>
         <div class="wm-chambers">${c.chambers
           .map(
@@ -1179,7 +2534,24 @@
             </article>`
           )
           .join("")}</div>
-        <p class="wm-plain"><span>Together</span>Think of it as separating and identifying what's inside a sample.</p>`;
+        <p class="wm-plain"><span>Together</span>Think of it as separating and identifying what's inside a sample.</p>
+        ${
+          c.beyond
+            ? `<h3>Beyond LC–MS <small>the other three divisions</small></h3>
+              <div class="wm-chambers is-beyond">${c.beyond
+                .map(
+                  (b) => `<article class="wm-chamber is-beyond" style="--c:${divColor(b.division)}">
+                    <header><span class="wm-ch-tag">${esc(b.short)}</span><strong>${esc(b.name)}</strong></header>
+                    ${divChips([b.division])}
+                    <ol class="wm-steps">${b.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+                    <p>${esc(b.simple)}</p>
+                    <button type="button" class="wm-deep-btn" aria-expanded="false">Explain deeper</button>
+                    <div class="wm-deeper" hidden><span>The technical version</span>${esc(b.deeper)}</div>
+                  </article>`
+                )
+                .join("")}</div>`
+            : ""
+        }`;
     },
     world(c) {
       const site = c.sites.find((s) => s.id === S.site);
@@ -1230,13 +2602,16 @@
     const id = S.active;
     if (!id) {
       els.panel.classList.remove("is-show");
+      els.panel.inert = false;
       return;
     }
     const c = comp(id);
     els.panel.dataset.part = id;
     const body = PANELS[id](c);
     els.panel.innerHTML = `<div class="wm-panel-body">${body}</div>${navFooter(id)}`;
-    els.panel.classList.toggle("is-show", id !== "you" || S.youStage >= 4);
+    const hub = id === "technology" && uniOn();
+    els.panel.classList.toggle("is-show", (id !== "you" || S.youStage >= 4) && !hub);
+    els.panel.inert = hub;
     if (id === "you") {
       els.youCard.innerHTML = `<strong>${esc(c.name)}</strong><span class="l2">${esc(c.role_title)}</span><span class="l2 dim">${esc(c.team)} · ${esc(c.department)}</span>`;
     }
@@ -1269,6 +2644,25 @@
         })
       );
     }
+    if (id === "science") {
+      P.querySelectorAll("[data-div]").forEach((b) =>
+        b.addEventListener("click", () => {
+          S.division = Number(b.dataset.div);
+          const divs = S.data.company.divisions;
+          P.querySelectorAll("[data-div]").forEach((t) => {
+            const on = t === b;
+            t.classList.toggle("is-on", on);
+            t.setAttribute("aria-selected", String(on));
+          });
+          const art = P.querySelector(".wm-div");
+          art.style.setProperty("--c", rgba(C[DIV_COLORS[S.division]], 1));
+          art.innerHTML = divisionHTML(divs[S.division]);
+          art.classList.remove("is-swap");
+          void art.offsetWidth;
+          art.classList.add("is-swap");
+        })
+      );
+    }
     if (id === "impact") {
       P.querySelectorAll("[data-area]").forEach((li) => {
         const on = () => (S.area = Number(li.dataset.area));
@@ -1278,13 +2672,26 @@
       });
     }
     if (id === "technology") {
+      P.querySelector(".wm-uni-return")?.addEventListener("click", () => {
+        S.uniText = false;
+        renderPanel();
+        setHint();
+      });
       P.querySelectorAll("[data-ride]").forEach((b) =>
         b.addEventListener("click", (e) => {
           e.stopPropagation();
           enterRide(b.dataset.ride, b.dataset.track);
         })
       );
-      P.querySelectorAll(".wm-chamber").forEach((card) => {
+      P.querySelectorAll(".wm-chamber.is-beyond").forEach((card) =>
+        card.querySelector(".wm-deep-btn").addEventListener("click", (e) => {
+          const d = card.querySelector(".wm-deeper");
+          d.hidden = !d.hidden;
+          e.currentTarget.textContent = d.hidden ? "Explain deeper" : "Keep it simple";
+          e.currentTarget.setAttribute("aria-expanded", String(!d.hidden));
+        })
+      );
+      P.querySelectorAll(".wm-chamber:not(.is-beyond)").forEach((card) => {
         const on = () => {
           S.chamber = Number(card.dataset.ch);
           P.querySelectorAll(".wm-chamber").forEach((c) => c.classList.toggle("is-on", c === card));
@@ -1336,13 +2743,16 @@
   /* ---------- navigation ---------- */
 
   function setHint() {
-    const key = S.active
+    const key = uniOn()
+      ? "universe"
+      : S.active
       ? ["world", "people", "you"].includes(S.active) || S.level > 1
         ? "deep"
         : "active"
       : "overview";
     els.hint.textContent = S.finale ? "" : HINTS[key];
     root.classList.toggle("is-active", !!S.active);
+    root.classList.toggle("is-universe", uniOn());
     root.classList.toggle("is-finale", S.finale);
     els.rail.querySelectorAll(".wm-rail-btn").forEach((b) => {
       const i = Number(b.dataset.step);
@@ -1359,14 +2769,18 @@
   function select(id) {
     hideIntro();
     if (S.finale) leaveFinale();
-    if (S.active === id) {
+    if (S.active === id && id === "technology" && uniOn()) {
+      /* the hub has its own depth; re-selecting the chapter keeps it */
+    } else if (S.active === id) {
       if (["science", "impact", "technology"].includes(id)) {
         S.level = S.level > 1 ? 1 : 2;
         if (id === "technology" && S.level > 1 && S.chamber < 0) S.chamber = 0;
         renderPanel();
       }
     } else {
+      if (S.active === "technology") S.uni?.leave();
       S.active = id;
+      S.uniText = reduce;
       S.level = 1;
       S.chamber = -1;
       S.site = null;
@@ -1384,6 +2798,7 @@
 
   function overview() {
     if (S.finale) leaveFinale();
+    if (S.active === "technology") S.uni?.leave();
     S.active = null;
     S.level = 1;
     S.globeTarget = null;
@@ -1398,7 +2813,21 @@
     select(ORDER[i]);
   }
 
+  function enterOpening(at = 0) {
+    if (!opEls.box) return;
+    leaveRide();
+    if (S.finale) leaveFinale();
+    S.active = null;
+    S.level = 1;
+    S.hover = null;
+    S.globeTarget = null;
+    renderPanel();
+    setHint();
+    startOpening(at);
+  }
+
   function step(dir) {
+    if (dir < 0 && !S.active && !S.finale && opEls.box) return enterOpening(0.99);
     if (S.finale) {
       if (dir < 0) goStep(ORDER.length - 1);
       return;
@@ -1470,7 +2899,13 @@
     const r = canvas.getBoundingClientRect();
     S.mx = ((e.clientX - r.left) / r.width) * 2 - 1;
     S.my = ((e.clientY - r.top) / r.height) * 2 - 1;
-    if (S.intro || S.finale) return;
+    if (coarse && e.pointerType === "mouse") return;
+    if (S.opening && S.px > -999) OP.moved += Math.hypot(e.clientX - r.left - S.px, e.clientY - r.top - S.py);
+    S.px = e.clientX - r.left;
+    S.py = e.clientY - r.top;
+    OP.ptrT = S.t;
+    if (S.intro || S.finale || S.opening) return;
+    if (uniOn()) return S.uni.move(S.px, S.py);
     const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
     if (!S.active) S.hover = hit;
     canvas.style.cursor = hit ? "pointer" : "default";
@@ -1500,6 +2935,12 @@
     const r = canvas.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
+    if (S.opening) {
+      if (OP.dragMoved > 6) return;
+      if (!reduce) OP.ripples.push({ x, y, t: 0 });
+      return;
+    }
+    if (uniOn()) return S.uni.click(x, y);
     const hit = hitTest(x, y);
     if (S.intro) {
       hideIntro();
@@ -1512,10 +2953,15 @@
   }
 
   function onWheel(e) {
-    const inPanel = e.target.closest(".wm-panel, .wm-sources");
+    const inPanel = e.target.closest(".wm-panel, .wm-sources, .wm-uni-copy");
     if (inPanel && inPanel.scrollHeight > inPanel.clientHeight + 2) return;
     e.preventDefault();
+    if (S.opening) {
+      const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? S.h : 1);
+      return openingNudge(clamp(px, -160, 160) / (S.h * 12));
+    }
     const now = performance.now();
+    if (now < OP.quietUntil) return;
     S.wheelAcc += e.deltaY;
     if (now < S.wheelLock) return;
     if (Math.abs(S.wheelAcc) > 40) {
@@ -1527,10 +2973,29 @@
 
   function onKey(e) {
     if (!S.open || S.ride) return;
+    if (S.opening) {
+      if (e.target.closest("button") && (e.key === "Enter" || e.key === " ")) return;
+      const fwd = ["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(e.key);
+      const back = ["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key);
+      if (e.key === "Escape") endOpening();
+      else if (fwd || back) openingStop(fwd ? 1 : -1);
+      else return;
+      e.preventDefault();
+      return;
+    }
+    if (uniOn() && els.sources.hidden && S.uni.key(e)) {
+      e.preventDefault();
+      return;
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       if (!els.sources.hidden) els.sources.hidden = true;
       else if (S.finale) goStep(ORDER.length - 1);
+      else if (S.active === "technology" && S.uni && S.uniText && !reduce) {
+        S.uniText = false;
+        renderPanel();
+        setHint();
+      }
       else if (S.active) overview();
       else close();
     } else if (["ArrowRight", "ArrowDown", "PageDown"].includes(e.key) && !e.target.closest("input, textarea")) {
@@ -1554,18 +3019,70 @@
   }
 
   canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerdown", (e) => {
+    OP.dragMoved = 0;
+    if (!S.opening || e.pointerType === "touch") return;
+    OP.drag = { x: e.clientX };
+    OP.spinV = 0;
+    root.classList.add("is-dragging");
+    canvas.setPointerCapture?.(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!OP.drag) return;
+    const d = (e.clientX - OP.drag.x) * 0.006;
+    OP.drag.x = e.clientX;
+    OP.dragMoved += Math.abs(d / 0.006);
+    S.globeSpin += d;
+    OP.molA += d;
+    OP.spinV = lerp(OP.spinV, d, 0.6);
+  });
+  const endDrag = () => {
+    OP.drag = null;
+    root.classList.remove("is-dragging");
+  };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
   canvas.addEventListener("pointerleave", () => {
+    S.px = -9999;
+    S.py = -9999;
     S.hover = null;
     S.mx = 0;
     S.my = 0;
   });
   canvas.addEventListener("click", onClick);
   root.addEventListener("wheel", onWheel, { passive: false });
-  root.addEventListener("touchstart", (e) => (S.touchY = e.touches[0]?.clientY ?? null), { passive: true });
+  root.addEventListener(
+    "touchstart",
+    (e) => {
+      S.touchY = e.touches[0]?.clientY ?? null;
+      OP.touchY = S.touchY;
+      OP.touching = S.opening;
+    },
+    { passive: true }
+  );
+  root.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!S.opening || OP.touchY == null) return;
+      e.preventDefault();
+      const y = e.touches[0]?.clientY ?? OP.touchY;
+      S.px = e.touches[0]?.clientX ?? S.px;
+      S.py = y;
+      OP.ptrT = S.t;
+      openingNudge((OP.touchY - y) / (S.h * 7));
+      OP.touchY = y;
+    },
+    { passive: false }
+  );
   root.addEventListener(
     "touchend",
     (e) => {
-      if (S.touchY === null || e.target.closest(".wm-panel")) return;
+      OP.touching = false;
+      if (S.opening) {
+        S.touchY = null;
+        return;
+      }
+      if (S.touchY === null || e.target.closest(".wm-panel, .wm-uni-area")) return;
       const dy = S.touchY - (e.changedTouches[0]?.clientY ?? S.touchY);
       if (Math.abs(dy) > 50) step(dy > 0 ? 1 : -1);
       S.touchY = null;
@@ -1575,6 +3092,7 @@
   document.addEventListener("keydown", onKey);
   window.addEventListener("resize", () => S.open && resize());
   $(".wm-close").addEventListener("click", () => close());
+  $(".wm-open-skip")?.addEventListener("click", () => endOpening());
   $(".wm-begin").addEventListener("click", () => goStep(0));
   $(".wm-free").addEventListener("click", () => {
     hideIntro();
@@ -1600,7 +3118,10 @@
       themeBtn.title = S.brand ? "Switch to night colors" : "Waters brand colors";
     }
     if (persist) writeBrandPref(S.brand);
-    if (S.data) renderPanel();
+    if (S.data) {
+      renderPanel();
+      S.uni?.setData(comp("technology"), S.data.company.divisions);
+    }
   }
   if (themeBtn) {
     themeBtn.addEventListener("click", () => setBrandTheme(!S.brand));
@@ -1628,6 +3149,13 @@
     leaveFinale();
     renderPanel();
     resize();
+    root.classList.remove("is-opening");
+    S.opening = false;
+    if (opts.opening !== false && opEls.box) {
+      startOpening();
+      cancelAnimationFrame(S.raf);
+      S.raf = requestAnimationFrame(frame);
+    }
     requestAnimationFrame(() => root.classList.add("is-open"));
     if (!S.data) {
       try {
@@ -1641,7 +3169,10 @@
     }
     buildLabels();
     buildFinale();
+    makeUniverse();
+    S.uni?.setData(comp("technology"), S.data.company.divisions);
     setHint();
+    if (S.opening) return;
     cancelAnimationFrame(S.raf);
     S.raf = requestAnimationFrame(frame);
     $(".wm-begin").focus({ preventScroll: true });
@@ -1653,7 +3184,8 @@
     cancelAnimationFrame(S.raf);
     leaveRide();
     els.intro.classList.add("is-gone");
-    root.classList.remove("is-open", "is-ride", "is-active", "is-finale");
+    S.opening = false;
+    root.classList.remove("is-open", "is-ride", "is-active", "is-finale", "is-opening");
     document.body.classList.remove("wm-lock");
     els.sources.hidden = true;
     setTimeout(() => {

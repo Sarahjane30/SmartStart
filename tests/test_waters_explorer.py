@@ -25,6 +25,14 @@ def test_story_is_public_and_ends_with_you() -> None:
             ["Identify", "Measure", "Understand"],
         ]
         assert all(c["simple"] and c["deeper"] for c in tech["chambers"])
+        assert [b["division"] for b in tech["beyond"]] == ["Biosciences", "Advanced Diagnostics", "Materials Sciences"]
+
+        divs = body["company"]["divisions"]
+        assert [d["name"] for d in divs] == ["Analytical Sciences", "Biosciences", "Advanced Diagnostics", "Materials Sciences"]
+        assert all(d["how"] and d["example"] and len(d["tech"]) >= 4 and d["used"] for d in divs)
+        names = {d["name"] for d in divs}
+        impact = body["components"][1]
+        assert all(set(a["divisions"]) <= names for a in impact["areas"] + impact["more"])
 
         world = body["components"][3]
         home = [s for s in world["sites"] if s["home"]]
@@ -72,3 +80,48 @@ def test_understand_my_role_uses_the_same_chain() -> None:
         reply = [t for t in turns if t["role"] == "assistant"][-1]["text"]
         assert "Data Engineering Intern on the Data Platform team" in reply
         assert "Ava Chen" in reply and "Priya Nair" in reply
+
+
+def test_technology_universe_is_labelled_and_grounded() -> None:
+    with TestClient(app) as client:
+        story = client.get(f"/api/employee/{store.list_joiners()[0].id}/waters").json()
+        tech = story["components"][2]
+        assert tech["index"] == "03"
+        uni = tech["universe"]
+        names = {d["name"] for d in story["company"]["divisions"]}
+        assert [a["division"] for a in uni["areas"]] == [
+            "Analytical Sciences",
+            "Biosciences",
+            "Advanced Diagnostics",
+            "Materials Sciences",
+        ]
+        assert {a["division"] for a in uni["areas"]} <= names
+        assert len({a["visual"] for a in uni["areas"]}) == 4
+        assert uni["title"] == "Explore the science"
+        assert [a["subtitle"] for a in uni["areas"]] == [
+            "Separation, detection and analysis",
+            "Cells, molecular biology and flow cytometry",
+            "Infection testing and diagnostics",
+            "Characterising materials and their properties",
+        ]
+        assert uni["areas"][1]["tagline"] == "Understanding the complexity of life, one cell at a time."
+        assert all(a["tagline"] for a in uni["areas"])
+        assert set(uni["legend"]) == {"simulation", "labels", "products", "short"}
+        analytical = uni["areas"][0]
+        assert analytical["experience"] == "available"
+        assert {(j["track"], j["kind"]) for j in analytical["journeys"]} == {
+            ("observe", "lc"),
+            ("observe", "ms"),
+            ("ride", "lc"),
+            ("ride", "ms"),
+        }
+        for area in uni["areas"][1:]:
+            assert area["experience"] == "available" and len(area["steps"]) == 3
+            for step in area["steps"]:
+                assert step["id"] and step["title"] and step["heading"] and step["text"] and step["try"]
+        assert "Biosciences" in uni["areas"][2]["note"]
+        for d in story["company"]["divisions"]:
+            assert d["label_status"] == "pending"
+            for t in d["tech"]:
+                assert t["status"] == "pending"
+                assert t["source"].startswith("https://")

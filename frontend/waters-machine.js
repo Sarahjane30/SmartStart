@@ -903,58 +903,58 @@
 
   /* ---------- opening: seeing is not the same as understanding ---------- */
 
-  // Scroll track 0..1. Each window is [fade in from, fully in, hold until, gone by].
+  // Native scroll track 0..1. Each window is [fade in from, fully in, hold until, gone by].
   const OPEN_BEATS = {
-    see: [-1, 0, 0.028, 0.04],
-    understand: [0.042, 0.054, 0.085, 0.097],
-    medicine: [0.1, 0.112, 0.16, 0.172],
-    water: [0.177, 0.189, 0.23, 0.242],
-    food: [0.247, 0.259, 0.295, 0.307],
-    material: [0.312, 0.324, 0.36, 0.372],
-    appearance: [0.377, 0.389, 0.43, 0.442],
-    within: [0.457, 0.469, 0.5, 0.512],
-    identity: [0.512, 0.524, 0.545, 0.556],
-    observe: [0.556, 0.565, 0.576, 0.585],
-    separate: [0.585, 0.594, 0.606, 0.616],
-    analytical: [0.616, 0.627, 0.675, 0.687],
-    bio: [0.692, 0.705, 0.755, 0.767],
-    dx: [0.772, 0.785, 0.835, 0.847],
-    heat: [0.852, 0.865, 0.91, 0.92],
-    together: [0.922, 0.932, 0.952, 0.96],
-    waters: [0.962, 0.97, 0.98, 0.986],
-    mark: [0.986, 0.993, 2, 3],
+    see: [-1, 0, 0.04, 0.055],
+    understand: [0.06, 0.075, 0.105, 0.12],
+    medicine: [0.135, 0.15, 0.19, 0.205],
+    water: [0.21, 0.225, 0.262, 0.277],
+    food: [0.282, 0.297, 0.334, 0.349],
+    material: [0.354, 0.369, 0.406, 0.421],
+    appearance: [0.43, 0.445, 0.515, 0.53],
+    within: [0.545, 0.56, 0.595, 0.607],
+    identity: [0.609, 0.62, 0.64, 0.652],
+    observe: [0.66, 0.672, 0.69, 0.7],
+    separate: [0.702, 0.712, 0.73, 0.74],
+    analytical: [0.745, 0.758, 0.855, 0.868],
+    together: [0.875, 0.888, 0.915, 0.927],
+    waters: [0.935, 0.95, 2, 3],
   };
-  const OPEN_STOPS = [0, 0.07, 0.14, 0.21, 0.277, 0.343, 0.41, 0.49, 0.535, 0.571, 0.6, 0.632, 0.712, 0.792, 0.872, 0.945, 0.976, 0.995, 1];
-  const OPEN_BREATHE = [
-    [0.054, 0.085],
-    [0.389, 0.43],
-    [0.932, 0.952],
-    [0.97, 0.98],
+  // Scene starts for the progress rail; clicking a tick scrolls there.
+  const OPEN_CHAPTERS = [
+    ["The globe", 0],
+    ["Everyday things", 0.15],
+    ["Appearance", 0.45],
+    ["The microscopic", 0.565],
+    ["The challenge", 0.675],
+    ["Analytical science", 0.77],
+    ["Waters", 0.89],
   ];
   // One continuous particle timeline: each keyframe is a formation held over [a, b].
-  // Keyframes with `dur` also run on their own clock while held, so the science plays out without scrolling.
+  // Camera: `zoom`, horizontal offset `sx` (fraction of width) and vertical `sy` (fraction of height).
   const KF = [
-    { s: "globe", a: -1, b: 0.085, zoom: 1.58, side: 1 },
-    { s: "tablet", a: 0.115, b: 0.165, zoom: 2.45, side: 1 },
-    { s: "drop", a: 0.19, b: 0.232, zoom: 2.45, side: 1 },
-    { s: "food", a: 0.257, b: 0.297, zoom: 2.45, side: 1 },
-    { s: "material", a: 0.322, b: 0.362, zoom: 2.2, side: 1 },
-    { s: "lineup", a: 0.388, b: 0.435, zoom: 1.58, side: 0 },
-    { s: "micro", a: 0.47, b: 0.55, zoom: 1.95, side: 0 },
-    { s: "mixture", a: 0.566, b: 0.605, zoom: 1.75, side: 0 },
-    { s: "separation", a: 0.628, b: 0.68, zoom: 1.82, side: 0, dur: 7 },
-    { s: "cells", a: 0.708, b: 0.76, zoom: 1.88, side: 0, dur: 9 },
-    { s: "dx", a: 0.788, b: 0.84, zoom: 1.88, side: 0, dur: 7 },
-    { s: "heat", a: 0.868, b: 0.915, zoom: 1.88, side: 0, dur: 8 },
-    { s: "quad", a: 0.935, b: 0.955, zoom: 1.28, side: 0 },
-    { s: "core", a: 0.975, b: 2, zoom: 1, side: 0 },
+    { s: "globe", a: -1, b: 0.112, zoom: 2.75, sx: 0.2, sy: 0.02 },
+    { s: "tablet", a: 0.145, b: 0.195, zoom: 2.3, sx: 0.2, sy: 0.02 },
+    { s: "drop", a: 0.222, b: 0.267, zoom: 2.3, sx: -0.2, sy: 0.02 },
+    { s: "food", a: 0.294, b: 0.339, zoom: 2.3, sx: 0.2, sy: 0.02 },
+    { s: "material", a: 0.366, b: 0.411, zoom: 2.15, sx: -0.2, sy: 0.02 },
+    { s: "lineup", a: 0.442, b: 0.525, zoom: 1.62, sx: 0, sy: -0.075 },
+    { s: "micro", a: 0.556, b: 0.648, zoom: 1.72, sx: 0, sy: -0.06 },
+    { s: "mixture", a: 0.668, b: 0.735, zoom: 1.9, sx: 0.17, sy: 0 },
+    { s: "separation", a: 0.758, b: 0.858, zoom: 1.66, sx: 0, sy: 0.12 },
+    { s: "quad", a: 0.884, b: 0.918, zoom: 1.62, sx: 0, sy: -0.075 },
+    { s: "core", a: 0.948, b: 2, zoom: 1.15, sx: 0, sy: -0.07 },
   ];
   const KI = Object.fromEntries(KF.map((k, i) => [k.s, i]));
   const OBJ = ["tablet", "drop", "food", "material"];
   const OBJ_LABEL = ["A medicine tablet", "A drop of water", "A food sample", "A material surface"];
   const OBJ_MOL = [0, 2, 1, 3];
+  const MOL_NAME = ["Drug-like molecule", "Carbohydrate chain", "Water cluster", "Crystal lattice"];
+  const MOL_FROM = ["Inside a medicine", "Inside water", "Inside food", "Inside a material"];
   // Each shape has a different natural footprint; these bring all four to the same visual width in the lineup.
   const OBJ_FIT = { tablet: 1, drop: 0.9, food: 0.78, material: 0.62 };
+  // Scale of each object when it has the screen to itself.
+  const SOLO_K = { tablet: 1.08, drop: 0.95, food: 0.86, material: 0.74 };
   const COMP = ["cyan", "violet", "mint", "blue"];
   const DIVISIONS = ["Analytical Sciences", "Biosciences", "Advanced Diagnostics", "Materials Sciences"];
 
@@ -1120,75 +1120,16 @@
     return { t, x: lerp(SEP.T0, SEP.T1, t), sig, h: 0.075 / sig };
   });
   const SEP_JIT = OPEN_DOTS.map(() => [gauss(), seeded() - 0.5]);
-  const MIX_POS = COMP.map(() => Array.from({ length: 30 }, () => [gauss() * 0.72, gauss() * 0.36, gauss() * 0.3]));
-
-  // Biosciences: cells pass a laser one at a time; each lands in its population on a two-marker plot.
-  const CELLS = (() => {
-    const n = OPEN_N / 12;
-    const pop = Array.from({ length: n }, (_, c) => c % 3);
-    for (let c = n - 1; c > 0; c -= 1) {
-      const r = Math.floor(seeded() * (c + 1));
-      [pop[c], pop[r]] = [pop[r], pop[c]];
+  // A sample vial: glass walls to T, liquid filled to L, round bottom at B.
+  const VIAL = { W: 0.36, B: -0.72, L: 0.34, T: 0.82 };
+  const VIAL_POS = OPEN_DOTS.map(() => {
+    for (;;) {
+      const x = (seeded() * 2 - 1) * VIAL.W * 0.86;
+      const y = lerp(VIAL.B + 0.03, VIAL.L - 0.04, seeded());
+      const floor = VIAL.B + VIAL.W - Math.sqrt(Math.max(0, VIAL.W * VIAL.W * 0.74 - x * x));
+      if (y > floor) return [x, y, (seeded() - 0.5) * 0.2];
     }
-    const centre = [
-      [0.22, 0.24],
-      [0.74, 0.3],
-      [0.7, 0.76],
-    ];
-    const plot = pop.map((g) => [clamp(centre[g][0] + gauss() * 0.07, 0.03, 0.97), clamp(centre[g][1] + gauss() * 0.07, 0.03, 0.97)]);
-    return { n, pop, plot, col: ["cyan", "violet", "mint"], LX: -0.6, SY: 0.05, X0: 0.35, X1: 2.05, Y0: -0.85, Y1: 0.75 };
-  })();
-
-  // Diagnostics: a few target organisms hide among many other particles until the test captures them.
-  const DX = (() => {
-    const rods = 8;
-    const cx = -1.2;
-    const cy = 0.1;
-    return {
-      rods,
-      cx,
-      cy,
-      probe: [0.05, 0.1],
-      start: Array.from({ length: rods }, () => [cx + clamp(gauss() * 0.4, -0.8, 0.8), cy + clamp(gauss() * 0.24, -0.45, 0.45), 0]),
-      tc: Array.from({ length: rods }, (_, r) => 0.12 + r * 0.075),
-      bg: OPEN_DOTS.map(() => [cx + clamp(gauss() * 0.55, -1.05, 1.05), cy + clamp(gauss() * 0.32, -0.6, 0.6), gauss() * 0.2]),
-      G: { X0: 0.75, X1: 2.1, Y0: -0.55, Y1: 0.65, thr: 0.45 },
-    };
-  })();
-  const dxCaptured = (T) => DX.tc.reduce((s, t) => s + sm((T - t - 0.12) / 0.03), 0) / DX.rods;
-
-  // Materials: a heated crystal vibrates harder, loses its order at the melting point and flows.
-  const HEAT = {
-    X: -1.15,
-    Y: 0.1,
-    Tm: 0.6,
-    sig: 0.045,
-    liquid: OPEN_DOTS.map(() => [clamp(gauss() * 0.45, -1, 1), -0.45 + Math.abs(gauss()) * 0.09, clamp(gauss() * 0.3, -0.5, 0.5)]),
-    G: { X0: 0.45, X1: 2.1, Y0: -0.45, Y1: 0.75 },
-  };
-  const heatMelt = (T) => sm((T - (HEAT.Tm - 0.08)) / 0.16);
-  const heatFlow = (T) => 0.06 * T + 0.85 * Math.exp(-((T - HEAT.Tm) ** 2) / (2 * HEAT.sig * HEAT.sig));
-
-  // Narrow screens stack each vignette: the specimen above, its measurement below.
-  const VSTACK = {
-    cells: [
-      [-1.42, 0.05],
-      [1.2, -0.05],
-    ],
-    dx: [
-      [-1.0, 0.1],
-      [1.425, 0.05],
-    ],
-    heat: [
-      [-1.3, 0.1],
-      [1.275, 0.15],
-    ],
-  };
-  function vmap(name, part, x, y) {
-    if (!S.narrow) return [x, y];
-    const c = VSTACK[name][part];
-    return [x - c[0], y - c[1] + (part ? -0.8 : 0.95)];
-  }
+  });
 
   function quadLocal(g, j, i) {
     if (g === 0) return MOL_PARTS[0][j].local.map((v) => v * 0.42);
@@ -1228,21 +1169,47 @@
     hold: 0,
     after: 0,
     sep: 0,
-    clk: KF.map(() => 0),
     st: { A: 0, B: 0, e: 0 },
     cs: 1,
     sn: 0,
     touching: false,
+    hits: [],
+    hover: null,
+    pin: null,
+    tilt: [0, 0],
+    landed: false,
+    tiltOf: { tablet: [0, 0], drop: [0, 0], food: [0, 0], material: [0, 0] },
+    mag: [0, 0, 0, 0],
+    stir: 0,
   };
   const opEls = {
     box: $(".wm-open"),
     lines: [...root.querySelectorAll(".wm-open [data-beat]")],
     cue: $(".wm-open-cue"),
     bar: $(".wm-open-progress i"),
+    rail: $(".wm-open-progress"),
     scale: $(".wm-open-scale"),
+    scroll: $(".wm-open-scroll"),
+    note: $(".wm-open-note"),
   };
   const SCALE_MARKS = { 7: "Earth", "-2": "Everyday objects", "-9": "Molecules" };
 
+  // What hovering (or clicking) an inspectable element explains. Deliberately generic and accurate.
+  const OPEN_NOTES = {
+    tablet: ["Medicine", "Most of a tablet is filler. The active ingredient can be a small fraction of its weight."],
+    drop: ["Water", "Clear water can still carry dissolved minerals and trace contaminants you cannot see."],
+    food: ["Food", "A grain has layers (bran, endosperm and germ), each with a different chemistry."],
+    material: ["Materials", "A surface that looks flawless can hide microscopic defects that change how it performs."],
+    "mol-0": ["A drug-like molecule", "Illustrative ring-based structure. Small structural changes can change how a medicine behaves."],
+    "mol-2": ["Water, hydrogen-bonded", "Dashed lines are hydrogen bonds: weak attractions holding neighbouring water molecules together."],
+    "mol-1": ["A carbohydrate chain", "Sugar units link into chains. Their length and branching shape texture and nutrition."],
+    "mol-3": ["A crystal lattice", "Atoms repeat in an ordered pattern. Defects in that order change strength and behaviour."],
+    vial: ["A real sample", "Most samples are mixtures. Drag inside the vial to stir it; its components stay mixed until they are separated."],
+    sample: ["Sample injection", "A small volume of the mixture is injected into a flowing liquid, the mobile phase."],
+    column: ["The column", "Packed with tiny particles. Each component sticks to them by a different amount, so each travels at its own speed."],
+    detector: ["The detector", "Measures each component as it leaves the column and turns it into an electrical signal."],
+    peak: ["A peak", "Each peak is one separated component. When it appears (retention time) helps identify it; its area relates to how much is present."],
+  };
   function splitWords(el) {
     let i = 0;
     const walk = (node) => {
@@ -1268,10 +1235,10 @@
   opEls.lines.forEach(splitWords);
 
   function scaleExp(p) {
-    if (p < 0.09) return 7;
-    if (p < 0.112) return Math.round(lerp(7, -2, sm((p - 0.09) / 0.022)));
-    if (p < 0.43) return -2;
-    return Math.round(lerp(-2, -9, sm((p - 0.43) / 0.04)));
+    if (p < 0.112) return 7;
+    if (p < 0.145) return Math.round(lerp(7, -2, sm((p - 0.112) / 0.033)));
+    if (p < 0.525) return -2;
+    return Math.round(lerp(-2, -9, sm((p - 0.525) / 0.031)));
   }
 
   function openLayout() {
@@ -1285,8 +1252,6 @@
         ],
         lk: 0.42,
         ms: 0.82,
-        mix: [0, 0.08, 0],
-        mx: 0.68,
         sx: 0.98,
         qr: 0.92,
         qy: 1.15,
@@ -1295,14 +1260,12 @@
     // Desktop: four objects sit as a centered band; narrower aspect ratios shrink the row so it never clips.
     const fit = clamp(S.w / S.h / 1.7, 0.72, 1);
     return {
-      lp: [-2.19, -0.73, 0.73, 2.19].map((x) => [x * fit, 0.34, 0]),
-      lk: 0.56 * fit,
-      ms: 0.98,
-      mix: [0, 0.08, 0],
-      mx: 1.1,
-      sx: 1.22,
-      qr: 1.48,
-      qy: 0.5,
+      lp: [-2.25, -0.75, 0.75, 2.25].map((x) => [x * fit, 0.3, 0]),
+      lk: 0.6 * fit,
+      ms: 1.22 * fit,
+      sx: 1.12 * fit,
+      qr: 1.62,
+      qy: 0.46,
     };
   }
 
@@ -1316,8 +1279,7 @@
   }
   const localT = (k) => {
     const K = KF[k];
-    const scroll = clamp((OP.p - (K.a + 0.004)) / (K.b - K.a - 0.004), 0, 1);
-    return K.dur ? Math.max(scroll, clamp(OP.clk[k] / K.dur, 0, 1)) : scroll;
+    return clamp((OP.p - (K.a + 0.004)) / (K.b - K.a - 0.004), 0, 1);
   };
   const weightOf = (k) => {
     const { A, B, e } = OP.st;
@@ -1331,6 +1293,8 @@
     else if (name === "drop") q = rotY(p, t * 0.2 + OP.molA);
     else if (name === "food") q = rotX(rotZ(rotY(p, t * 0.25 + OP.molA), 0.35), 0.45);
     else q = rotX(rotY(p, 0.62 + OP.molA * 0.6 + Math.sin(t * 0.2) * 0.12), 0.95);
+    const tl = OP.tiltOf[name];
+    if (tl && (tl[0] || tl[1])) q = rotX(rotY(q, tl[0]), tl[1]);
     return { w: [pos[0] + q[0] * k, pos[1] + q[1] * k, pos[2] + q[2] * k], depth: q[2] };
   }
 
@@ -1366,7 +1330,7 @@
     const d = T * SEP_K * SEP.speed[g] * len;
     return { cx: SEP.X0 + d, bw: 0.03 + 0.08 * Math.min(1, d / len), past: d - len, len };
   }
-  const sepTop = (g) => [SEP_PEAK[g].x, SEP.YT + SEP_PEAK[g].h * 0.9 + 0.34, 0];
+  const sepTop = (g) => [SEP_PEAK[g].x, SEP.YT + SEP_PEAK[g].h + 0.2, 0];
 
   function formAt(k, i, L) {
     const seed = OPEN_SEED[i];
@@ -1388,7 +1352,7 @@
     }
     if (OBJ.includes(s)) {
       const p = SHAPES[s][i];
-      const o = objPoint(s, p, (s === "drop" ? 0.95 : 1.18), [0, 0.08, 0]);
+      const o = objPoint(s, p, SOLO_K[s], [0, 0.08, 0]);
       const look = objLook(s, p, seed);
       return { w: o.w, col: look.col, size: 0.011, a: look.a * (0.4 + 0.6 * clamp((o.depth + 1) / 2, 0, 1)) };
     }
@@ -1401,22 +1365,22 @@
     }
     if (s === "micro") {
       const part = MOL_PARTS[OBJ_MOL[g]][j];
+      const mk = 1 + 0.28 * OP.mag[g];
       return {
-        w: add(L.lp[g], molLocal(MOLS[OBJ_MOL[g]], part.local, g, L.ms)),
+        w: add(L.lp[g], molLocal(MOLS[OBJ_MOL[g]], part.local, g, L.ms * mk)),
         col: mixC(C[COMP[g]], C[part.col], 0.35),
-        size: part.atom ? 0.014 : 0.009,
-        a: 1,
+        size: (part.atom ? 0.015 : 0.0095) * (1 + 0.15 * OP.mag[g]),
+        a: 1 + 0.5 * OP.mag[g],
       };
     }
     if (s === "mixture") {
-      const grp = Math.floor(j / 6);
-      const c = MIX_POS[g][grp];
-      const ph = (g * 30 + grp) * 1.7;
-      const a = ((j % 6) / 6) * TAU + t * 0.8 + ph;
+      const v = VIAL_POS[i];
+      const ang = seed * TAU + OP.stir * (0.6 + seed * 0.8) + t * 0.12;
+      const jig = [Math.sin(t * 0.9 + seed * 60) * 0.012, Math.cos(t * 0.7 + seed * 80) * 0.012];
       return {
-        w: [L.mix[0] + c[0] * L.mx + Math.sin(t * 0.6 + ph) * 0.07 + Math.cos(a) * 0.05, L.mix[1] + c[1] + Math.cos(t * 0.5 + ph * 1.3) * 0.06 + Math.sin(a) * 0.05, c[2]],
+        w: [v[0] * Math.cos(ang) + jig[0], v[1] + jig[1], v[0] * Math.sin(ang) * 0.5 + v[2]],
         col: C[COMP[g]],
-        size: 0.011,
+        size: 0.012,
         a: 1,
       };
     }
@@ -1431,75 +1395,11 @@
       const end = [(top[0] + mol[0]) * L.sx, top[1] + mol[1], mol[2]];
       return { w: bez([SEP.XD * L.sx + 0.12, SEP.Y0, 0], [end[0], SEP.Y0, 0], end, u), col: C[COMP[g]], size: 0.011, a: 1 };
     }
-    if (s === "cells") {
-      const T = localT(k);
-      const c = Math.floor(i / 12);
-      const slot = i % 12;
-      const V = CELLS;
-      const sp = (T - (c / V.n) * 0.72) / 0.22;
-      const loc = slot < 10 ? [Math.cos((slot / 10) * TAU + c) * 0.045, Math.sin((slot / 10) * TAU + c) * 0.045, 0] : [(slot - 10.5) * 0.024, 0, 0.01];
-      const pc = C[V.col[V.pop[c]]];
-      if (sp <= 1) {
-        const x = lerp(-2.25, V.LX, sp);
-        const wob = Math.sin(t * 2 + c) * 0.006;
-        const at = vmap("cells", 0, x + loc[0], V.SY + loc[1] + wob);
-        return {
-          w: [at[0], at[1], loc[2]],
-          col: sp > 0.9 ? mixC(C.ice, pc, (sp - 0.9) / 0.1) : C.ice,
-          size: slot < 10 ? 0.009 : 0.013,
-          a: clamp(1 + (x + 2.25) / 0.35, 0, 1) * (1 + 2.2 * Math.max(0, 1 - Math.abs(sp - 1) / 0.12)),
-        };
-      }
-      const u = ease(clamp((sp - 1) / 0.55, 0, 1));
-      const P = V.plot[c];
-      const end = [...vmap("cells", 1, lerp(V.X0, V.X1, P[0]), lerp(V.Y0, V.Y1, P[1])), 0];
-      const from = [...vmap("cells", 0, V.LX, V.SY), 0];
-      const ctl = S.narrow ? [from[0] + 0.5, (from[1] + end[1]) / 2, 0] : [V.LX + 0.7, V.SY, 0];
-      const at = bez(from, ctl, end, u);
-      const shrink = 1 - u * 0.75;
-      return { w: [at[0] + loc[0] * shrink, at[1] + loc[1] * shrink, 0], col: pc, size: lerp(0.01, 0.012, u), a: 1 + 1.5 * Math.max(0, 1 - (sp - 1) / 0.15) };
-    }
-    if (s === "dx") {
-      const T = localT(k);
-      const drift = [Math.sin(t * 0.5 + seed * 20) * 0.03, Math.cos(t * 0.4 + seed * 31) * 0.025, 0];
-      if (i % 9) {
-        const b = add(DX.bg[i], drift);
-        const at = vmap("dx", 0, b[0], b[1]);
-        return { w: [at[0], at[1], b[2]], col: mixC(C.ice, C.violet, 0.25), size: 0.01, a: 0.42 };
-      }
-      const r = Math.floor(i / 90);
-      const slot = (i / 9) % 10;
-      const loc = [lerp(-0.065, 0.065, (slot % 5) / 4), slot < 5 ? 0.02 : -0.02, 0];
-      const u = ease(clamp((T - DX.tc[r]) / 0.12, 0, 1));
-      const ang = (r / DX.rods) * TAU;
-      const home = add(DX.start[r], drift);
-      const at = mix(home, [DX.probe[0] + Math.cos(ang) * 0.2, DX.probe[1] + Math.sin(ang) * 0.2, 0], u);
-      const q = rotZ(loc, lerp(r * 0.7, ang + Math.PI / 2, u));
-      const lit = sm((T - 0.03) / 0.08);
-      const w = vmap("dx", 0, at[0] + q[0], at[1] + q[1]);
-      return { w: [w[0], w[1], 0], col: mixC(mixC(C.ice, C.violet, 0.25), C.mint, lit), size: lerp(0.01, 0.013, lit), a: lerp(0.42, 1.4, lit) };
-    }
-    if (s === "heat") {
-      const T = localT(k);
-      const m = heatMelt(T);
-      const ix = i % 12;
-      const iy = Math.floor(i / 12) % 10;
-      const iz = Math.floor(i / 120);
-      const lat = rotX(rotY([(ix - 5.5) * 0.085, (iy - 4.5) * 0.085, (iz - 2.5) * 0.085], 0.55), 0.22);
-      const amp = (0.003 + 0.024 * Math.min(T, HEAT.Tm)) * live;
-      const vib = [Math.sin(t * 9 + seed * 50) * amp, Math.cos(t * 8 + seed * 70) * amp, Math.sin(t * 7 + seed * 90) * amp];
-      const liq = HEAT.liquid[i];
-      const flow = [Math.sin(t * 0.7 + seed * 40) * 0.04 * m, 0, Math.cos(t * 0.6 + seed * 40) * 0.04 * m];
-      const p = add(add(mix(lat, liq, m), vib), flow);
-      const at = vmap("heat", 0, HEAT.X + p[0], HEAT.Y + p[1]);
-      return { w: [at[0], at[1], p[2]], col: mixC(mixC(C.blue, C.violet, Math.min(1, T * 1.4)), C.cyan, m * 0.4), size: 0.011, a: 0.95 };
-    }
     if (s === "quad") {
-      const a = (g / 4) * TAU - Math.PI * 0.75 + t * 0.12;
-      const c = [Math.cos(a) * L.qr, Math.sin(a) * L.qr * L.qy + 0.05, 0];
+      const c = add(L.lp[g], [0, Math.sin(t * 0.6 + g * 1.4) * 0.03, 0]);
       const ql = quadLocal(g, j, i);
       const q = g === 1 ? rotZ(rotX(ql, 0.35), t * 0.4) : g === 2 ? rotZ(rotX(ql, t * 1.2), 0.5) : rotY(ql, t * 0.4 + g);
-      return { w: add(c, q), col: C[COMP[g]], size: 0.011, a: 1 };
+      return { w: add(c, q.map((v) => v * 1.65)), col: C[COMP[g]], size: 0.012, a: 1 };
     }
     const d = OPEN_DOTS[i];
     return { w: [d[0] * 0.14, d[1] * 0.14, d[2] * 0.14], col: C.cyan, size: 0.01, a: 1 };
@@ -1514,39 +1414,61 @@
     root.classList.add("is-opening");
     els.intro.classList.add("is-gone");
     OP.ripples = [];
-    OP.clk = KF.map(() => 0);
     OP.flash = [-9, -9, -9, -9];
     OP.lensOn = false;
     OP.moved = 0;
     OP.drag = null;
     OP.spinV = 0;
+    OP.hover = OP.pin = null;
+    OP.hits = [];
+    OP.landed = false;
     if (at > 0) {
       OP.p = OP.target = at;
       OP.age = 4;
       OP.dir = -1;
       OP.st = stageAt(at);
     } else {
-      S.zoom = S.narrow ? 1.55 : 0.78;
-      S.shift = S.narrow ? 0 : S.w * 0.2;
+      S.zoom = S.narrow ? 1.55 : 1.4;
+      S.shift = S.narrow ? 0 : S.w * 0.24;
       S.cam = [0, 0, 0];
       S.hud = 0.3;
     }
+    setScrollProgress(at);
+    opEls.scroll?.focus({ preventScroll: true });
     opEls.lines.concat([opEls.cue, opEls.scale]).forEach((el) => {
       if (el) el._k = -1;
     });
   }
 
-  function endOpening() {
+  function scrollMax() {
+    const s = opEls.scroll;
+    return s ? Math.max(1, s.scrollHeight - s.clientHeight) : 1;
+  }
+  function setScrollProgress(at) {
+    if (opEls.scroll) opEls.scroll.scrollTop = clamp(at, 0, 1) * scrollMax();
+  }
+  function readScrollProgress() {
+    return opEls.scroll ? clamp(opEls.scroll.scrollTop / scrollMax(), 0, 1) : OP.target;
+  }
+
+  // `land` is the natural end of the story: the camera hands over to chapter 01 instead of the landing card.
+  function endOpening(land = false) {
     if (!S.opening) return;
     S.opening = false;
     OP.after = OP.st.B === KI.core ? 1 : 0.4;
     root.classList.remove("is-opening");
     setBrandTheme(S.brand, { persist: false });
-    S.assemble = 0;
+    S.assemble = land ? 0.55 : 0;
     S.intro = true;
     S.wheelAcc = 0;
-    OP.quietUntil = performance.now() + 2200;
+    OP.quietUntil = performance.now() + (land ? 900 : 2200);
+    OP.hover = OP.pin = null;
     setHint();
+    if (land) {
+      goStep(0);
+      OP.landed = true;
+      return;
+    }
     setTimeout(() => {
       if (!S.open || S.opening || !S.intro) return;
       els.intro.classList.remove("is-gone");
@@ -1554,63 +1476,68 @@
     }, 650);
   }
 
-  function openingStop(dir) {
-    OP.idle = 0;
-    OP.dir = dir;
-    const t = OP.target;
-    if (dir > 0) OP.target = OPEN_STOPS.find((s) => s > t + 0.005) ?? 1;
-    else OP.target = [...OPEN_STOPS].reverse().find((s) => s < t - 0.005) ?? 0;
-  }
-
-  function openingNudge(delta) {
-    OP.idle = 0;
-    if (delta) OP.dir = Math.sign(delta);
-    const breathe = OPEN_BREATHE.some(([a, b]) => OP.target > a && OP.target < b) ? 0.55 : 1;
-    OP.target = clamp(OP.target + delta * breathe, 0, 1);
+  function hitById(id) {
+    return OP.hits.find((h) => h.id === id);
   }
 
   function tickOpening(dt) {
     OP.age += dt;
-    OP.idle += dt;
     if (!OP.drag) {
       S.globeSpin += OP.spinV;
       OP.molA += OP.spinV;
+      OP.stir += OP.spinV * 2.5;
       OP.spinV *= Math.pow(0.05, dt);
     }
     OP.ripples.forEach((r) => (r.t += dt));
     OP.ripples = OP.ripples.filter((r) => r.t < 1.8);
-    if (OP.idle > 0.7 && !OP.touching) {
-      const t = OP.target;
-      const near = OP.dir < 0 ? [...OPEN_STOPS].reverse().find((s) => s <= t) : OPEN_STOPS.find((s) => s >= t);
-      if (near != null && Math.abs(near - t) < 0.06) OP.target = lerp(OP.target, near, Math.min(1, dt * 4));
-    }
-    OP.p = lerp(OP.p, OP.target, Math.min(1, dt * (reduce ? 9 : 2.1)));
+    OP.target = readScrollProgress();
+    OP.p = lerp(OP.p, OP.target, Math.min(1, dt * (reduce ? 14 : 5.5)));
     if (Math.abs(OP.p - OP.target) < 1e-4) OP.p = OP.target;
     OP.st = stageAt(OP.p);
-    KF.forEach((K, k) => {
-      if (!K.dur) return;
-      if (OP.st.A === k && OP.st.B === k) OP.clk[k] += dt;
-      else if (OP.st.A !== k && OP.st.B !== k) OP.clk[k] = 0;
+    OP.sep = sm((OP.p - 0.64) / 0.04);
+    if (OP.pin && !hitById(OP.pin)) OP.pin = null;
+    const focus = OP.hover || OP.pin;
+    const kt = Math.min(1, dt * 6);
+    OBJ.forEach((name) => {
+      const tl = OP.tiltOf[name];
+      const h = focus === name && !reduce ? hitById(name) : null;
+      const tx = h && S.px > -999 ? clamp((S.px - h.cx) / h.r, -1, 1) * 0.55 : 0;
+      const ty = h && S.py > -999 ? clamp((S.py - h.cy) / h.r, -1, 1) * 0.35 : 0;
+      tl[0] = lerp(tl[0], tx, kt);
+      tl[1] = lerp(tl[1], ty, kt);
     });
-    OP.sep = sm((OP.p - 0.555) / 0.04);
-    if (OP.target >= 0.999 && OP.p > 0.99) {
-      OP.hold += dt;
-      if (OP.hold > 2.2) endOpening();
-    } else OP.hold = 0;
+    OBJ_MOL.forEach((m, g) => (OP.mag[g] = lerp(OP.mag[g], focus === `mol-${m}` ? 1 : 0, kt)));
+    if (OP.target >= 0.999 && OP.p > 0.997) endOpening(true);
+  }
+
+  // Each keyframe's camera, plus slow movement while the visitor scrolls through it.
+  function kfCamera(k) {
+    const K = KF[k];
+    const t = sm(localT(k));
+    if (S.narrow) return { zoom: K.s === "core" ? 0.78 : K.zoom * 1.85, sx: 0, sy: -0.04 };
+    if (K.s === "globe") return { zoom: K.zoom * lerp(1, 1.16, t), sx: lerp(K.sx, 0.235, t), sy: lerp(K.sy, -0.015, t) };
+    if (K.s === "core") {
+      const out = sm((OP.p - 0.975) / 0.025);
+      return { zoom: lerp(K.zoom, 1, out), sx: 0, sy: lerp(K.sy, 0, out) };
+    }
+    if (OBJ.includes(K.s)) return { zoom: K.zoom * (1 + 0.07 * t), sx: K.sx * (1 - 0.06 * t), sy: K.sy };
+    if (K.s === "lineup") return { zoom: K.zoom * (1 - 0.03 * t), sx: 0, sy: K.sy };
+    return { zoom: K.zoom, sx: K.sx, sy: K.sy };
   }
 
   function openingCamera() {
     const { A, B, e } = OP.st;
-    const z = (k) => (KF[k].s === "core" ? (S.narrow ? 0.78 : 1) : KF[k].zoom * (S.narrow ? 1.85 : 1));
     const fly = reduce ? 1 : ease(OP.age / 3.2);
     const ee = sm(e);
-    const side = lerp(KF[A].side, KF[B].side, ee);
-    const core = B === KI.core ? (A === B ? 1 : ee) : 0;
+    const a = kfCamera(A);
+    const b = A === B ? a : kfCamera(B);
+    // The globe-to-tablet handover dives through the surface rather than cross-fading.
+    const dive = A === KI.globe && B === KI.tablet && !reduce ? Math.sin(Math.PI * ee) * 0.9 : 0;
     return {
       cam: [0, 0, 0],
-      zoom: lerp(z(A), z(B), ee) * lerp(0.78, 1, fly) * (S.narrow ? 1 : 1.06),
-      shift: S.narrow ? 0 : S.w * 0.13 * side,
-      shiftY: (S.narrow ? -S.h * 0.04 : S.h * (0.04 * side + 0.05 * (1 - side))) * (1 - core),
+      zoom: lerp(a.zoom, b.zoom, ee) * lerp(0.82, 1, fly) * (1 + dive),
+      shift: S.w * lerp(a.sx, b.sx, ee) * (1 - dive * 0.5),
+      shiftY: S.h * lerp(a.sy, b.sy, ee),
     };
   }
 
@@ -1622,13 +1549,13 @@
     if (a <= 0.01) return;
     ctx.globalCompositeOperation = "source-over";
     const size = opts.size || openLabelSize(opts.scale || 1);
-    ctx.font = `${opts.weight || 500} ${size}px 'IBM Plex Mono', monospace`;
+    ctx.font = opts.sans ? `${opts.weight || 500} ${size}px Inter, system-ui, sans-serif` : `${opts.weight || 500} ${size}px 'IBM Plex Mono', monospace`;
     ctx.textAlign = opts.align || "center";
     ctx.textBaseline = "middle";
-    const track = opts.track != null ? opts.track : opts.upper === false ? "0.5px" : "2.2px";
+    const track = opts.track != null ? opts.track : opts.sans ? "-0.2px" : opts.upper === false ? "0.5px" : "2.2px";
     if ("letterSpacing" in ctx) ctx.letterSpacing = track;
     ctx.fillStyle = rgba(opts.col || C.ice, a);
-    const out = opts.upper === false ? text : text.toUpperCase();
+    const out = opts.upper === false || opts.sans ? text : text.toUpperCase();
     ctx.shadowColor = "rgba(4, 8, 24, 0.92)";
     ctx.shadowBlur = 10;
     ctx.fillText(out, x, y);
@@ -1664,9 +1591,222 @@
     M.atoms.forEach((atom, i) => glow(pts[i].x, pts[i].y, 0.08 * pts[i].s * k, C[atom.k], 0.26 * a));
   }
 
+  function convexHull(pts) {
+    const P = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    if (P.length < 3) return P;
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [];
+    for (const p of P) {
+      while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop();
+      lo.push(p);
+    }
+    const up = [];
+    for (let i = P.length - 1; i >= 0; i -= 1) {
+      const p = P[i];
+      while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop();
+      up.push(p);
+    }
+    return lo.slice(0, -1).concat(up.slice(0, -1));
+  }
+
+  // The object's silhouette on screen: the convex hull of its own projected surface samples.
+  function objectHull(name, k, pos) {
+    const pts = [];
+    const src = SHAPES[name];
+    for (let i = 0; i < src.length; i += 3) {
+      const q = project(objPoint(name, src[i], k, pos).w);
+      pts.push([q.x, q.y]);
+    }
+    const hull = convexHull(pts);
+    const c = project(pos);
+    let r = 1;
+    hull.forEach(([x, y]) => (r = Math.max(r, Math.hypot(x - c.x, y - c.y))));
+    const scaled = (f, oy = 0) => hull.map(([x, y]) => [c.x + (x - c.x) * f, c.y + oy + (y - c.y) * f]);
+    return { pts: hull, cx: c.x, cy: c.y, r, s: c.s, scaled };
+  }
+
+  function pathOf(pts) {
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+  }
+
+  // A lit body under the particles, so each object reads as a thing rather than a cloud of dots.
+  function drawObjectBody(name, H, a, clipX = -Infinity, k = 1, pos = [0, 0, 0]) {
+    if (a <= 0.01) return;
+    const { cx, cy, r } = H;
+    const t = reduce ? 0 : S.t;
+    ctx.save();
+    if (clipX > -Infinity) {
+      ctx.beginPath();
+      ctx.rect(clipX, 0, S.w - clipX, S.h);
+      ctx.clip();
+    }
+    ctx.globalCompositeOperation = "source-over";
+    pathOf(H.pts);
+    const body = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+    const tone = { tablet: [C.ice, C.blue], drop: [C.cyan, C.blue], food: [C.mint, C.blue], material: [C.steel, C.violet] }[name];
+    body.addColorStop(0, rgba(tone[0], (name === "drop" ? 0.2 : 0.3) * a));
+    body.addColorStop(0.55, rgba(mixC(tone[0], tone[1], 0.6), 0.12 * a));
+    body.addColorStop(1, rgba(tone[1], 0.05 * a));
+    ctx.fillStyle = rgba([5, 10, 30], 0.55 * a);
+    ctx.fill();
+    ctx.fillStyle = body;
+    ctx.fill();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.save();
+    pathOf(H.pts);
+    ctx.clip();
+    const hx = cx - r * 0.38;
+    const hy = cy - r * 0.42;
+    const hl = ctx.createRadialGradient(hx, hy, 0, hx, hy, r * 0.95);
+    hl.addColorStop(0, rgba(C.ice, 0.32 * a));
+    hl.addColorStop(1, rgba(C.ice, 0));
+    ctx.fillStyle = hl;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    if (name === "tablet") {
+      const face = [];
+      for (let j = 0; j < 48; j += 1) {
+        const q = project(objPoint("tablet", [Math.cos((j / 48) * TAU) * 0.94, 0.2, Math.sin((j / 48) * TAU) * 0.94], k, pos).w);
+        face.push([q.x, q.y]);
+      }
+      pathOf(face);
+      const fg = ctx.createLinearGradient(cx - r, cy - r, cx + r * 0.6, cy + r * 0.6);
+      fg.addColorStop(0, rgba(C.ice, 0.3 * a));
+      fg.addColorStop(1, rgba(C.ice, 0.04 * a));
+      ctx.fillStyle = fg;
+      ctx.fill();
+      ctx.strokeStyle = rgba(C.ice, 0.5 * a);
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      const s0 = project(objPoint("tablet", [0, 0.23, -0.9], k, pos).w);
+      const s1 = project(objPoint("tablet", [0, 0.23, 0.9], k, pos).w);
+      ctx.strokeStyle = rgba(C.ice, 0.45 * a);
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(s0.x, s0.y);
+      ctx.lineTo(s1.x, s1.y);
+      ctx.stroke();
+    } else if (name === "drop") {
+      ctx.strokeStyle = rgba(C.ice, 0.35 * a);
+      ctx.lineWidth = Math.max(1.5, r * 0.018);
+      ctx.beginPath();
+      ctx.arc(cx - r * 0.02, cy + r * 0.2, r * 0.55, Math.PI * 1.0, Math.PI * 1.3);
+      ctx.stroke();
+      const ca = ctx.createRadialGradient(cx + r * 0.12, cy + r * 0.38, 0, cx + r * 0.12, cy + r * 0.38, r * 0.5);
+      ca.addColorStop(0, rgba(C.cyan, 0.28 * a));
+      ca.addColorStop(1, rgba(C.cyan, 0));
+      ctx.fillStyle = ca;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    } else if (name === "food") {
+      [
+        [0.8, C.mint, 0.42],
+        [0.52, C.ice, 0.3],
+      ].forEach(([f, col, al]) => {
+        pathOf(H.scaled(f, r * (1 - f) * 0.12));
+        ctx.strokeStyle = rgba(col, al * a);
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      });
+      glow(cx + r * 0.32, cy + r * 0.1, r * 0.22, C.mint, 0.35 * a);
+    } else if (name === "material") {
+      const sweep = lerp(-1.2, 1.2, (sm(localT(KI.material)) + Math.sin(t * 0.35) * 0.08 + 1) % 1);
+      const lx = cx + sweep * r;
+      const rake = ctx.createLinearGradient(lx - r * 0.3, cy - r, lx + r * 0.3, cy + r);
+      rake.addColorStop(0, rgba(C.ice, 0));
+      rake.addColorStop(0.5, rgba(C.ice, 0.3 * a));
+      rake.addColorStop(1, rgba(C.ice, 0));
+      ctx.fillStyle = rake;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      ctx.strokeStyle = rgba(C.ice, 0.08 * a);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let g = -6; g <= 6; g += 1) {
+        const a0 = project(objPoint("material", [-1, 0.05, g / 6.5], k, pos).w);
+        const a1 = project(objPoint("material", [1, 0.05, g / 6.5], k, pos).w);
+        ctx.moveTo(a0.x, a0.y);
+        ctx.lineTo(a1.x, a1.y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+    pathOf(H.pts);
+    ctx.strokeStyle = rgba(name === "material" ? C.violet : C.cyan, 0.55 * a);
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = rgba(C.cyan, 0.6 * a);
+    ctx.shadowBlur = 14;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
+    ctx.restore();
+    ctx.globalCompositeOperation = "lighter";
+  }
+
+  function drawVial(a) {
+    if (a <= 0.01) return;
+    const P = (x, y) => project([x, y, 0]);
+    const { W, B, L, T } = VIAL;
+    const tl = P(-W, T);
+    const tr = P(W, T);
+    const bl = P(-W, B + W);
+    const bot = P(0, B + W);
+    const rad = bot.x - bl.x;
+    const glass = () => {
+      ctx.beginPath();
+      ctx.moveTo(tl.x, tl.y);
+      ctx.lineTo(bl.x, bl.y);
+      ctx.arc(bot.x, bot.y, rad, Math.PI, 0, true);
+      ctx.lineTo(tr.x, tr.y);
+    };
+    ctx.globalCompositeOperation = "source-over";
+    glass();
+    ctx.closePath();
+    const fill = ctx.createLinearGradient(tl.x, 0, tr.x, 0);
+    fill.addColorStop(0, rgba(C.ice, 0.1 * a));
+    fill.addColorStop(0.3, rgba(C.blue, 0.04 * a));
+    fill.addColorStop(0.85, rgba(C.ice, 0.12 * a));
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.globalCompositeOperation = "lighter";
+    const lq = P(-W, L);
+    const lr = P(W, L);
+    ctx.save();
+    glass();
+    ctx.closePath();
+    ctx.clip();
+    const liq = ctx.createLinearGradient(0, lq.y, 0, bot.y + rad);
+    liq.addColorStop(0, rgba(C.blue, 0.2 * a));
+    liq.addColorStop(1, rgba(C.violet, 0.12 * a));
+    ctx.fillStyle = liq;
+    ctx.fillRect(tl.x - 4, lq.y, tr.x - tl.x + 8, bot.y + rad - lq.y + 4);
+    ctx.restore();
+    ctx.strokeStyle = rgba(C.cyan, 0.6 * a);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(lq.x, lq.y);
+    ctx.quadraticCurveTo((lq.x + lr.x) / 2, lq.y + 7, lr.x, lr.y);
+    ctx.stroke();
+    ctx.strokeStyle = rgba(C.ice, 0.55 * a);
+    ctx.lineWidth = 2;
+    glass();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse((tl.x + tr.x) / 2, tl.y, (tr.x - tl.x) / 2 + 5, 6, 0, 0, TAU);
+    ctx.stroke();
+    ctx.strokeStyle = rgba(C.ice, 0.22 * a);
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(tl.x + rad * 0.3, tl.y + 20);
+    ctx.lineTo(bl.x + rad * 0.3, bl.y);
+    ctx.stroke();
+    const mid = P(0, (B + T) / 2);
+    if (a > 0.5) OP.hits.push({ id: "vial", cx: mid.x, cy: mid.y, rx: rad * 1.25, ry: (bot.y + rad - tl.y) / 2 + 6, r: rad });
+  }
+
   function drawOpening() {
     const { A, B, e } = OP.st;
     const L = openLayout();
+    OP.hits = [];
     const appear = reduce ? 1 : ease(OP.age / 2.2);
     const live = reduce ? 0 : 1;
     const globeW = weightOf(KI.globe);
@@ -1722,6 +1862,51 @@
       ctx.stroke();
     }
 
+    let soloW = 0;
+    OBJ.forEach((name) => {
+      const w = weightOf(KI[name]);
+      if (w <= 0.01) return;
+      const k = SOLO_K[name];
+      const H = objectHull(name, k, [0, 0.08, 0]);
+      const ba = w ** 3;
+      soloW = Math.max(soloW, ba);
+      drawObjectBody(name, H, ba, -Infinity, k, [0, 0.08, 0]);
+      if (w > 0.6) OP.hits.push({ id: name, ...H, slot: "below" });
+    });
+
+    const lineW = weightOf(KI.lineup) ** 3;
+    let scanX = -Infinity;
+    let scanP = 0;
+    if (lineW > 0.01) {
+      const hulls = OBJ.map((name, g) => objectHull(name, L.lk * OBJ_FIT[name], L.lp[g]));
+      const x0 = Math.min(...hulls.map((h) => h.cx - h.r)) - 40;
+      const x1 = Math.max(...hulls.map((h) => h.cx + h.r)) + 40;
+      scanP = OP.p >= KF[KI.lineup].b ? 1 : sm((localT(KI.lineup) - 0.42) / 0.5);
+      scanX = lerp(x0, x1, scanP);
+      hulls.forEach((H, g) => {
+        drawObjectBody(OBJ[g], H, lineW, scanX, L.lk * OBJ_FIT[OBJ[g]], L.lp[g]);
+      });
+      if (scanP > 0.001 && scanP < 0.999) {
+        const top = Math.min(...hulls.map((h) => h.cy - h.r)) - 30;
+        const bot = Math.max(...hulls.map((h) => h.cy + h.r)) + 30;
+        const lg = ctx.createLinearGradient(0, top, 0, bot);
+        lg.addColorStop(0, rgba(C.cyan, 0));
+        lg.addColorStop(0.5, rgba(C.cyan, 0.9 * lineW));
+        lg.addColorStop(1, rgba(C.cyan, 0));
+        ctx.strokeStyle = lg;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(scanX, top);
+        ctx.lineTo(scanX, bot);
+        ctx.stroke();
+        const halo = ctx.createLinearGradient(scanX - 70, 0, scanX, 0);
+        halo.addColorStop(0, rgba(C.cyan, 0));
+        halo.addColorStop(1, rgba(C.cyan, 0.08 * lineW));
+        ctx.fillStyle = halo;
+        ctx.fillRect(scanX - 70, top, 70, bot - top);
+      }
+    }
+
     for (let i = 0; i < OPEN_N; i += 1) {
       const seed = OPEN_SEED[i];
       const fa = formAt(A, i, L);
@@ -1750,6 +1935,8 @@
         size *= 1 + band * 0.5;
       }
       let { x, y } = q;
+      if (soloW > 0.01) alpha *= 1 - 0.35 * soloW;
+      if (lineW > 0.01) alpha *= x < scanX ? 1 + 0.6 * lineW : 1 - 0.5 * lineW;
       for (const r of OP.ripples) {
         const rx = x - r.x;
         const ry = y - r.y;
@@ -1846,73 +2033,149 @@
       }
     }
 
-    OBJ.forEach((name, g) => {
-      const k = KI[name];
-      const a = weightOf(k) ** 2;
-      if (a > 0.01) {
-        const q = project([0, name === "drop" ? -0.78 : name === "material" ? -0.88 : -0.7, 0]);
-        canvasLabel(OBJ_LABEL[g], q.x, q.y + openLabelSize(1.6), 0.92 * a, { upper: false, scale: 1.15, weight: 600 });
-      }
-      const la = weightOf(KI.lineup) ** 2;
-      if (la > 0.01) {
-        const q = project(add(L.lp[g], [0, -L.lk * 1.25, 0]));
-        canvasLabel(OBJ_LABEL[g], q.x, q.y + openLabelSize(1.1), 0.85 * la, { upper: false, scale: 1.0, weight: 600 });
-      }
-    });
+    const annot = Math.round(clamp(S.h * 0.022, 15, 19));
+    const focus = OP.hover || OP.pin;
+    const lit = (id) => (focus === id ? 1 : 0);
+
+    const lw2 = weightOf(KI.lineup) ** 2;
+    if (lw2 > 0.01) {
+      OBJ.forEach((name, g) => {
+        const q = project(add(L.lp[g], [0, -L.lk * 1.32, 0]));
+        canvasLabel(OBJ_LABEL[g], q.x, q.y + annot, 0.85 * lw2 * (1 - 0.6 * scanP), { sans: true, size: annot, weight: 500 });
+      });
+    }
 
     const mw = weightOf(KI.micro) ** 2;
-    if (mw > 0.01) OBJ_MOL.forEach((m, g) => drawBonds(MOLS[m], L.lp[g], g, L.ms, mw, COMP[g]));
+    if (mw > 0.01) {
+      OBJ_MOL.forEach((m, g) => {
+        const mk = L.ms * (1 + 0.28 * OP.mag[g]);
+        drawBonds(MOLS[m], L.lp[g], g, mk, mw * (1 + OP.mag[g] * 0.8), COMP[g]);
+        const c = project(L.lp[g]);
+        const r = 0.6 * mk * c.s;
+        const q = project(add(L.lp[g], [0, -L.ms * 0.66, 0]));
+        canvasLabel(MOL_NAME[m], q.x, q.y + annot * 0.4, 0.92 * mw, { sans: true, size: annot, weight: 600, col: mixC(C.ice, C[COMP[g]], 0.3) });
+        canvasLabel(MOL_FROM[g], q.x, q.y + annot * 1.75, 0.6 * mw, { size: Math.max(11, annot - 5) });
+        if (mw > 0.5) OP.hits.push({ id: `mol-${m}`, cx: c.x, cy: c.y, r, slot: "br" });
+        if (OP.mag[g] > 0.01) {
+          ctx.strokeStyle = rgba(C[COMP[g]], 0.35 * OP.mag[g] * mw);
+          ctx.lineWidth = 1;
+          ctx.setLineDash([2, 6]);
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, r * 1.08, 0, TAU);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      });
+    }
 
-    const sw = weightOf(KI.separation);
+    const xw = weightOf(KI.mixture) ** 4;
+    if (xw > 0.01) {
+      drawVial(xw);
+      const b = project([0, VIAL.B - 0.16, 0]);
+      canvasLabel(coarse ? "Drag to stir" : "Drag to stir · hover to inspect", b.x, b.y, 0.6 * xw, { size: Math.max(11, annot - 5) });
+    }
+
+    const sw = weightOf(KI.separation) ** 2.5;
     if (sw > 0.01) {
       const T = A === KI.separation || B === KI.separation ? localT(KI.separation) : 0;
       const P = (x, y) => project([x * L.sx, y, 0]);
-      const top0 = P(SEP.X0, SEP.Y0 + 0.16);
-      const top1 = P(SEP.XD, SEP.Y0 + 0.16);
-      const bot0 = P(SEP.X0, SEP.Y0 - 0.16);
-      const bot1 = P(SEP.XD, SEP.Y0 - 0.16);
-      ctx.strokeStyle = rgba(C.ice, 0.35 * sw);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(top0.x, top0.y);
-      ctx.lineTo(top1.x, top1.y);
-      ctx.moveTo(bot0.x, bot0.y);
-      ctx.lineTo(bot1.x, bot1.y);
+      const CH = 0.2;
+      const c0 = P(SEP.X0, SEP.Y0 + CH);
+      const c1 = P(SEP.XD, SEP.Y0 - CH);
+      const rr = (c1.y - c0.y) / 2;
+      const tube = () => {
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(c0.x, c0.y, c1.x - c0.x, c1.y - c0.y, rr);
+        else ctx.rect(c0.x, c0.y, c1.x - c0.x, c1.y - c0.y);
+      };
+      ctx.globalCompositeOperation = "source-over";
+      tube();
+      ctx.fillStyle = `rgba(5, 10, 30, ${0.6 * sw})`;
+      ctx.fill();
+      const tg = ctx.createLinearGradient(0, c0.y, 0, c1.y);
+      tg.addColorStop(0, rgba(C.ice, 0.16 * sw));
+      tg.addColorStop(0.45, rgba(C.blue, 0.05 * sw));
+      tg.addColorStop(1, rgba(C.ice, 0.1 * sw));
+      ctx.fillStyle = tg;
+      ctx.fill();
+      ctx.globalCompositeOperation = "lighter";
+      for (let x = c0.x + rr * 0.8; x < c1.x - rr * 0.6; x += 10) {
+        for (let r = 0; r < 4; r += 1) dot(x + (r % 2) * 5, c0.y + rr * (0.45 + r * 0.37), 1, C.blue, 0.22 * sw);
+      }
+      tube();
+      ctx.strokeStyle = rgba(C.ice, (0.45 + 0.4 * lit("column")) * sw);
+      ctx.lineWidth = 1.6;
       ctx.stroke();
-      const d0 = P(SEP.XD, SEP.Y0 + 0.24);
-      const d1 = P(SEP.XD + 0.24, SEP.Y0 - 0.24);
+      if (lit("column")) glow((c0.x + c1.x) / 2, (c0.y + c1.y) / 2, (c1.x - c0.x) * 0.3, C.blue, 0.25 * sw);
+
+      const inl = P(SEP.X0 - 0.2, SEP.Y0);
+      ctx.strokeStyle = rgba(C.ice, (0.55 + 0.4 * lit("sample")) * sw);
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(inl.x, inl.y, rr * 0.7, 0, TAU);
+      ctx.moveTo(inl.x + rr * 0.7, inl.y);
+      ctx.lineTo(c0.x, inl.y);
+      ctx.moveTo(inl.x, inl.y - rr * 0.7);
+      ctx.lineTo(inl.x, inl.y - rr * 1.3);
+      ctx.stroke();
+      glow(inl.x, inl.y, rr * (1 + lit("sample")), C.violet, (0.35 + 0.4 * (1 - sm(T / 0.08))) * sw);
+
+      const d0 = P(SEP.XD + 0.06, SEP.Y0 + 0.3);
+      const d1 = P(SEP.XD + 0.4, SEP.Y0 - 0.3);
       let hot = 0;
       SEP.speed.forEach((_, g) => {
         const b = sepBand(g, T);
-        const near = Math.max(0, 1 - Math.abs(b.cx - SEP.XD) / (b.bw * 3 + 0.05));
-        hot = Math.max(hot, near);
+        hot = Math.max(hot, Math.max(0, 1 - Math.abs(b.cx - SEP.XD) / (b.bw * 3 + 0.05)));
         if (b.past > 0 && OP.flash[g] < 0) OP.flash[g] = S.t;
         if (b.past <= 0) OP.flash[g] = -9;
       });
-      ctx.strokeStyle = rgba(C.cyan, (0.45 + hot * 0.55) * sw);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = `rgba(5, 10, 30, ${0.6 * sw})`;
+      ctx.fillRect(d0.x, d0.y, d1.x - d0.x, d1.y - d0.y);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = rgba(C.cyan, (0.5 + hot * 0.5 + lit("detector") * 0.3) * sw);
+      ctx.lineWidth = 1.8;
       ctx.strokeRect(d0.x, d0.y, d1.x - d0.x, d1.y - d0.y);
-      glow((d0.x + d1.x) / 2, (d0.y + d1.y) / 2, (0.25 + hot * 0.3) * d0.s, C.cyan, (0.15 + hot * 0.6) * sw);
-      const lab = openLabelSize(1.05);
-      const gap = lab + 6;
-      canvasLabel("Sample", top0.x, top0.y - gap, 0.75 * sw, { size: lab, align: "start", weight: 600 });
-      const mid = P((SEP.X0 + SEP.XD) / 2, SEP.Y0 + 0.16);
-      canvasLabel("Column", mid.x, mid.y - gap, 0.75 * sw, { size: lab, weight: 600 });
-      canvasLabel("Detector", (d0.x + d1.x) / 2, d0.y - gap, 0.9 * sw, { size: lab, col: C.cyan, weight: 600 });
+      glow((d0.x + d1.x) / 2, (d0.y + d1.y) / 2, (0.3 + hot * 0.35) * d0.s, C.cyan, (0.18 + hot * 0.6 + lit("detector") * 0.2) * sw);
+
+      const labelY = c0.y - annot * 2.1;
+      const lead = (text, x, yTop, col = C.ice) => {
+        const y = labelY;
+        canvasLabel(text, x, y, 0.9 * sw, { sans: true, size: annot, weight: 600, col });
+        ctx.strokeStyle = rgba(col, 0.35 * sw);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y + annot * 0.75);
+        ctx.lineTo(x, yTop - 5);
+        ctx.stroke();
+      };
+      lead("Sample", inl.x, inl.y - rr * 1.3);
+      lead("Column", (c0.x + c1.x) / 2, c0.y);
+      lead("Detector", (d0.x + d1.x) / 2, d0.y, C.cyan);
+      canvasLabel("Mobile phase flow →", c0.x + rr, c0.y - annot * 0.75, 0.5 * sw, { size: Math.max(11, annot - 5), align: "start" });
+      OP.hits.push(
+        { id: "sample", cx: inl.x, cy: inl.y - rr * 0.6, r: rr * 1.7, slot: "tr" },
+        { id: "column", cx: (c0.x + c1.x) / 2, cy: (c0.y + c1.y) / 2, rx: (c1.x - c0.x) / 2, ry: rr * 1.6, r: rr, slot: "tr" },
+        { id: "detector", cx: (d0.x + d1.x) / 2, cy: (d0.y + d1.y) / 2, rx: (d1.x - d0.x) * 0.75, ry: (d1.y - d0.y) * 0.75, r: d1.x - d0.x, slot: "tr" }
+      );
 
       const base0 = P(SEP.T0, SEP.YT);
       const base1 = P(SEP.T1, SEP.YT);
-      ctx.strokeStyle = rgba(C.ice, 0.2 * sw);
+      const axTop = P(SEP.T0, SEP.YT + 0.92);
+      ctx.strokeStyle = rgba(C.ice, 0.32 * sw);
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(base0.x, base0.y);
+      ctx.moveTo(axTop.x, axTop.y);
+      ctx.lineTo(base0.x, base0.y);
       ctx.lineTo(base1.x, base1.y);
       ctx.stroke();
-      canvasLabel("Time →", base1.x, base1.y + gap, 0.7 * sw, { size: lab, align: "end" });
-      canvasLabel("Signal", base0.x, base0.y - gap, 0.7 * sw, { size: lab, align: "start" });
+      canvasLabel("Time →", base1.x, base1.y + annot * 1.1, 0.75 * sw, { sans: true, size: annot - 1, align: "end" });
+      canvasLabel("Detector signal", axTop.x + 10, axTop.y, 0.75 * sw, { sans: true, size: annot - 1, align: "start" });
       const head = lerp(SEP.T0, SEP.T1, T);
       const sig = (x) => SEP_PEAK.reduce((s, pk) => s + pk.h * Math.exp(-((x - pk.x) ** 2) / (2 * pk.sig * pk.sig)), 0);
       SEP_PEAK.forEach((pk, g) => {
         if (head < pk.x - pk.sig * 3) return;
-        ctx.fillStyle = rgba(C[COMP[g]], 0.16 * sw);
+        ctx.fillStyle = rgba(C[COMP[g]], (0.18 + 0.16 * lit("peak")) * sw);
         ctx.beginPath();
         const x0 = pk.x - pk.sig * 3;
         const x1 = Math.min(head, pk.x + pk.sig * 3);
@@ -1923,13 +2186,27 @@
         }
         ctx.lineTo(P(x1, SEP.YT).x, P(x1, SEP.YT).y);
         ctx.fill();
+        if (head > pk.x + pk.sig) {
+          const mid = P(pk.x, SEP.YT + pk.h / 2);
+          const top = P(pk.x, SEP.YT + pk.h);
+          OP.hits.push({ id: "peak", cx: mid.x, cy: mid.y, rx: Math.max(18, pk.sig * 2.4 * mid.s * L.sx), ry: Math.max(20, mid.y - top.y + 6), r: 30, slot: "tr" });
+          if (lit("peak")) {
+            ctx.strokeStyle = rgba(C[COMP[g]], 0.6 * sw);
+            ctx.setLineDash([3, 4]);
+            ctx.beginPath();
+            ctx.moveTo(top.x, top.y);
+            ctx.lineTo(top.x, base0.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
       });
       const trace = [];
-      for (let x = SEP.T0; x <= head; x += (SEP.T1 - SEP.T0) / 220) trace.push(P(x, SEP.YT + sig(x)));
+      for (let x = SEP.T0; x <= head; x += (SEP.T1 - SEP.T0) / 260) trace.push(P(x, SEP.YT + sig(x)));
       if (trace.length > 1) {
-        strokePts(trace, C.cyan, 0.9 * sw, 1.6);
+        strokePts(trace, C.cyan, 0.95 * sw, 2.2);
         const tip = trace[trace.length - 1];
-        if (T < 0.999) glow(tip.x, tip.y, 0.12 * tip.s, C.cyan, 0.9 * sw);
+        if (T < 0.999) glow(tip.x, tip.y, 0.14 * tip.s, C.cyan, 0.9 * sw);
       }
       SEP_PEAK.forEach((pk, g) => {
         const ft = S.t - OP.flash[g];
@@ -1944,132 +2221,11 @@
       });
     }
 
-    let vig = "cells";
-    const P2 = (x, y, part = 1) => project([...vmap(vig, part, x, y), 0]);
-    const lab = openLabelSize(1);
-    const axes = (G, a, xl, yl) => {
-      const o = P2(G.X0, G.Y0);
-      const xe = P2(G.X1, G.Y0);
-      const ye = P2(G.X0, G.Y1);
-      ctx.strokeStyle = rgba(C.ice, 0.22 * a);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(ye.x, ye.y);
-      ctx.lineTo(o.x, o.y);
-      ctx.lineTo(xe.x, xe.y);
-      ctx.stroke();
-      canvasLabel(xl, xe.x, xe.y + 16, 0.55 * a, { size: lab, align: "end" });
-      canvasLabel(yl, ye.x, ye.y - 14, 0.55 * a, { size: lab, align: "start" });
-    };
-    const curve = (G, f, head, a, col) => {
-      const pts = [];
-      for (let u = 0; u <= head; u += 1 / 160) pts.push(P2(lerp(G.X0, G.X1, u), lerp(G.Y0, G.Y1, f(u))));
-      if (pts.length < 2) return null;
-      strokePts(pts, col, 0.9 * a, 1.6);
-      const tip = pts[pts.length - 1];
-      if (head < 0.999) glow(tip.x, tip.y, 0.12 * tip.s, col, 0.9 * a);
-      return tip;
-    };
-
-    const bw = weightOf(KI.cells);
-    if (bw > 0.01) {
-      const T = localT(KI.cells);
-      const V = CELLS;
-      vig = "cells";
-      const l0 = P2(V.LX, V.SY + 0.32, 0);
-      const l1 = P2(V.LX, V.SY - 0.32, 0);
-      const near = Array.from({ length: V.n }, (_, c) => Math.max(0, 1 - Math.abs((T - (c / V.n) * 0.72) / 0.22 - 1) / 0.08)).reduce((m, v) => Math.max(m, v), 0);
-      const lg = ctx.createLinearGradient(l0.x, l0.y, l1.x, l1.y);
-      lg.addColorStop(0, rgba(C.cyan, 0));
-      lg.addColorStop(0.5, rgba(C.cyan, (0.55 + near * 0.45) * bw));
-      lg.addColorStop(1, rgba(C.cyan, 0));
-      ctx.strokeStyle = lg;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(l0.x, l0.y);
-      ctx.lineTo(l1.x, l1.y);
-      ctx.stroke();
-      const lc = P2(V.LX, V.SY, 0);
-      glow(lc.x, lc.y, (0.12 + near * 0.2) * lc.s, C.cyan, (0.3 + near * 0.6) * bw);
-      canvasLabel("Laser", l0.x, l0.y - 12, 0.75 * bw, { size: lab, col: C.cyan });
-      const s0 = P2(-2.15, V.SY + 0.16, 0);
-      canvasLabel("Cells, single file", s0.x, s0.y, 0.6 * bw, { size: lab, align: "start" });
-      axes({ X0: V.X0, X1: V.X1, Y0: V.Y0, Y1: V.Y1 }, bw, "Marker 1 →", "Marker 2 ↑");
-    }
-
-    const dw = weightOf(KI.dx);
-    if (dw > 0.01) {
-      const T = localT(KI.dx);
-      const G = DX.G;
-      vig = "dx";
-      const pr = P2(DX.probe[0], DX.probe[1], 0);
-      const got = dxCaptured(T);
-      ctx.strokeStyle = rgba(C.mint, (0.35 + got * 0.5) * dw);
-      ctx.setLineDash([3, 4]);
-      ctx.beginPath();
-      ctx.arc(pr.x, pr.y, 0.2 * pr.s * (S.narrow ? 0.92 : 1), 0, TAU);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      glow(pr.x, pr.y, 0.25 * pr.s, C.mint, (0.15 + got * 0.5) * dw);
-      const sl = P2(DX.cx, DX.cy + 0.78, 0);
-      canvasLabel("Patient sample", sl.x, sl.y, 0.6 * dw, { size: lab });
-      canvasLabel("Capture", pr.x, pr.y - 0.32 * pr.s, 0.6 * dw, { size: lab, col: C.mint });
-      axes(G, dw, "Time →", "Signal");
-      const th0 = P2(G.X0, lerp(G.Y0, G.Y1, G.thr));
-      const th1 = P2(G.X1, lerp(G.Y0, G.Y1, G.thr));
-      ctx.strokeStyle = rgba(C.violet, 0.5 * dw);
-      ctx.setLineDash([4, 5]);
-      ctx.beginPath();
-      ctx.moveTo(th0.x, th0.y);
-      ctx.lineTo(th1.x, th1.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      canvasLabel("Threshold", th1.x, th1.y - 12, 0.5 * dw, { size: lab, align: "end", col: C.violet });
-      curve(G, (u) => 0.04 + dxCaptured(u) * 0.9 + Math.sin(u * 90) * 0.006, T, dw, C.mint);
-      if (got > G.thr) {
-        const k = sm((got - G.thr) / 0.08);
-        const q = P2((G.X0 + G.X1) / 2, G.Y1 + 0.34);
-        canvasLabel("Target detected", q.x, q.y, k * dw, { size: lab + 2, col: C.mint });
-      }
-    }
-
-    const hw = weightOf(KI.heat);
-    if (hw > 0.01) {
-      const T = localT(KI.heat);
-      const G = HEAT.G;
-      vig = "heat";
-      const m = heatMelt(T);
-      axes(G, hw, "Temperature →", "Heat flow");
-      const tip = curve(G, (u) => 0.08 + heatFlow(u) * 0.95, T, hw, C.violet);
-      const pk = P2(lerp(G.X0, G.X1, HEAT.Tm), lerp(G.Y0, G.Y1, 0.08 + heatFlow(HEAT.Tm) * 0.95));
-      if (T > HEAT.Tm + 0.02) canvasLabel("Melting point", pk.x + 12, pk.y + 4, sm((T - HEAT.Tm - 0.02) / 0.05) * hw, { size: lab, col: C.violet, align: "start" });
-      const st = P2(HEAT.X, HEAT.Y + 0.72, 0);
-      canvasLabel(m < 0.2 ? "Solid" : m < 0.85 ? "Melting" : "Liquid", st.x, st.y, 0.7 * hw, { size: lab });
-      if (tip) {
-        const bar0 = P2(HEAT.X - 1.05, HEAT.Y - 0.3, 0);
-        const bar1 = P2(HEAT.X - 1.05, HEAT.Y + 0.5, 0);
-        ctx.strokeStyle = rgba(C.ice, 0.18 * hw);
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(bar0.x, bar0.y);
-        ctx.lineTo(bar1.x, bar1.y);
-        ctx.stroke();
-        ctx.strokeStyle = rgba(mixC(C.blue, C.violet, T), 0.9 * hw);
-        ctx.beginPath();
-        ctx.moveTo(bar0.x, bar0.y);
-        ctx.lineTo(bar0.x, lerp(bar0.y, bar1.y, T));
-        ctx.stroke();
-        ctx.lineWidth = 1;
-        canvasLabel("Heat", bar0.x, bar0.y + 14, 0.55 * hw, { size: lab });
-      }
-    }
-
     const qw = weightOf(KI.quad) ** 2;
     if (qw > 0.01) {
       DIVISIONS.forEach((name, g) => {
-        const a = (g / 4) * TAU - Math.PI * 0.75 + (reduce ? 0 : S.t) * 0.12;
-        const q = project([Math.cos(a) * L.qr, Math.sin(a) * L.qr * L.qy + 0.05 - 0.42, 0]);
-        canvasLabel(name, q.x, q.y, 0.8 * qw, { size: lab, col: C[COMP[g]] });
+        const q = project(add(L.lp[g], [0, -0.62, 0]));
+        canvasLabel(name, q.x, q.y, 0.9 * qw, { sans: true, size: annot + 1, weight: 600, col: mixC(C.ice, C[COMP[g]], 0.5) });
       });
     }
 
@@ -2093,15 +2249,51 @@
     glow(c.x, c.y, 0.6 * c.s, C.cyan, 0.55 * OP.after);
   }
 
-  function setOpenK(el, k, r = 1) {
+  // --k: visibility, --r: word reveal (entering), --x: exit drift (leaving). All follow scroll position.
+  function setOpenK(el, k, r = 1, x = 0) {
     const v = Math.round(clamp(k, 0, 1) * 1000) / 1000;
     const rv = Math.round(clamp(r, 0, 1) * 1000) / 1000;
-    if (el._k === v && el._r === rv) return;
+    const xv = Math.round(clamp(x, 0, 1) * 1000) / 1000;
+    if (el._k === v && el._r === rv && el._x === xv) return;
     el._k = v;
     el._r = rv;
+    el._x = xv;
     el.style.setProperty("--k", v);
     el.style.setProperty("--r", rv);
+    el.style.setProperty("--x", xv);
     el.style.visibility = v <= 0.001 ? "hidden" : "visible";
+  }
+
+  function syncNote() {
+    const el = opEls.note;
+    if (!el) return;
+    const id = OP.hover || OP.pin;
+    const h = id && hitById(id);
+    const note = h && OPEN_NOTES[id];
+    el.classList.toggle("is-on", !!note);
+    el.classList.toggle("is-pinned", !!note && OP.pin === id);
+    if (!note) return;
+    if (el._id !== id) {
+      el._id = id;
+      el.querySelector("b").textContent = note[0];
+      el.querySelector("span").textContent = note[1];
+    }
+    const wide = el.offsetWidth || 300;
+    const tall = el.offsetHeight || 90;
+    const edge = S.w - wide - 96;
+    let x;
+    let y;
+    // Each scene has an empty slot for its note, so it never sits on the headline or the diagram.
+    if (h.slot === "tr") [x, y] = [edge, S.h * 0.105];
+    else if (h.slot === "br") [x, y] = [edge, S.h * 0.915 - tall];
+    else if (h.slot === "below") [x, y] = [h.cx - wide / 2, h.cy + h.r * 0.72];
+    else {
+      const reach = (h.rx || h.r) + 22;
+      x = h.cx + reach + wide < S.w - 70 ? h.cx + reach : h.cx - reach - wide;
+      y = h.cy - tall / 2;
+    }
+    y = clamp(y, 70, S.h - tall - 30);
+    el.style.transform = `translate3d(${Math.round(clamp(x, 16, S.w - wide - 16))}px, ${Math.round(y)}px, 0)`;
   }
 
   function syncOpening() {
@@ -2112,8 +2304,17 @@
       const k = win(p, W);
       const rising = p <= W[2];
       const r = (rising ? k : 1) * (el.dataset.beat === "see" ? ready : 1);
-      setOpenK(el, rising ? (r > 0 ? 1 : 0) : k, r);
+      setOpenK(el, rising ? (r > 0 ? 1 : 0) : k, r, rising ? 0 : 1 - k);
     });
+    syncNote();
+    if (opEls.ticks) {
+      let on = 0;
+      OPEN_CHAPTERS.forEach(([, at], i) => p >= at - 0.005 && (on = i));
+      if (opEls.rail._on !== on) {
+        opEls.rail._on = on;
+        opEls.ticks.forEach((b, i) => b.classList.toggle("is-on", i === on));
+      }
+    }
     if (opEls.scale) {
       const n = scaleExp(p);
       if (opEls.scale._n !== n) {
@@ -2127,7 +2328,7 @@
       setOpenK(opEls.scale, ready * (1 - sm((p - 0.55) / 0.03)));
     }
     setOpenK(opEls.cue, clamp((OP.age - 2.4) / 1, 0, 1) * (1 - sm(p / 0.04)));
-    opEls.bar.style.transform = `scaleY(${p.toFixed(4)})`;
+    opEls.bar.style.setProperty("--p", p.toFixed(4));
   }
 
   /* ---------- frame ---------- */
@@ -2224,14 +2425,16 @@
       fx.open = lerp(fx.open, fx.topen ?? 0, Math.min(1, dt * 2.4));
     });
     const ct = cameraTargets();
-    const kc = Math.min(1, dt * 2.2);
+    const kc = Math.min(1, dt * (S.opening ? 6 : 2.2));
     S.cam = mix(S.cam, ct.cam, kc);
     S.zoom = lerp(S.zoom, ct.zoom * (1 + Math.sin(S.t * 0.7) * 0.01), kc);
     S.shift = lerp(S.shift, ct.shift, kc);
     S.shiftY = lerp(S.shiftY, ct.shiftY, kc);
+    // Diagrams read best square-on, so the opening's parallax tilt relaxes while the separation is on screen.
+    const flat = S.opening ? 1 - 0.85 * weightOf(KI.separation) : 1;
     const idleYaw = S.active ? 0 : Math.sin(S.t * 0.11) * (S.opening ? 0.12 : 0.3);
-    S.yaw = lerp(S.yaw, idleYaw + S.smx * (S.active ? 0.14 : S.opening ? 0.22 : 0.38), kc);
-    S.pitch = lerp(S.pitch, 0.16 + S.smy * (S.active ? 0.06 : S.opening ? 0.1 : 0.16), kc);
+    S.yaw = lerp(S.yaw, (idleYaw + S.smx * (S.active ? 0.14 : S.opening ? 0.22 : 0.38)) * flat, kc);
+    S.pitch = lerp(S.pitch, (0.16 + S.smy * (S.active ? 0.06 : S.opening ? 0.1 : 0.16)) * flat, kc);
     S.hud = lerp(S.hud, S.opening ? 0.3 * (1 - OP.sep) : S.intro ? 0.4 : 1, Math.min(1, dt * 1.5));
 
     for (const d of S.dust) {
@@ -2838,7 +3041,9 @@
   }
 
   function step(dir) {
-    if (dir < 0 && !S.active && !S.finale && opEls.box) return enterOpening(0.99);
+    const backIn = !S.active || (S.active === ORDER[0] && OP.landed);
+    if (dir < 0 && backIn && !S.finale && opEls.box) return enterOpening(0.985);
+    OP.landed = false;
     if (S.finale) {
       if (dir < 0) goStep(ORDER.length - 1);
       return;
@@ -2915,11 +3120,34 @@
     S.px = e.clientX - r.left;
     S.py = e.clientY - r.top;
     OP.ptrT = S.t;
-    if (S.intro || S.finale || S.opening) return;
+    if (S.opening) {
+      OP.hover = OP.drag ? OP.hover : openHit(S.px, S.py);
+      if (opEls.scroll) opEls.scroll.style.cursor = OP.hover ? "pointer" : "";
+      return;
+    }
+    if (S.intro || S.finale) return;
     if (uniOn()) return S.uni.move(S.px, S.py);
     const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
     if (!S.active) S.hover = hit;
     canvas.style.cursor = hit ? "pointer" : "default";
+  }
+
+  function inHull(pts, x, y) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i];
+      const [xj, yj] = pts[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+
+  function openHit(x, y) {
+    for (let i = OP.hits.length - 1; i >= 0; i -= 1) {
+      const h = OP.hits[i];
+      if (h.pts ? inHull(h.pts, x, y) : Math.hypot((x - h.cx) / (h.rx || h.r), (y - h.cy) / (h.ry || h.r)) < 1) return h.id;
+    }
+    return null;
   }
 
   function hitTest(x, y) {
@@ -2948,7 +3176,10 @@
     const y = e.clientY - r.top;
     if (S.opening) {
       if (OP.dragMoved > 6) return;
-      if (!reduce) OP.ripples.push({ x, y, t: 0 });
+      const id = openHit(x, y);
+      if (id) OP.pin = OP.pin === id ? null : id;
+      else OP.pin = null;
+      if (!reduce && (!id || KF[OP.st.B].s === "globe")) OP.ripples.push({ x, y, t: 0 });
       return;
     }
     if (uniOn()) return S.uni.click(x, y);
@@ -2964,15 +3195,23 @@
   }
 
   function onWheel(e) {
+    if (S.opening) {
+      // The story is a real scrolling element; only wheel events landing on overlays are forwarded to it.
+      if (e.target.closest(".wm-open-scroll") || !opEls.scroll) return;
+      e.preventDefault();
+      opEls.scroll.scrollTop += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? S.h : 1);
+      return;
+    }
     const inPanel = e.target.closest(".wm-panel, .wm-sources, .wm-uni-copy");
     if (inPanel && inPanel.scrollHeight > inPanel.clientHeight + 2) return;
     e.preventDefault();
-    if (S.opening) {
-      const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? S.h : 1);
-      return openingNudge(clamp(px, -160, 160) / (S.h * 12));
-    }
     const now = performance.now();
-    if (now < OP.quietUntil) return;
+    // After the prologue hands over, ignore the rest of that scroll gesture (including momentum) until it pauses.
+    if (now < OP.quietUntil) {
+      OP.quietUntil = Math.max(OP.quietUntil, now + 320);
+      S.wheelAcc = 0;
+      return;
+    }
     S.wheelAcc += e.deltaY;
     if (now < S.wheelLock) return;
     if (Math.abs(S.wheelAcc) > 40) {
@@ -2986,12 +3225,18 @@
     if (!S.open || S.ride) return;
     if (S.opening) {
       if (e.target.closest("button") && (e.key === "Enter" || e.key === " ")) return;
-      const fwd = ["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(e.key);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        return endOpening();
+      }
+      // A focused scroller already handles arrows, Page keys, Space and Home/End natively.
+      if (e.target === opEls.scroll) return;
+      const fwd = ["ArrowRight", "ArrowDown", "PageDown", " "].includes(e.key);
       const back = ["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key);
-      if (e.key === "Escape") endOpening();
-      else if (fwd || back) openingStop(fwd ? 1 : -1);
-      else return;
+      if (!fwd && !back) return;
       e.preventDefault();
+      opEls.scroll?.focus({ preventScroll: true });
+      opEls.scroll?.scrollBy({ top: (fwd ? 1 : -1) * S.h * 0.8, behavior: reduce ? "auto" : "smooth" });
       return;
     }
     if (uniOn() && els.sources.hidden && S.uni.key(e)) {
@@ -3029,38 +3274,43 @@
     canvas.height = Math.round(S.h * S.dpr);
   }
 
-  canvas.addEventListener("pointermove", onMove);
-  canvas.addEventListener("pointerdown", (e) => {
-    OP.dragMoved = 0;
-    if (!S.opening || e.pointerType === "touch") return;
-    OP.drag = { x: e.clientX };
-    OP.spinV = 0;
-    root.classList.add("is-dragging");
-    canvas.setPointerCapture?.(e.pointerId);
-  });
-  canvas.addEventListener("pointermove", (e) => {
-    if (!OP.drag) return;
-    const d = (e.clientX - OP.drag.x) * 0.006;
-    OP.drag.x = e.clientX;
-    OP.dragMoved += Math.abs(d / 0.006);
-    S.globeSpin += d;
-    OP.molA += d;
-    OP.spinV = lerp(OP.spinV, d, 0.6);
-  });
   const endDrag = () => {
     OP.drag = null;
     root.classList.remove("is-dragging");
   };
-  canvas.addEventListener("pointerup", endDrag);
-  canvas.addEventListener("pointercancel", endDrag);
-  canvas.addEventListener("pointerleave", () => {
-    S.px = -9999;
-    S.py = -9999;
-    S.hover = null;
-    S.mx = 0;
-    S.my = 0;
+  // During the opening the scroll layer sits above the canvas, so it receives the same pointer input.
+  [canvas, opEls.scroll].filter(Boolean).forEach((el) => {
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerdown", (e) => {
+      OP.dragMoved = 0;
+      if (!S.opening || e.pointerType === "touch" || e.button !== 0) return;
+      OP.drag = { x: e.clientX };
+      OP.spinV = 0;
+      root.classList.add("is-dragging");
+      el.setPointerCapture?.(e.pointerId);
+    });
+    el.addEventListener("pointermove", (e) => {
+      if (!OP.drag) return;
+      const d = (e.clientX - OP.drag.x) * 0.006;
+      OP.drag.x = e.clientX;
+      OP.dragMoved += Math.abs(d / 0.006);
+      S.globeSpin += d;
+      OP.molA += d;
+      OP.stir += d * 2.5;
+      OP.spinV = lerp(OP.spinV, d, 0.6);
+    });
+    el.addEventListener("pointerup", endDrag);
+    el.addEventListener("pointercancel", endDrag);
+    el.addEventListener("pointerleave", () => {
+      S.px = -9999;
+      S.py = -9999;
+      S.hover = null;
+      OP.hover = null;
+      S.mx = 0;
+      S.my = 0;
+    });
+    el.addEventListener("click", onClick);
   });
-  canvas.addEventListener("click", onClick);
   root.addEventListener("wheel", onWheel, { passive: false });
   root.addEventListener(
     "touchstart",
@@ -3075,15 +3325,13 @@
     "touchmove",
     (e) => {
       if (!S.opening || OP.touchY == null) return;
-      e.preventDefault();
       const y = e.touches[0]?.clientY ?? OP.touchY;
       S.px = e.touches[0]?.clientX ?? S.px;
       S.py = y;
       OP.ptrT = S.t;
-      openingNudge((OP.touchY - y) / (S.h * 7));
       OP.touchY = y;
     },
-    { passive: false }
+    { passive: true }
   );
   root.addEventListener(
     "touchend",
@@ -3101,9 +3349,28 @@
     { passive: true }
   );
   document.addEventListener("keydown", onKey);
-  window.addEventListener("resize", () => S.open && resize());
+  window.addEventListener("resize", () => {
+    if (!S.open) return;
+    const at = OP.target;
+    resize();
+    if (S.opening) setScrollProgress(at);
+  });
   $(".wm-close").addEventListener("click", () => close());
   $(".wm-open-skip")?.addEventListener("click", () => endOpening());
+  if (opEls.rail) {
+    opEls.rail.insertAdjacentHTML(
+      "beforeend",
+      OPEN_CHAPTERS.map(([name, at], i) => `<button type="button" style="--at:${at}" data-at="${at}"><span>${String(i).padStart(2, "0")}</span><em>${esc(name)}</em></button>`).join("")
+    );
+    opEls.ticks = [...opEls.rail.querySelectorAll("button")];
+    opEls.ticks.forEach((b) =>
+      b.addEventListener("click", () => {
+        const at = Number(b.dataset.at) + 0.012;
+        opEls.scroll?.scrollTo({ top: at * scrollMax(), behavior: reduce ? "auto" : "smooth" });
+        opEls.scroll?.focus({ preventScroll: true });
+      })
+    );
+  }
   $(".wm-begin").addEventListener("click", () => goStep(0));
   $(".wm-free").addEventListener("click", () => {
     hideIntro();
@@ -3210,12 +3477,10 @@
     if (!S.open) return;
     if (!S.opening) enterOpening(at);
     OP.p = OP.target = clamp(at, 0, 1);
+    setScrollProgress(OP.p);
     OP.age = 4;
-    OP.idle = -9;
     OP.dir = 1;
-    OP.hold = 0;
     OP.st = stageAt(OP.p);
-    OP.clk = KF.map((K) => (K.dur ? K.dur * 0.55 : 0));
   }
   window.watersMachine = { open, close, seekOpening };
 

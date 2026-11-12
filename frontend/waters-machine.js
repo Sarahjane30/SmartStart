@@ -1461,7 +1461,7 @@
     S.assemble = land ? 0.55 : 0;
     S.intro = true;
     S.wheelAcc = 0;
-    OP.quietUntil = performance.now() + (land ? 1400 : 2200);
+    OP.quietUntil = performance.now() + (land ? 900 : 2200);
     OP.hover = OP.pin = null;
     setHint();
     if (land) {
@@ -1871,7 +1871,7 @@
       const ba = w ** 3;
       soloW = Math.max(soloW, ba);
       drawObjectBody(name, H, ba, -Infinity, k, [0, 0.08, 0]);
-      if (w > 0.6) OP.hits.push({ id: name, ...H });
+      if (w > 0.6) OP.hits.push({ id: name, ...H, slot: "below" });
     });
 
     const lineW = weightOf(KI.lineup) ** 3;
@@ -1885,7 +1885,6 @@
       scanX = lerp(x0, x1, scanP);
       hulls.forEach((H, g) => {
         drawObjectBody(OBJ[g], H, lineW, scanX, L.lk * OBJ_FIT[OBJ[g]], L.lp[g]);
-        if (lineW > 0.6 && H.cx > scanX) OP.hits.push({ id: OBJ[g], ...H });
       });
       if (scanP > 0.001 && scanP < 0.999) {
         const top = Math.min(...hulls.map((h) => h.cy - h.r)) - 30;
@@ -2056,7 +2055,7 @@
         const q = project(add(L.lp[g], [0, -L.ms * 0.66, 0]));
         canvasLabel(MOL_NAME[m], q.x, q.y + annot * 0.4, 0.92 * mw, { sans: true, size: annot, weight: 600, col: mixC(C.ice, C[COMP[g]], 0.3) });
         canvasLabel(MOL_FROM[g], q.x, q.y + annot * 1.75, 0.6 * mw, { size: Math.max(11, annot - 5) });
-        if (mw > 0.5) OP.hits.push({ id: `mol-${m}`, cx: c.x, cy: c.y, r });
+        if (mw > 0.5) OP.hits.push({ id: `mol-${m}`, cx: c.x, cy: c.y, r, slot: "br" });
         if (OP.mag[g] > 0.01) {
           ctx.strokeStyle = rgba(C[COMP[g]], 0.35 * OP.mag[g] * mw);
           ctx.lineWidth = 1;
@@ -2069,14 +2068,14 @@
       });
     }
 
-    const xw = weightOf(KI.mixture) ** 2;
+    const xw = weightOf(KI.mixture) ** 4;
     if (xw > 0.01) {
       drawVial(xw);
       const b = project([0, VIAL.B - 0.16, 0]);
       canvasLabel(coarse ? "Drag to stir" : "Drag to stir · hover to inspect", b.x, b.y, 0.6 * xw, { size: Math.max(11, annot - 5) });
     }
 
-    const sw = weightOf(KI.separation);
+    const sw = weightOf(KI.separation) ** 2.5;
     if (sw > 0.01) {
       const T = A === KI.separation || B === KI.separation ? localT(KI.separation) : 0;
       const P = (x, y) => project([x * L.sx, y, 0]);
@@ -2155,9 +2154,9 @@
       lead("Detector", (d0.x + d1.x) / 2, d0.y, C.cyan);
       canvasLabel("Mobile phase flow →", c0.x + rr, c0.y - annot * 0.75, 0.5 * sw, { size: Math.max(11, annot - 5), align: "start" });
       OP.hits.push(
-        { id: "sample", cx: inl.x, cy: inl.y - rr * 0.6, r: rr * 1.7 },
-        { id: "column", cx: (c0.x + c1.x) / 2, cy: (c0.y + c1.y) / 2, rx: (c1.x - c0.x) / 2, ry: rr * 1.6, r: rr },
-        { id: "detector", cx: (d0.x + d1.x) / 2, cy: (d0.y + d1.y) / 2, rx: (d1.x - d0.x) * 0.75, ry: (d1.y - d0.y) * 0.75, r: d1.x - d0.x }
+        { id: "sample", cx: inl.x, cy: inl.y - rr * 0.6, r: rr * 1.7, slot: "tr" },
+        { id: "column", cx: (c0.x + c1.x) / 2, cy: (c0.y + c1.y) / 2, rx: (c1.x - c0.x) / 2, ry: rr * 1.6, r: rr, slot: "tr" },
+        { id: "detector", cx: (d0.x + d1.x) / 2, cy: (d0.y + d1.y) / 2, rx: (d1.x - d0.x) * 0.75, ry: (d1.y - d0.y) * 0.75, r: d1.x - d0.x, slot: "tr" }
       );
 
       const base0 = P(SEP.T0, SEP.YT);
@@ -2190,7 +2189,7 @@
         if (head > pk.x + pk.sig) {
           const mid = P(pk.x, SEP.YT + pk.h / 2);
           const top = P(pk.x, SEP.YT + pk.h);
-          OP.hits.push({ id: "peak", cx: mid.x, cy: mid.y, rx: Math.max(18, pk.sig * 2.4 * mid.s * L.sx), ry: Math.max(20, mid.y - top.y + 6), r: 30 });
+          OP.hits.push({ id: "peak", cx: mid.x, cy: mid.y, rx: Math.max(18, pk.sig * 2.4 * mid.s * L.sx), ry: Math.max(20, mid.y - top.y + 6), r: 30, slot: "tr" });
           if (lit("peak")) {
             ctx.strokeStyle = rgba(C[COMP[g]], 0.6 * sw);
             ctx.setLineDash([3, 4]);
@@ -2281,10 +2280,19 @@
     }
     const wide = el.offsetWidth || 300;
     const tall = el.offsetHeight || 90;
-    const reach = (h.rx || h.r) + 22;
-    const right = h.cx + reach + wide < S.w - 70;
-    const x = right ? h.cx + reach : h.cx - reach - wide;
-    const y = clamp(h.cy - tall / 2, 70, S.h - tall - 30);
+    const edge = S.w - wide - 96;
+    let x;
+    let y;
+    // Each scene has an empty slot for its note, so it never sits on the headline or the diagram.
+    if (h.slot === "tr") [x, y] = [edge, S.h * 0.105];
+    else if (h.slot === "br") [x, y] = [edge, S.h * 0.915 - tall];
+    else if (h.slot === "below") [x, y] = [h.cx - wide / 2, h.cy + h.r * 0.72];
+    else {
+      const reach = (h.rx || h.r) + 22;
+      x = h.cx + reach + wide < S.w - 70 ? h.cx + reach : h.cx - reach - wide;
+      y = h.cy - tall / 2;
+    }
+    y = clamp(y, 70, S.h - tall - 30);
     el.style.transform = `translate3d(${Math.round(clamp(x, 16, S.w - wide - 16))}px, ${Math.round(y)}px, 0)`;
   }
 
@@ -3198,7 +3206,12 @@
     if (inPanel && inPanel.scrollHeight > inPanel.clientHeight + 2) return;
     e.preventDefault();
     const now = performance.now();
-    if (now < OP.quietUntil) return;
+    // After the prologue hands over, ignore the rest of that scroll gesture (including momentum) until it pauses.
+    if (now < OP.quietUntil) {
+      OP.quietUntil = Math.max(OP.quietUntil, now + 320);
+      S.wheelAcc = 0;
+      return;
+    }
     S.wheelAcc += e.deltaY;
     if (now < S.wheelLock) return;
     if (Math.abs(S.wheelAcc) > 40) {

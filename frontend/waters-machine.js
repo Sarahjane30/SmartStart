@@ -934,25 +934,27 @@
   // One continuous particle timeline: each keyframe is a formation held over [a, b].
   // Keyframes with `dur` also run on their own clock while held, so the science plays out without scrolling.
   const KF = [
-    { s: "globe", a: -1, b: 0.085, zoom: 1.16, side: 1 },
-    { s: "tablet", a: 0.115, b: 0.165, zoom: 1.3, side: 1 },
-    { s: "drop", a: 0.19, b: 0.232, zoom: 1.3, side: 1 },
-    { s: "food", a: 0.257, b: 0.297, zoom: 1.3, side: 1 },
-    { s: "material", a: 0.322, b: 0.362, zoom: 1.22, side: 1 },
-    { s: "lineup", a: 0.388, b: 0.435, zoom: 0.95, side: 0 },
-    { s: "micro", a: 0.47, b: 0.55, zoom: 1.35, side: 0 },
-    { s: "mixture", a: 0.566, b: 0.605, zoom: 1.45, side: 0 },
-    { s: "separation", a: 0.628, b: 0.68, zoom: 1, side: 0, dur: 7 },
-    { s: "cells", a: 0.708, b: 0.76, zoom: 1.2, side: 0, dur: 9 },
-    { s: "dx", a: 0.788, b: 0.84, zoom: 1.2, side: 0, dur: 7 },
-    { s: "heat", a: 0.868, b: 0.915, zoom: 1.2, side: 0, dur: 8 },
-    { s: "quad", a: 0.935, b: 0.955, zoom: 1.05, side: 0 },
+    { s: "globe", a: -1, b: 0.085, zoom: 1.58, side: 1 },
+    { s: "tablet", a: 0.115, b: 0.165, zoom: 2.45, side: 1 },
+    { s: "drop", a: 0.19, b: 0.232, zoom: 2.45, side: 1 },
+    { s: "food", a: 0.257, b: 0.297, zoom: 2.45, side: 1 },
+    { s: "material", a: 0.322, b: 0.362, zoom: 2.2, side: 1 },
+    { s: "lineup", a: 0.388, b: 0.435, zoom: 1.58, side: 0 },
+    { s: "micro", a: 0.47, b: 0.55, zoom: 1.95, side: 0 },
+    { s: "mixture", a: 0.566, b: 0.605, zoom: 1.75, side: 0 },
+    { s: "separation", a: 0.628, b: 0.68, zoom: 1.82, side: 0, dur: 7 },
+    { s: "cells", a: 0.708, b: 0.76, zoom: 1.88, side: 0, dur: 9 },
+    { s: "dx", a: 0.788, b: 0.84, zoom: 1.88, side: 0, dur: 7 },
+    { s: "heat", a: 0.868, b: 0.915, zoom: 1.88, side: 0, dur: 8 },
+    { s: "quad", a: 0.935, b: 0.955, zoom: 1.28, side: 0 },
     { s: "core", a: 0.975, b: 2, zoom: 1, side: 0 },
   ];
   const KI = Object.fromEntries(KF.map((k, i) => [k.s, i]));
   const OBJ = ["tablet", "drop", "food", "material"];
   const OBJ_LABEL = ["A medicine tablet", "A drop of water", "A food sample", "A material surface"];
   const OBJ_MOL = [0, 2, 1, 3];
+  // Each shape has a different natural footprint; these bring all four to the same visual width in the lineup.
+  const OBJ_FIT = { tablet: 1, drop: 0.9, food: 0.78, material: 0.62 };
   const COMP = ["cyan", "violet", "mint", "blue"];
   const DIVISIONS = ["Analytical Sciences", "Biosciences", "Advanced Diagnostics", "Materials Sciences"];
 
@@ -1110,7 +1112,7 @@
   };
 
   // Liquid chromatography in miniature: components move at different speeds, broaden, and elute in turn.
-  const SEP = { X0: -2.1, XD: 1.0, Y0: 0.85, T0: -2.1, T1: 2.1, YT: -0.48, speed: [1, 0.74, 0.55, 0.42] };
+  const SEP = { X0: -2.05, XD: 1.05, Y0: 0.72, T0: -2.05, T1: 2.05, YT: -0.55, speed: [1, 0.74, 0.55, 0.42] };
   const SEP_K = 1 / (0.86 * SEP.speed[3]);
   const SEP_PEAK = SEP.speed.map((v) => {
     const t = 1 / (SEP_K * v);
@@ -1276,34 +1278,31 @@
     if (S.narrow) {
       return {
         lp: [
-          [-0.95, 0.85, 0],
-          [0.95, 0.85, 0],
-          [-0.95, -0.75, 0],
-          [0.95, -0.75, 0],
+          [-0.74, 0.78, 0],
+          [0.74, 0.78, 0],
+          [-0.74, -0.7, 0],
+          [0.74, -0.7, 0],
         ],
-        lk: 0.5,
-        ms: 0.72,
-        mix: [0, 0.1, 0],
-        mx: 0.6,
-        sx: 0.92,
-        qr: 0.85,
-        qy: 1.25,
+        lk: 0.42,
+        ms: 0.82,
+        mix: [0, 0.08, 0],
+        mx: 0.68,
+        sx: 0.98,
+        qr: 0.92,
+        qy: 1.15,
       };
     }
+    // Desktop: four objects sit as a centered band; narrower aspect ratios shrink the row so it never clips.
+    const fit = clamp(S.w / S.h / 1.7, 0.72, 1);
     return {
-      lp: [
-        [-2.1, 0.18, 0],
-        [-0.7, 0.18, 0],
-        [0.7, 0.18, 0],
-        [2.1, 0.18, 0],
-      ],
-      lk: 0.42,
-      ms: 0.62,
-      mix: [0, 0.15, 0],
-      mx: 1,
-      sx: 1,
-      qr: 1.35,
-      qy: 0.62,
+      lp: [-2.19, -0.73, 0.73, 2.19].map((x) => [x * fit, 0.34, 0]),
+      lk: 0.56 * fit,
+      ms: 0.98,
+      mix: [0, 0.08, 0],
+      mx: 1.1,
+      sx: 1.22,
+      qr: 1.48,
+      qy: 0.5,
     };
   }
 
@@ -1389,14 +1388,14 @@
     }
     if (OBJ.includes(s)) {
       const p = SHAPES[s][i];
-      const o = objPoint(s, p, s === "drop" ? 0.85 : 1, [0, 0, 0]);
+      const o = objPoint(s, p, (s === "drop" ? 0.95 : 1.18), [0, 0.08, 0]);
       const look = objLook(s, p, seed);
       return { w: o.w, col: look.col, size: 0.011, a: look.a * (0.4 + 0.6 * clamp((o.depth + 1) / 2, 0, 1)) };
     }
     if (s === "lineup") {
       const name = OBJ[g];
       const p = SHAPES[name][i];
-      const o = objPoint(name, p, L.lk * (name === "drop" ? 0.85 : 1), L.lp[g]);
+      const o = objPoint(name, p, L.lk * OBJ_FIT[name], L.lp[g]);
       const look = objLook(name, p, seed);
       return { w: o.w, col: look.col, size: 0.013, a: look.a * (0.45 + 0.55 * clamp((o.depth + 1) / 2, 0, 1)) };
     }
@@ -1527,8 +1526,8 @@
       OP.dir = -1;
       OP.st = stageAt(at);
     } else {
-      S.zoom = S.narrow ? 1.4 : 0.66;
-      S.shift = S.narrow ? 0 : S.w * 0.17;
+      S.zoom = S.narrow ? 1.55 : 0.78;
+      S.shift = S.narrow ? 0 : S.w * 0.2;
       S.cam = [0, 0, 0];
       S.hud = 0.3;
     }
@@ -1609,21 +1608,32 @@
     const core = B === KI.core ? (A === B ? 1 : ee) : 0;
     return {
       cam: [0, 0, 0],
-      zoom: lerp(z(A), z(B), ee) * lerp(0.74, 1, fly),
-      shift: S.narrow ? 0 : S.w * 0.17 * side,
-      shiftY: (S.narrow ? -S.h * 0.1 : -S.h * 0.05 * (1 - side)) * (1 - core),
+      zoom: lerp(z(A), z(B), ee) * lerp(0.78, 1, fly) * (S.narrow ? 1 : 1.06),
+      shift: S.narrow ? 0 : S.w * 0.13 * side,
+      shiftY: (S.narrow ? -S.h * 0.04 : S.h * (0.04 * side + 0.05 * (1 - side))) * (1 - core),
     };
+  }
+
+  function openLabelSize(mult = 1) {
+    return Math.round(clamp(S.unit * 0.115 * mult, S.narrow ? 12 : 14, S.narrow ? 16 : 20));
   }
 
   function canvasLabel(text, x, y, a, opts = {}) {
     if (a <= 0.01) return;
     ctx.globalCompositeOperation = "source-over";
-    ctx.font = `500 ${opts.size || 10}px 'IBM Plex Mono', monospace`;
+    const size = opts.size || openLabelSize(opts.scale || 1);
+    ctx.font = `${opts.weight || 500} ${size}px 'IBM Plex Mono', monospace`;
     ctx.textAlign = opts.align || "center";
     ctx.textBaseline = "middle";
-    if ("letterSpacing" in ctx) ctx.letterSpacing = "2.5px";
+    const track = opts.track != null ? opts.track : opts.upper === false ? "0.5px" : "2.2px";
+    if ("letterSpacing" in ctx) ctx.letterSpacing = track;
     ctx.fillStyle = rgba(opts.col || C.ice, a);
-    ctx.fillText(text.toUpperCase(), x, y);
+    const out = opts.upper === false ? text : text.toUpperCase();
+    ctx.shadowColor = "rgba(4, 8, 24, 0.92)";
+    ctx.shadowBlur = 10;
+    ctx.fillText(out, x, y);
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
     ctx.textAlign = "start";
     ctx.globalCompositeOperation = "lighter";
@@ -1669,7 +1679,7 @@
     const scanY = Math.sin(S.t * 0.45) * R * 1.1;
     const near = [];
     const hasPtr = S.px > -999 && (!coarse || S.t - OP.ptrT < 2.5);
-    const lensR = S.narrow ? 56 : 78;
+    const lensR = S.narrow ? 64 : 96;
     const lw = appear * globeW;
     const playful = B <= KI.lineup;
     ctx.globalCompositeOperation = "lighter";
@@ -1814,8 +1824,8 @@
         ctx.stroke();
       }
       const hint = lw * clamp(1 - OP.moved / 900, 0, 1) * clamp((OP.age - 1.6) / 1, 0, 1);
-      if (S.narrow) canvasLabel("Look closer", OP.lx, OP.ly + lensR + 22, 0.8 * hint);
-      else canvasLabel(hasPtr ? "Look closer" : "Look closer  ·  move me", OP.lx + lensR + 22, OP.ly, 0.8 * hint, { align: "start" });
+      const cue = openLabelSize(0.95);
+      canvasLabel(hasPtr || S.narrow ? "Look closer" : "Look closer · move me", OP.lx, OP.ly + lensR + cue + 12, 0.9 * hint, { size: cue });
     }
 
     if (live && near.length > 1) {
@@ -1840,13 +1850,13 @@
       const k = KI[name];
       const a = weightOf(k) ** 2;
       if (a > 0.01) {
-        const q = project([0, name === "drop" ? -1.35 : name === "material" ? -1.55 : -1.15, 0]);
-        canvasLabel(OBJ_LABEL[g], q.x, q.y + 18, 0.75 * a);
+        const q = project([0, name === "drop" ? -0.78 : name === "material" ? -0.88 : -0.7, 0]);
+        canvasLabel(OBJ_LABEL[g], q.x, q.y + openLabelSize(1.6), 0.92 * a, { upper: false, scale: 1.15, weight: 600 });
       }
       const la = weightOf(KI.lineup) ** 2;
       if (la > 0.01) {
-        const q = project(add(L.lp[g], [0, -L.lk * 1.45, 0]));
-        canvasLabel(OBJ_LABEL[g], q.x, q.y + 12, 0.7 * la, { size: S.narrow ? 8 : 10 });
+        const q = project(add(L.lp[g], [0, -L.lk * 1.25, 0]));
+        canvasLabel(OBJ_LABEL[g], q.x, q.y + openLabelSize(1.1), 0.85 * la, { upper: false, scale: 1.0, weight: 600 });
       }
     });
 
@@ -1882,11 +1892,12 @@
       ctx.strokeStyle = rgba(C.cyan, (0.45 + hot * 0.55) * sw);
       ctx.strokeRect(d0.x, d0.y, d1.x - d0.x, d1.y - d0.y);
       glow((d0.x + d1.x) / 2, (d0.y + d1.y) / 2, (0.25 + hot * 0.3) * d0.s, C.cyan, (0.15 + hot * 0.6) * sw);
-      const lab = S.narrow ? 8 : 10;
-      canvasLabel("Sample", top0.x, top0.y - 16, 0.6 * sw, { size: lab, align: "start" });
+      const lab = openLabelSize(1.05);
+      const gap = lab + 6;
+      canvasLabel("Sample", top0.x, top0.y - gap, 0.75 * sw, { size: lab, align: "start", weight: 600 });
       const mid = P((SEP.X0 + SEP.XD) / 2, SEP.Y0 + 0.16);
-      canvasLabel("Column", mid.x, mid.y - 16, 0.6 * sw, { size: lab });
-      canvasLabel("Detector", (d0.x + d1.x) / 2, d0.y - 16, 0.75 * sw, { size: lab, col: C.cyan });
+      canvasLabel("Column", mid.x, mid.y - gap, 0.75 * sw, { size: lab, weight: 600 });
+      canvasLabel("Detector", (d0.x + d1.x) / 2, d0.y - gap, 0.9 * sw, { size: lab, col: C.cyan, weight: 600 });
 
       const base0 = P(SEP.T0, SEP.YT);
       const base1 = P(SEP.T1, SEP.YT);
@@ -1895,8 +1906,8 @@
       ctx.moveTo(base0.x, base0.y);
       ctx.lineTo(base1.x, base1.y);
       ctx.stroke();
-      canvasLabel("Time →", base1.x, base1.y + 18, 0.55 * sw, { size: lab, align: "end" });
-      canvasLabel("Signal", base0.x, base0.y - 18, 0.55 * sw, { size: lab, align: "start" });
+      canvasLabel("Time →", base1.x, base1.y + gap, 0.7 * sw, { size: lab, align: "end" });
+      canvasLabel("Signal", base0.x, base0.y - gap, 0.7 * sw, { size: lab, align: "start" });
       const head = lerp(SEP.T0, SEP.T1, T);
       const sig = (x) => SEP_PEAK.reduce((s, pk) => s + pk.h * Math.exp(-((x - pk.x) ** 2) / (2 * pk.sig * pk.sig)), 0);
       SEP_PEAK.forEach((pk, g) => {
@@ -1935,7 +1946,7 @@
 
     let vig = "cells";
     const P2 = (x, y, part = 1) => project([...vmap(vig, part, x, y), 0]);
-    const lab = S.narrow ? 8 : 10;
+    const lab = openLabelSize(1);
     const axes = (G, a, xl, yl) => {
       const o = P2(G.X0, G.Y0);
       const xe = P2(G.X1, G.Y0);
@@ -3194,5 +3205,18 @@
     S.opts.onClose?.();
   }
 
-  window.watersMachine = { open, close };
+  function seekOpening(at) {
+    if (!opEls.box) return;
+    if (!S.open) return;
+    if (!S.opening) enterOpening(at);
+    OP.p = OP.target = clamp(at, 0, 1);
+    OP.age = 4;
+    OP.idle = -9;
+    OP.dir = 1;
+    OP.hold = 0;
+    OP.st = stageAt(OP.p);
+    OP.clk = KF.map((K) => (K.dur ? K.dur * 0.55 : 0));
+  }
+  window.watersMachine = { open, close, seekOpening };
+
 })();

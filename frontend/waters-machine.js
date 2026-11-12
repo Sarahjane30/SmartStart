@@ -953,6 +953,8 @@
   const OBJ = ["tablet", "drop", "food", "material"];
   const OBJ_LABEL = ["A medicine tablet", "A drop of water", "A food sample", "A material surface"];
   const OBJ_MOL = [0, 2, 1, 3];
+  // Each shape has a different natural footprint; these bring all four to the same visual width in the lineup.
+  const OBJ_FIT = { tablet: 1, drop: 0.9, food: 0.78, material: 0.62 };
   const COMP = ["cyan", "violet", "mint", "blue"];
   const DIVISIONS = ["Analytical Sciences", "Biosciences", "Advanced Diagnostics", "Materials Sciences"];
 
@@ -1276,12 +1278,12 @@
     if (S.narrow) {
       return {
         lp: [
-          [-0.88, 0.78, 0],
-          [0.88, 0.78, 0],
-          [-0.88, -0.7, 0],
-          [0.88, -0.7, 0],
+          [-0.74, 0.78, 0],
+          [0.74, 0.78, 0],
+          [-0.74, -0.7, 0],
+          [0.74, -0.7, 0],
         ],
-        lk: 0.62,
+        lk: 0.42,
         ms: 0.82,
         mix: [0, 0.08, 0],
         mx: 0.68,
@@ -1290,15 +1292,11 @@
         qy: 1.15,
       };
     }
-    // Desktop: four objects sit as a centered band; science diagrams use more of the frame.
+    // Desktop: four objects sit as a centered band; narrower aspect ratios shrink the row so it never clips.
+    const fit = clamp(S.w / S.h / 1.7, 0.72, 1);
     return {
-      lp: [
-        [-1.78, 0.52, 0],
-        [-0.6, 0.52, 0],
-        [0.6, 0.52, 0],
-        [1.78, 0.52, 0],
-      ],
-      lk: 0.82,
+      lp: [-2.19, -0.73, 0.73, 2.19].map((x) => [x * fit, 0.34, 0]),
+      lk: 0.56 * fit,
       ms: 0.98,
       mix: [0, 0.08, 0],
       mx: 1.1,
@@ -1397,7 +1395,7 @@
     if (s === "lineup") {
       const name = OBJ[g];
       const p = SHAPES[name][i];
-      const o = objPoint(name, p, L.lk * (name === "drop" ? 0.85 : 1), L.lp[g]);
+      const o = objPoint(name, p, L.lk * OBJ_FIT[name], L.lp[g]);
       const look = objLook(name, p, seed);
       return { w: o.w, col: look.col, size: 0.013, a: look.a * (0.45 + 0.55 * clamp((o.depth + 1) / 2, 0, 1)) };
     }
@@ -1857,7 +1855,7 @@
       }
       const la = weightOf(KI.lineup) ** 2;
       if (la > 0.01) {
-        const q = project(add(L.lp[g], [0, -L.lk * 1.35, 0]));
+        const q = project(add(L.lp[g], [0, -L.lk * 1.25, 0]));
         canvasLabel(OBJ_LABEL[g], q.x, q.y + openLabelSize(1.1), 0.85 * la, { upper: false, scale: 1.0, weight: 600 });
       }
     });

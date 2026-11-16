@@ -4317,6 +4317,17 @@ body.wm-lock { overflow: hidden; }
   max-width: 64vw; transform: translate3d(0, calc(var(--x) * -6vh), 0);
 }
 .wm-open-line.is-top .wm-open-kick { margin-bottom: 1rem; }
+.wm-open-kick.is-div { overflow: visible; margin-bottom: 1.2rem; }
+.wm-open-div {
+  display: inline-block; padding: 0.38rem 0.95rem 0.42rem; border-radius: 999px;
+  font-family: Inter, system-ui, sans-serif; font-size: clamp(1.15rem, 1.65vw, 1.6rem); font-weight: 700; line-height: 1;
+  letter-spacing: 0.02em; text-transform: none; color: #fff;
+  border: 1px solid rgba(120, 210, 255, 0.6);
+  background: linear-gradient(100deg, rgba(96, 214, 255, 0.26), rgba(111, 141, 255, 0.2) 55%, rgba(170, 128, 255, 0.24));
+  box-shadow: 0 0 26px rgba(96, 214, 255, 0.28), inset 0 0 14px rgba(96, 214, 255, 0.12);
+}
+.wm-open-div { opacity: clamp(0, calc(var(--r, 1) * 2.5), 1); }
+.wm.is-brand .wm-open-div { color: var(--wm-brand-deep); border-color: var(--wm-brand); background: rgba(0, 120, 200, 0.1); box-shadow: none; }
 .wm-open-line.is-centre, .wm-open-line.is-reveal {
   left: 50%; text-align: center; max-width: 86vw; letter-spacing: -0.05em; font-weight: 650;
   transform: translate3d(-50%, calc(-50% - var(--x) * 8vh), 0);

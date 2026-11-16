@@ -107,24 +107,25 @@
       sec.innerHTML = `
         <nav class="wm-uni-crumb" aria-label="Technology areas">
           <button type="button" class="wm-uni-back">← All four areas</button>
-          <span>${esc(U.index)} ${esc(U.chapter)} <i>/</i> ${esc(a.division)}</span>
+          ${a.steps ? `<button type="button" class="wm-uni-read is-quiet">Text version</button>` : ""}
         </nav>
         <div class="wm-uni-copy">
-          <p class="wm-uni-kick">${pad(i + 1)} · ${esc(a.subtitle)}</p>
           <h2 tabindex="-1">${esc(a.division)}</h2>
           <p class="wm-uni-tag">${esc(a.tagline)}</p>
-          <p>${esc(d.simple || a.teaser)}</p>
+          ${a.steps ? "" : `<p>${esc(d.simple || a.teaser)}</p>`}
           ${
             a.steps
-              ? `<p class="wm-uni-label">Explore the process</p>
+              ? `${
+                  a.film
+                    ? `<button type="button" class="wm-uni-film" title="${esc(a.film.what)}"><i aria-hidden="true"></i><strong>${esc(a.film.label)}</strong></button>`
+                    : ""
+                }
                  <div class="wm-uni-steps" role="tablist" aria-label="${esc(a.division)} steps">${a.steps
                    .map(
                      (s, n) => `<button type="button" role="tab" class="wm-uni-stepbtn" data-s="${n}"><span>${n + 1}</span>${esc(s.title)}</button>`
                    )
                    .join("")}</div>
-                 <div class="wm-uni-step" role="tabpanel" aria-live="polite"></div>
-                 ${a.note ? `<p class="wm-uni-note">${esc(a.note)}</p>` : ""}
-                 <button type="button" class="wm-uni-read is-quiet">Read about ${esc(a.division)} as text</button>`
+                 <div class="wm-uni-step" role="tabpanel" aria-live="polite"></div>`
               : live
               ? `<p class="wm-uni-label">Choose a journey</p><div class="wm-uni-journeys">${a.journeys
                   .map(
@@ -144,6 +145,7 @@
         })
       );
       sec.querySelector(".wm-uni-read")?.addEventListener("click", () => kit.onText());
+      sec.querySelector(".wm-uni-film")?.addEventListener("click", () => kit.onJourney(a.film.track, a.film.kind));
       sec.querySelector(".wm-uni-back").addEventListener("click", () => closeArea());
       sec.querySelectorAll("[data-s]").forEach((b) => b.addEventListener("click", () => setStep(Number(b.dataset.s))));
       if (a.steps) setStep(U.step[i] || 0);
@@ -184,8 +186,10 @@
       if (!el) return;
       el.innerHTML = `<h3>${esc(s.heading)}</h3><p>${esc(s.text)}</p>
         ${m ? m.controls(n) : ""}
-        <p class="wm-uni-try"><i aria-hidden="true"></i>${esc(s.try)}</p>
-        ${n < a.steps.length - 1 ? `<button type="button" class="wm-uni-nextstep">Next: ${esc(a.steps[n + 1].title)} →</button>` : `<button type="button" class="wm-uni-nextstep" data-restart>Start again ↺</button>`}`;
+        <div class="wm-uni-steprow">
+          <p class="wm-uni-try"><i aria-hidden="true"></i>${esc(s.try)}</p>
+          ${n < a.steps.length - 1 ? `<button type="button" class="wm-uni-nextstep">Next →</button>` : `<button type="button" class="wm-uni-nextstep" data-restart>Again ↺</button>`}
+        </div>`;
       m?.wire(el, renderStep);
       el.querySelector(".wm-uni-nextstep").addEventListener("click", (e) => setStep(e.currentTarget.dataset.restart != null ? 0 : n + 1));
     }
@@ -549,7 +553,6 @@
         label("Sensor signal", cx, cy - ch - 10, 0.6 * a * e);
         label(`${Math.floor(h)} h →`, cx + cw, cy + 12, 0.5 * a * e, { align: "right" });
         label("Threshold", cx + cw, cy - SIM.culture.threshold * ch - 8, 0.45 * a * e, { align: "right", col: C.violet });
-        if (u > 110) label("Negative control", cx + 4, cy - 0.04 * ch - 8, 0.35 * a * e);
         if (positive) label("Flagged positive", cx, cy - ch - 26, sm((h - SIM.culture.flagHours()) / 1.5) * a * e, { col, size: 10 });
         label("Sensor", x + B.w + 8, sy, 0.55 * a * e);
       }
@@ -635,12 +638,12 @@
     /* The environment around an opened area: drifting particles shaped like that science. */
     function ambient(A, r, a) {
       const col = C[A.accent];
-      for (let m = 0; m < 70; m += 1) {
+      for (let m = 0; m < 24; m += 1) {
         const sp = 0.004 + hash(m, 7.1) * 0.012;
         const px = r.x + ((hash(m, 12.9) + U.t * sp) % 1) * r.w;
         const py = r.y + hash(m, 78.2) * r.h + Math.sin(U.t * 0.4 + m) * 12;
         const s = 1 + hash(m, 3.7) * 2.4;
-        const al = (0.12 + hash(m, 5.3) * 0.25) * a;
+        const al = (0.06 + hash(m, 5.3) * 0.12) * a;
         if (A.visual === "flow") {
           ctx.strokeStyle = rgba(col, al);
           ctx.lineWidth = 1;
@@ -673,12 +676,20 @@
       ctx.clip();
       ctx.globalCompositeOperation = "source-over";
       if (ex > 0.01) {
-        ctx.fillStyle = S.brand ? `rgba(235,245,252,${0.75 * ex * a})` : `rgba(3,5,14,${0.72 * ex * a})`;
+        if (S.brand) ctx.fillStyle = `rgba(235,245,252,${0.75 * ex * a})`;
+        else {
+          const bg = ctx.createLinearGradient(r.x, r.y, r.x + r.w * 0.4, r.y + r.h);
+          bg.addColorStop(0, `rgba(10,30,78,${0.94 * ex * a})`);
+          bg.addColorStop(0.55, `rgba(6,20,56,${0.94 * ex * a})`);
+          bg.addColorStop(1, `rgba(3,11,34,${0.94 * ex * a})`);
+          ctx.fillStyle = bg;
+        }
         ctx.fillRect(r.x, r.y, r.w, r.h);
       }
+      const wash = ex > 0.5 && !S.brand ? [70, 150, 255] : C[A.accent];
       const g = ctx.createRadialGradient(P.x, P.y, 0, P.x, P.y, Math.max(r.w, r.h) * 0.7);
-      g.addColorStop(0, rgba(C[A.accent], 0.16 * a));
-      g.addColorStop(1, rgba(C[A.accent], 0));
+      g.addColorStop(0, rgba(wash, 0.16 * a));
+      g.addColorStop(1, rgba(wash, 0));
       ctx.fillStyle = g;
       ctx.fillRect(r.x, r.y, r.w, r.h);
       ctx.globalCompositeOperation = "lighter";

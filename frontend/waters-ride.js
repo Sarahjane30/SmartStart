@@ -1851,7 +1851,8 @@
       rail.appendChild(b);
     }
     ui.ticks = [...rail.querySelectorAll("b")];
-    root.querySelector(".wr-corner").innerHTML = `WATERS <span>/</span> ${tr.kind === "ms" ? "MASS SPECTROMETRY" : "LIQUID CHROMATOGRAPHY"}`;
+    root.querySelector(".wr-corner").innerHTML = `WATERS <span>/</span> ${tr.title || (tr.kind === "ms" ? "MASS SPECTROMETRY" : "LIQUID CHROMATOGRAPHY")}`;
+    ui.mode.hidden = !MIRROR[S.track];
   }
 
   function switchTrack(name, at) {

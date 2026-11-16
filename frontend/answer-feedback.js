@@ -17,40 +17,40 @@
 
   function html(id) {
     const s = S[id];
-    if (s.busy) return `<span class="fb-note">Sending…</span>`;
+    if (s.busy) return `<span class="af-note">Sending…</span>`;
     if (s.done)
-      return `<span class="fb-done">${e(s.message)}</span>
-        <button type="button" class="fb-link" data-fb-act="change">Change</button>`;
+      return `<span class="af-done">${e(s.message)}</span>
+        <button type="button" class="af-link" data-fb-act="change">Change</button>`;
     if (!s.grounded)
-      return `<span class="fb-q">Should this be answerable?</span>
-        <button type="button" class="fb-btn" data-fb-act="missing">Yes — ask the owners to add it</button>`;
+      return `<span class="af-q">Should this be answerable?</span>
+        <button type="button" class="af-btn" data-fb-act="missing">Yes — ask the owners to add it</button>`;
     if (s.open)
-      return `<div class="fb-form">
-          <span class="fb-q">What was wrong?</span>
-          <div class="fb-reasons" role="radiogroup">${DOWN.map(
+      return `<div class="af-form">
+          <span class="af-q">What was wrong?</span>
+          <div class="af-reasons" role="radiogroup">${DOWN.map(
             ([k, label]) =>
-              `<button type="button" role="radio" aria-checked="${s.reason === k}" class="fb-chip ${s.reason === k ? "on" : ""}" data-fb-act="reason" data-fb-reason="${k}">${label}</button>`
+              `<button type="button" role="radio" aria-checked="${s.reason === k}" class="af-chip ${s.reason === k ? "on" : ""}" data-fb-act="reason" data-fb-reason="${k}">${label}</button>`
           ).join("")}</div>
-          <input class="fb-comment" maxlength="300" placeholder="Optional: what should it say? (sent to the source owner)" value="${e(s.comment || "")}" aria-label="Comment for the source owner" />
-          <div class="fb-form-acts">
-            <button type="button" class="fb-btn primary" data-fb-act="send">Send to owner</button>
-            <button type="button" class="fb-link" data-fb-act="cancel">Cancel</button>
+          <input class="af-comment" maxlength="300" placeholder="Optional: what should it say? (sent to the source owner)" value="${e(s.comment || "")}" aria-label="Comment for the source owner" />
+          <div class="af-form-acts">
+            <button type="button" class="af-btn primary" data-fb-act="send">Send to owner</button>
+            <button type="button" class="af-link" data-fb-act="cancel">Cancel</button>
           </div>
         </div>`;
-    return `<span class="fb-q">Was this helpful?</span>
-      <button type="button" class="fb-thumb" data-fb-act="up" aria-label="Helpful" title="Helpful">${UP}</button>
-      <button type="button" class="fb-thumb" data-fb-act="down" aria-label="Not helpful" title="Not helpful">${DOWN_ICON}</button>`;
+    return `<span class="af-q">Was this helpful?</span>
+      <button type="button" class="af-thumb" data-fb-act="up" aria-label="Helpful" title="Helpful">${UP}</button>
+      <button type="button" class="af-thumb" data-fb-act="down" aria-label="Not helpful" title="Not helpful">${DOWN_ICON}</button>`;
   }
 
   window.ssFeedbackHtml = (g) => {
     if (!g || !g.answer_id) return "";
     S[g.answer_id] = S[g.answer_id] || { grounded: !!g.grounded, reason: "not_helpful" };
-    return `<div class="fb" data-fb="${e(g.answer_id)}">${html(g.answer_id)}</div>`;
+    return `<div class="af" data-fb="${e(g.answer_id)}">${html(g.answer_id)}</div>`;
   };
 
   function repaint(box) {
     box.innerHTML = html(box.dataset.fb);
-    box.querySelector(".fb-comment")?.focus();
+    box.querySelector(".af-comment")?.focus();
   }
 
   async function send(box, body) {
@@ -85,19 +85,19 @@
     if (act === "missing") return send(box, { vote: "down", reason: "missing" });
     if (act === "down") s.open = true;
     else if (act === "reason") {
-      s.comment = box.querySelector(".fb-comment")?.value || s.comment;
+      s.comment = box.querySelector(".af-comment")?.value || s.comment;
       s.reason = btn.dataset.fbReason;
     } else if (act === "cancel") s.open = false;
     else if (act === "change") s.done = false;
     else if (act === "send") {
-      s.comment = box.querySelector(".fb-comment")?.value || "";
+      s.comment = box.querySelector(".af-comment")?.value || "";
       return send(box, { vote: "down", reason: s.reason, comment: s.comment });
     }
     repaint(box);
   });
 
   document.addEventListener("keydown", (ev) => {
-    if (ev.key !== "Enter" || !ev.target.matches?.(".fb-comment")) return;
+    if (ev.key !== "Enter" || !ev.target.matches?.(".af-comment")) return;
     ev.preventDefault();
     ev.target.closest("[data-fb]")?.querySelector('[data-fb-act="send"]')?.click();
   });

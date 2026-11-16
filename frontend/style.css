@@ -5336,35 +5336,35 @@ sup.gr-ref:hover { background: var(--blue-600); color: #fff; }
 }
 
 /* ---------- answer feedback (NIA + IRA) ---------- */
-.fb {
+.af {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.6rem; padding-top: 0.5rem;
   border-top: 1px dashed var(--line); font-size: 0.74rem; color: var(--muted);
 }
-.fb-q { font-weight: 600; }
-.fb-thumb {
+.af-q { font-weight: 600; }
+.af-thumb {
   display: inline-grid; place-items: center; width: 28px; height: 26px; border-radius: 8px;
   border: 1px solid var(--line); background: #fff; color: var(--muted); cursor: pointer;
 }
-.fb-thumb:hover { color: var(--blue-600); border-color: var(--blue-100); background: var(--blue-50); }
-.fb-btn {
+.af-thumb:hover { color: var(--blue-600); border-color: var(--blue-100); background: var(--blue-50); }
+.af-btn {
   font: inherit; font-size: 0.72rem; font-weight: 650; padding: 0.28rem 0.6rem; border-radius: 8px;
   border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
 }
-.fb-btn.primary { background: var(--blue-500); border-color: var(--blue-500); color: #fff; }
-.fb-link { font: inherit; font-size: 0.72rem; border: 0; background: none; color: var(--blue-500); cursor: pointer; text-decoration: underline; padding: 0; }
-.fb-done { color: #047857; font-weight: 600; }
-.fb-form { display: grid; gap: 0.4rem; width: 100%; }
-.fb-reasons { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-.fb-chip {
+.af-btn.primary { background: var(--blue-500); border-color: var(--blue-500); color: #fff; }
+.af-link { font: inherit; font-size: 0.72rem; border: 0; background: none; color: var(--blue-500); cursor: pointer; text-decoration: underline; padding: 0; }
+.af-done { color: #047857; font-weight: 600; }
+.af-form { display: grid; gap: 0.4rem; width: 100%; }
+.af-reasons { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.af-chip {
   font: inherit; font-size: 0.72rem; padding: 0.22rem 0.6rem; border-radius: 999px;
   border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
 }
-.fb-chip.on { background: #ffe4e8; border-color: #fecdd3; color: #be123c; font-weight: 650; }
-.fb-comment {
+.af-chip.on { background: #ffe4e8; border-color: #fecdd3; color: #be123c; font-weight: 650; }
+.af-comment {
   font: inherit; font-size: 0.78rem; padding: 0.4rem 0.6rem; border-radius: 8px;
   border: 1px solid var(--line); background: #fff; color: var(--ink);
 }
-.fb-form-acts { display: flex; gap: 0.6rem; align-items: center; }
+.af-form-acts { display: flex; gap: 0.6rem; align-items: center; }
 
 /* ---------- knowledge: questions & flags ---------- */
 .kb-tabs { display: flex; gap: 0.3rem; margin: 0 0 1rem; border-bottom: 1px solid var(--line); }

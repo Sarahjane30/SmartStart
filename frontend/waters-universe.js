@@ -107,24 +107,26 @@
       sec.innerHTML = `
         <nav class="wm-uni-crumb" aria-label="Technology areas">
           <button type="button" class="wm-uni-back">← All four areas</button>
-          <span>${esc(U.index)} ${esc(U.chapter)} <i>/</i> ${esc(a.division)}</span>
+          ${a.steps ? `<button type="button" class="wm-uni-read is-quiet">Text version</button>` : `<span>${esc(U.index)} ${esc(U.chapter)} <i>/</i> ${esc(a.division)}</span>`}
         </nav>
         <div class="wm-uni-copy">
-          <p class="wm-uni-kick">${pad(i + 1)} · ${esc(a.subtitle)}</p>
+          <p class="wm-uni-kick">${pad(i + 1)} / ${pad(U.n)}</p>
           <h2 tabindex="-1">${esc(a.division)}</h2>
           <p class="wm-uni-tag">${esc(a.tagline)}</p>
-          <p>${esc(d.simple || a.teaser)}</p>
+          ${a.steps ? "" : `<p>${esc(d.simple || a.teaser)}</p>`}
           ${
             a.steps
-              ? `<p class="wm-uni-label">Explore the process</p>
+              ? `${
+                  a.film
+                    ? `<button type="button" class="wm-uni-film"><i aria-hidden="true"></i><span><strong>${esc(a.film.label)}</strong><em>${esc(a.film.what)}</em></span></button>`
+                    : ""
+                }
                  <div class="wm-uni-steps" role="tablist" aria-label="${esc(a.division)} steps">${a.steps
                    .map(
                      (s, n) => `<button type="button" role="tab" class="wm-uni-stepbtn" data-s="${n}"><span>${n + 1}</span>${esc(s.title)}</button>`
                    )
                    .join("")}</div>
-                 <div class="wm-uni-step" role="tabpanel" aria-live="polite"></div>
-                 ${a.note ? `<p class="wm-uni-note">${esc(a.note)}</p>` : ""}
-                 <button type="button" class="wm-uni-read is-quiet">Read about ${esc(a.division)} as text</button>`
+                 <div class="wm-uni-step" role="tabpanel" aria-live="polite"></div>`
               : live
               ? `<p class="wm-uni-label">Choose a journey</p><div class="wm-uni-journeys">${a.journeys
                   .map(
@@ -144,6 +146,7 @@
         })
       );
       sec.querySelector(".wm-uni-read")?.addEventListener("click", () => kit.onText());
+      sec.querySelector(".wm-uni-film")?.addEventListener("click", () => kit.onJourney(a.film.track, a.film.kind));
       sec.querySelector(".wm-uni-back").addEventListener("click", () => closeArea());
       sec.querySelectorAll("[data-s]").forEach((b) => b.addEventListener("click", () => setStep(Number(b.dataset.s))));
       if (a.steps) setStep(U.step[i] || 0);
@@ -184,8 +187,10 @@
       if (!el) return;
       el.innerHTML = `<h3>${esc(s.heading)}</h3><p>${esc(s.text)}</p>
         ${m ? m.controls(n) : ""}
-        <p class="wm-uni-try"><i aria-hidden="true"></i>${esc(s.try)}</p>
-        ${n < a.steps.length - 1 ? `<button type="button" class="wm-uni-nextstep">Next: ${esc(a.steps[n + 1].title)} →</button>` : `<button type="button" class="wm-uni-nextstep" data-restart>Start again ↺</button>`}`;
+        <div class="wm-uni-steprow">
+          <p class="wm-uni-try"><i aria-hidden="true"></i>${esc(s.try)}</p>
+          ${n < a.steps.length - 1 ? `<button type="button" class="wm-uni-nextstep">Next →</button>` : `<button type="button" class="wm-uni-nextstep" data-restart>Again ↺</button>`}
+        </div>`;
       m?.wire(el, renderStep);
       el.querySelector(".wm-uni-nextstep").addEventListener("click", (e) => setStep(e.currentTarget.dataset.restart != null ? 0 : n + 1));
     }

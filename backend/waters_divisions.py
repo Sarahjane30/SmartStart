@@ -298,6 +298,7 @@ UNIVERSE = {
             "question": "Which cells are in this sample, and what are they doing?",
             "teaser": "Cells pass a laser one at a time; the light they give off reveals what they are.",
             "experience": "available",
+            "film": {"track": "ride", "kind": "bio", "label": "Watch it in 3D", "what": "Follow a sample through a flow cytometer, from tagging to the dot plot."},
             "steps": [
                 {
                     "id": "label",
@@ -332,6 +333,7 @@ UNIVERSE = {
             "question": "Is this patient infected, with what, and what will treat it?",
             "teaser": "Microbes growing in a blood culture slowly light the sensor until the bottle flags positive.",
             "experience": "available",
+            "film": {"track": "ride", "kind": "dx", "label": "Watch it in 3D", "what": "Follow a patient sample from the culture bottle to the right antibiotic."},
             "steps": [
                 {
                     "id": "culture",
@@ -367,6 +369,7 @@ UNIVERSE = {
             "question": "How will this material behave when it's heated, stretched or made to flow?",
             "teaser": "Heat a crystal: it vibrates harder, then loses its order at the melting point.",
             "experience": "available",
+            "film": {"track": "ride", "kind": "mat", "label": "Watch it in 3D", "what": "Heat a sample until it melts, twist it, then weigh it as it heats."},
             "steps": [
                 {
                     "id": "heat",

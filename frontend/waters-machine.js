@@ -644,7 +644,7 @@
     cancelAnimationFrame(S.raf);
     root.classList.add("is-ride");
     window.WatersRide.open({
-      track: `${trackName}-${kind === "ms" ? "ms" : "lc"}`,
+      track: `${trackName}-${["ms", "bio", "dx", "mat"].includes(kind) ? kind : "lc"}`,
       onClose: () => {
         if (!S.ride) return;
         S.ride = false;

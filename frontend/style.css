@@ -3538,6 +3538,10 @@ body.wm-lock { overflow: hidden; }
   background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
 }
 .wm button { font: inherit; }
+.wm-bg {
+  position: absolute; left: 0; top: 0; width: 100vmax; height: 100vmax; pointer-events: none; will-change: transform;
+  background: radial-gradient(closest-side, #0d1a42 0%, #060c22 45%, #02040b 100%);
+}
 .wm .wm-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: none; border: 0; border-radius: 0; }
 .wm-grain {
   position: absolute; inset: -50%; pointer-events: none; z-index: 2; opacity: 0.085; mix-blend-mode: overlay;
@@ -4264,7 +4268,7 @@ body.wm-lock { overflow: hidden; }
 }
 .wm-open-scroll::-webkit-scrollbar { display: none; }
 .wm.is-opening.is-dragging .wm-open-scroll { cursor: grabbing; }
-.wm-open-track { height: 2600vh; }
+.wm-open-track { height: 1000vh; }
 
 .wm-open-line {
   --k: 0; --r: 0; --x: 0;
@@ -4272,7 +4276,6 @@ body.wm-lock { overflow: hidden; }
   font-family: Inter, system-ui, sans-serif; font-size: var(--f-side); line-height: 0.98; font-weight: 600;
   letter-spacing: -0.045em; color: #eef3ff; visibility: hidden; opacity: var(--k);
   transform: translate3d(0, calc(-50% - var(--x) * 9vh), 0);
-  text-shadow: 0 0 48px rgba(6, 12, 34, 0.9);
   font-kerning: normal; font-feature-settings: "ss01", "cv11";
 }
 .wm-open-line .ln { display: block; overflow: hidden; padding: 0 0.12em 0.1em 0; margin-bottom: -0.1em; white-space: nowrap; }

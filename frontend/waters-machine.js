@@ -76,6 +76,12 @@
 
   const $ = (sel) => root.querySelector(sel);
   const canvas = $(".wm-canvas");
+  const bgEl = canvas ? document.createElement("div") : null;
+  if (bgEl) {
+    bgEl.className = "wm-bg";
+    bgEl.setAttribute("aria-hidden", "true");
+    canvas.before(bgEl);
+  }
   const ctx = canvas.getContext("2d");
   const els = {
     labels: $(".wm-labels"),
@@ -261,16 +267,46 @@
     ctx.stroke(front);
   }
 
+  // Dots and glows are stamped from small pre-rendered sprites, one per colour. Hundreds are drawn every frame,
+  // and building a path or a gradient for each one was the main cost on laptops.
+  const SPRITES = new Map();
+  function sprite(kind, c) {
+    const q = (v) => Math.min(255, Math.round(v / 6) * 6);
+    const key = `${kind}${q(c[0])},${q(c[1])},${q(c[2])}`;
+    let sp = SPRITES.get(key);
+    if (sp) return sp;
+    const n = kind === "g" ? 64 : 32;
+    sp = document.createElement("canvas");
+    sp.width = sp.height = n;
+    const g = sp.getContext("2d");
+    const col = [q(c[0]), q(c[1]), q(c[2])];
+    if (kind === "g") {
+      const gr = g.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
+      gr.addColorStop(0, rgba(col, 1));
+      gr.addColorStop(0.35, rgba(col, 0.32));
+      gr.addColorStop(1, rgba(col, 0));
+      g.fillStyle = gr;
+      g.fillRect(0, 0, n, n);
+    } else {
+      g.fillStyle = rgba(col, 1);
+      g.beginPath();
+      g.arc(n / 2, n / 2, n / 2 - 0.5, 0, TAU);
+      g.fill();
+    }
+    SPRITES.set(key, sp);
+    return sp;
+  }
+
   function glow(x, y, r, color, a) {
     if (a <= 0.01 || r <= 0.5) return;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, rgba(color, a));
-    g.addColorStop(0.35, rgba(color, a * 0.32));
-    g.addColorStop(1, rgba(color, 0));
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, TAU);
-    ctx.fill();
+    const sp = sprite("g", color);
+    ctx.globalAlpha = Math.min(1, a);
+    ctx.drawImage(sp, x - r, y - r, r * 2, r * 2);
+    if (a > 1) {
+      ctx.globalAlpha = Math.min(1, a - 1);
+      ctx.drawImage(sp, x - r, y - r, r * 2, r * 2);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function dot(x, y, r, color, a) {
@@ -318,13 +354,20 @@
       ctx.fillStyle = veil;
       ctx.fillRect(0, 0, S.w, S.h);
     } else {
-      const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.75);
-      bg.addColorStop(0, "#0d1a42");
-      bg.addColorStop(0.45, "#060c22");
-      bg.addColorStop(1, "#02040b");
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, S.w, S.h);
+      // The vignette lives on a compositor layer behind the canvas: refilling a full-screen gradient every frame
+      // was the single most expensive thing the scene drew.
+      ctx.clearRect(0, 0, S.w, S.h);
+      const size = Math.round(R * 1.5);
+      const tx = Math.round(cx - size / 2);
+      const ty = Math.round(cy - size / 2);
+      const key = `${size}|${tx}|${ty}`;
+      if (bgEl && bgEl.dataset.k !== key) {
+        bgEl.dataset.k = key;
+        bgEl.style.width = bgEl.style.height = `${size}px`;
+        bgEl.style.transform = `translate3d(${tx}px,${ty}px,0)`;
+      }
     }
+    if (bgEl) bgEl.hidden = !!(S.brand && !S.opening);
 
     const m = Math.min(S.w, S.h);
     const ox = cx + S.smx * -14;
@@ -340,15 +383,18 @@
     ctx.setLineDash([]);
     const tickR = m * 0.4;
     const rot = S.t * 0.02;
-    for (let i = 0; i < 144; i += 1) {
-      const a = rot + (i / 144) * TAU;
-      const len = i % 12 === 0 ? 12 : i % 3 === 0 ? 6 : 3;
-      ctx.strokeStyle = rgba(C.ice, (i % 12 === 0 ? 0.12 : 0.05) * hud);
+    [true, false].forEach((major) => {
+      ctx.strokeStyle = rgba(C.ice, (major ? 0.12 : 0.05) * hud);
       ctx.beginPath();
-      ctx.moveTo(ox + Math.cos(a) * tickR, oy + Math.sin(a) * tickR);
-      ctx.lineTo(ox + Math.cos(a) * (tickR + len), oy + Math.sin(a) * (tickR + len));
+      for (let i = 0; i < 144; i += 1) {
+        if ((i % 12 === 0) !== major) continue;
+        const a = rot + (i / 144) * TAU;
+        const len = major ? 12 : i % 3 === 0 ? 6 : 3;
+        ctx.moveTo(ox + Math.cos(a) * tickR, oy + Math.sin(a) * tickR);
+        ctx.lineTo(ox + Math.cos(a) * (tickR + len), oy + Math.sin(a) * (tickR + len));
+      }
       ctx.stroke();
-    }
+    });
     ctx.strokeStyle = rgba(C.ice, 0.035 * hud);
     ctx.setLineDash([4, 10]);
     ctx.beginPath();
@@ -1149,6 +1195,7 @@
 
   const coarse = window.matchMedia("(hover: none)").matches;
   const OP = {
+    v: 0,
     ptrT: -9,
     lx: 0,
     ly: 0,
@@ -1407,6 +1454,7 @@
 
   function startOpening(at = 0) {
     S.opening = true;
+    resize();
     Object.assign(OP, { dir: 1, p: 0, target: 0, age: 0, idle: 0, hold: 0, after: 0, sep: 0, touching: false, shock: false });
     OP.st = stageAt(0);
     applyPalette(false);
@@ -1422,6 +1470,7 @@
     OP.hover = OP.pin = null;
     OP.hits = [];
     OP.landed = false;
+    OP.v = 0;
     if (at > 0) {
       OP.p = OP.target = at;
       OP.age = 4;
@@ -1455,6 +1504,7 @@
   function endOpening(land = false) {
     if (!S.opening) return;
     S.opening = false;
+    resize();
     OP.after = OP.st.B === KI.core ? 1 : 0.4;
     root.classList.remove("is-opening");
     setBrandTheme(S.brand, { persist: false });
@@ -1491,8 +1541,23 @@
     OP.ripples.forEach((r) => (r.t += dt));
     OP.ripples = OP.ripples.filter((r) => r.t < 1.8);
     OP.target = readScrollProgress();
-    OP.p = lerp(OP.p, OP.target, Math.min(1, dt * (reduce ? 14 : 5.5)));
-    if (Math.abs(OP.p - OP.target) < 1e-4) OP.p = OP.target;
+    if (reduce) {
+      OP.p = lerp(OP.p, OP.target, Math.min(1, dt * 14));
+      OP.v = 0;
+    } else {
+      // A critically damped spring instead of a plain lerp: each wheel notch eases in as well as out,
+      // so the scene glides rather than lurching at the start of every scroll step.
+      const w = 7.5;
+      const h = Math.min(dt, 1 / 30);
+      for (let i = 0; i < 2; i += 1) {
+        OP.v += (w * w * (OP.target - OP.p) - 2 * w * OP.v) * (h / 2);
+        OP.p += OP.v * (h / 2);
+      }
+    }
+    if (Math.abs(OP.p - OP.target) < 1e-4 && Math.abs(OP.v) < 1e-3) {
+      OP.p = OP.target;
+      OP.v = 0;
+    }
     OP.st = stageAt(OP.p);
     OP.sep = sm((OP.p - 0.64) / 0.04);
     if (OP.pin && !hitById(OP.pin)) OP.pin = null;
@@ -1556,11 +1621,7 @@
     if ("letterSpacing" in ctx) ctx.letterSpacing = track;
     ctx.fillStyle = rgba(opts.col || C.ice, a);
     const out = opts.upper === false || opts.sans ? text : text.toUpperCase();
-    ctx.shadowColor = "rgba(4, 8, 24, 0.92)";
-    ctx.shadowBlur = 10;
     ctx.fillText(out, x, y);
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = "transparent";
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
     ctx.textAlign = "start";
     ctx.globalCompositeOperation = "lighter";
@@ -1731,13 +1792,13 @@
     }
     ctx.restore();
     pathOf(H.pts);
-    ctx.strokeStyle = rgba(name === "material" ? C.violet : C.cyan, 0.55 * a);
-    ctx.lineWidth = 1.5;
-    ctx.shadowColor = rgba(C.cyan, 0.6 * a);
-    ctx.shadowBlur = 14;
+    const rim = name === "material" ? C.violet : C.cyan;
+    ctx.strokeStyle = rgba(rim, 0.12 * a);
+    ctx.lineWidth = 7;
     ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = "transparent";
+    ctx.strokeStyle = rgba(rim, 0.55 * a);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
     ctx.restore();
     ctx.globalCompositeOperation = "lighter";
   }
@@ -2425,7 +2486,7 @@
       fx.open = lerp(fx.open, fx.topen ?? 0, Math.min(1, dt * 2.4));
     });
     const ct = cameraTargets();
-    const kc = Math.min(1, dt * (S.opening ? 6 : 2.2));
+    const kc = Math.min(1, dt * (S.opening ? 8 : 2.2));
     S.cam = mix(S.cam, ct.cam, kc);
     S.zoom = lerp(S.zoom, ct.zoom * (1 + Math.sin(S.t * 0.7) * 0.01), kc);
     S.shift = lerp(S.shift, ct.shift, kc);
@@ -3265,7 +3326,8 @@
 
   function resize() {
     const r = root.getBoundingClientRect();
-    S.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // The prologue redraws hundreds of glowing particles every frame; full Retina resolution costs more than it shows.
+    S.dpr = Math.min(window.devicePixelRatio || 1, S.opening ? 1.25 : 2);
     S.w = Math.max(1, r.width);
     S.h = Math.max(1, r.height);
     S.narrow = S.w < 900;
@@ -3477,6 +3539,7 @@
     if (!S.open) return;
     if (!S.opening) enterOpening(at);
     OP.p = OP.target = clamp(at, 0, 1);
+    OP.v = 0;
     setScrollProgress(OP.p);
     OP.age = 4;
     OP.dir = 1;

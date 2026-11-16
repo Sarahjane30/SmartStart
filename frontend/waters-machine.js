@@ -951,44 +951,53 @@
 
   // Native scroll track 0..1. Each window is [fade in from, fully in, hold until, gone by].
   const OPEN_BEATS = {
-    see: [-1, 0, 0.04, 0.055],
-    understand: [0.06, 0.075, 0.105, 0.12],
-    medicine: [0.135, 0.15, 0.19, 0.205],
-    water: [0.21, 0.225, 0.262, 0.277],
-    food: [0.282, 0.297, 0.334, 0.349],
-    material: [0.354, 0.369, 0.406, 0.421],
-    appearance: [0.43, 0.445, 0.515, 0.53],
-    within: [0.545, 0.56, 0.595, 0.607],
-    identity: [0.609, 0.62, 0.64, 0.652],
-    observe: [0.66, 0.672, 0.69, 0.7],
-    separate: [0.702, 0.712, 0.73, 0.74],
-    analytical: [0.745, 0.758, 0.855, 0.868],
-    together: [0.875, 0.888, 0.915, 0.927],
+    see: [-1, 0, 0.029, 0.039],
+    understand: [0.043, 0.054, 0.075, 0.086],
+    medicine: [0.096, 0.107, 0.136, 0.146],
+    water: [0.15, 0.161, 0.187, 0.198],
+    food: [0.201, 0.212, 0.238, 0.249],
+    material: [0.253, 0.264, 0.29, 0.301],
+    appearance: [0.307, 0.318, 0.368, 0.378],
+    within: [0.389, 0.4, 0.425, 0.433],
+    identity: [0.435, 0.443, 0.457, 0.466],
+    observe: [0.471, 0.48, 0.493, 0.5],
+    separate: [0.501, 0.508, 0.521, 0.528],
+    analytical: [0.532, 0.541, 0.61, 0.62],
+    bio: [0.632, 0.642, 0.69, 0.7],
+    dx: [0.712, 0.722, 0.77, 0.78],
+    mat: [0.792, 0.802, 0.85, 0.86],
+    together: [0.872, 0.884, 0.912, 0.924],
     waters: [0.935, 0.95, 2, 3],
   };
   // Scene starts for the progress rail; clicking a tick scrolls there.
   const OPEN_CHAPTERS = [
     ["The globe", 0],
-    ["Everyday things", 0.15],
-    ["Appearance", 0.45],
-    ["The microscopic", 0.565],
-    ["The challenge", 0.675],
-    ["Analytical science", 0.77],
-    ["Waters", 0.89],
+    ["Everyday things", 0.107],
+    ["Appearance", 0.321],
+    ["The microscopic", 0.403],
+    ["The challenge", 0.482],
+    ["Analytical Sciences", 0.55],
+    ["Biosciences", 0.645],
+    ["Advanced Diagnostics", 0.725],
+    ["Materials Sciences", 0.805],
+    ["Waters", 0.876],
   ];
   // One continuous particle timeline: each keyframe is a formation held over [a, b].
   // Camera: `zoom`, horizontal offset `sx` (fraction of width) and vertical `sy` (fraction of height).
   const KF = [
-    { s: "globe", a: -1, b: 0.112, zoom: 2.75, sx: 0.2, sy: 0.02 },
-    { s: "tablet", a: 0.145, b: 0.195, zoom: 2.3, sx: 0.2, sy: 0.02 },
-    { s: "drop", a: 0.222, b: 0.267, zoom: 2.3, sx: -0.2, sy: 0.02 },
-    { s: "food", a: 0.294, b: 0.339, zoom: 2.3, sx: 0.2, sy: 0.02 },
-    { s: "material", a: 0.366, b: 0.411, zoom: 2.15, sx: -0.2, sy: 0.02 },
-    { s: "lineup", a: 0.442, b: 0.525, zoom: 1.62, sx: 0, sy: -0.075 },
-    { s: "micro", a: 0.556, b: 0.648, zoom: 1.72, sx: 0, sy: -0.06 },
-    { s: "mixture", a: 0.668, b: 0.735, zoom: 1.9, sx: 0.17, sy: 0 },
-    { s: "separation", a: 0.758, b: 0.858, zoom: 1.66, sx: 0, sy: 0.12 },
-    { s: "quad", a: 0.884, b: 0.918, zoom: 1.62, sx: 0, sy: -0.075 },
+    { s: "globe", a: -1, b: 0.08, zoom: 2.75, sx: 0.2, sy: 0.02 },
+    { s: "tablet", a: 0.1035, b: 0.1392, zoom: 2.3, sx: 0.2, sy: 0.02 },
+    { s: "drop", a: 0.1585, b: 0.1906, zoom: 2.3, sx: -0.2, sy: 0.02 },
+    { s: "food", a: 0.2099, b: 0.242, zoom: 2.3, sx: 0.2, sy: 0.02 },
+    { s: "material", a: 0.2613, b: 0.2935, zoom: 2.15, sx: -0.2, sy: 0.02 },
+    { s: "lineup", a: 0.3156, b: 0.3749, zoom: 1.62, sx: 0, sy: -0.075 },
+    { s: "micro", a: 0.397, b: 0.4627, zoom: 1.72, sx: 0, sy: -0.06 },
+    { s: "mixture", a: 0.477, b: 0.5248, zoom: 1.9, sx: 0.17, sy: 0 },
+    { s: "separation", a: 0.5412, b: 0.6126, zoom: 1.66, sx: 0, sy: 0.12 },
+    { s: "bio", a: 0.642, b: 0.692, zoom: 1.66, sx: 0, sy: 0.12 },
+    { s: "dx", a: 0.722, b: 0.772, zoom: 1.8, sx: 0, sy: 0.04 },
+    { s: "mat", a: 0.802, b: 0.852, zoom: 1.8, sx: 0, sy: 0.04 },
+    { s: "quad", a: 0.882, b: 0.914, zoom: 1.62, sx: 0, sy: -0.075 },
     { s: "core", a: 0.948, b: 2, zoom: 1.15, sx: 0, sy: -0.07 },
   ];
   const KI = Object.fromEntries(KF.map((k, i) => [k.s, i]));
@@ -1177,6 +1186,60 @@
     }
   });
 
+  // Biosciences, flow cytometry: cells pass a laser in single file and each measurement lands on a dot plot.
+  const FLOW = { X0: -2.05, XL: 0.2, X1: 1.75, Y0: 0.72, R: 0.13, V: 4, PX0: -1.45, PX1: 1.45, PY0: -0.62, PY1: 0.26 };
+  const FLOW_CELLS = 18;
+  const FLOW_M = 16;
+  const FLOW_POPC = ["cyan", "violet", "mint"];
+  const FLOW_POP = [
+    { u: 0.2, v: 0.24, su: 0.06, sv: 0.075, name: "Cell type A" },
+    { u: 0.72, v: 0.28, su: 0.075, sv: 0.065, name: "Cell type B" },
+    { u: 0.58, v: 0.76, su: 0.065, sv: 0.06, name: "Cell type C" },
+  ];
+  const flowCellT = (c) => 0.05 + (0.8 * c) / (FLOW_CELLS - 1);
+  const flowCellX = (c, T) => FLOW.XL + (T - flowCellT(c)) * FLOW.V;
+  const FLOW_EVT = OPEN_DOTS.map((_, i) => {
+    const pop = i % 3;
+    const P = FLOW_POP[pop];
+    return { pop, u: clamp(P.u + gauss() * P.su, 0.03, 0.97), v: clamp(P.v + gauss() * P.sv, 0.04, 0.96), t: 0.08 + seeded() * 0.76 };
+  });
+
+  // Advanced Diagnostics, microbiology: bacteria multiply in a culture bottle until the growth signal crosses a threshold.
+  const CULT = { BX: -1.4, BY: -0.08, LIQ: 0.16, GX0: -0.4, GX1: 2.0, GY0: -0.55, GY1: 0.42, thr: 0.3, n: 120 };
+  const cultL = (t) => 1 / (1 + Math.exp(-(t - 0.46) * 11));
+  const cultGrow = (t) => (cultL(clamp(t, 0, 1)) - cultL(0)) / (cultL(1) - cultL(0));
+  const CULT_POS = (() => {
+    let lo = 0;
+    let hi = 1;
+    for (let n = 0; n < 30; n += 1) {
+      const m = (lo + hi) / 2;
+      if (cultGrow(m) < CULT.thr) lo = m;
+      else hi = m;
+    }
+    return lo;
+  })();
+  const CULT_BUG = Array.from({ length: CULT.n }, () => ({
+    x: (seeded() - 0.5) * 0.56,
+    y: lerp(-0.44, CULT.LIQ - 0.05, seeded()),
+    ang: seeded() * Math.PI,
+    ph: seeded() * TAU,
+  }));
+
+  // Materials Sciences, thermal analysis: a crystalline sample is heated until it softens, then melts.
+  const THERM = { SX: -1.4, PAN: -0.3, GX0: -0.4, GX1: 2.0, GY0: -0.55, GY1: 0.42, tg: 0.3, tm: 0.64 };
+  const thermFlow = (t) => 0.06 + 0.05 * t + 0.1 * sm((t - THERM.tg + 0.03) / 0.06) + 0.62 * Math.exp(-((t - THERM.tm) ** 2) / (2 * 0.032 * 0.032));
+  const THERM_LAT = OPEN_DOTS.map((_, i) => {
+    const a = i % 12;
+    const b = Math.floor(i / 12) % 6;
+    const c = Math.floor(i / 72);
+    return { p: [(a - 5.5) * 0.068, (b - 2.5) * 0.068, (c - 4.5) * 0.068], odd: (a + b + c) % 2 };
+  });
+  const THERM_LIQ = OPEN_DOTS.map(() => {
+    const r = Math.sqrt(seeded()) * 0.56;
+    const th = seeded() * TAU;
+    return [Math.cos(th) * r, 0.03 + (1 - r / 0.56) * 0.12 * seeded(), Math.sin(th) * r * 0.45];
+  });
+
   function quadLocal(g, j, i) {
     if (g === 0) return MOL_PARTS[0][j].local.map((v) => v * 0.42);
     if (g === 3) return MOL_PARTS[3][j].local.map((v) => v * 0.45);
@@ -1255,6 +1318,15 @@
     sample: ["Sample injection", "A small volume of the mixture is injected into a flowing liquid, the mobile phase."],
     column: ["The column", "Packed with tiny particles. Each component sticks to them by a different amount, so each travels at its own speed."],
     detector: ["The detector", "Measures each component as it leaves the column and turns it into an electrical signal."],
+    cells: ["Cells in single file", "A narrow stream of fluid lines the cells up so they pass the laser one at a time, thousands every second."],
+    laser: ["Laser and detectors", "Each cell scatters the laser light, and fluorescent markers attached to it glow. Detectors measure both, cell by cell."],
+    plot: ["Every dot is one cell", "Cells carrying similar markers cluster together, so different cell types can be counted and compared."],
+    bottle: ["A culture bottle", "A patient's blood sample goes into a bottle of nutrients. If bacteria are present, they multiply."],
+    growth: ["Watching for growth", "The instrument checks the bottle continuously. As microbes grow, a signal it can measure rises."],
+    positive: ["A positive result", "Once the signal crosses the threshold, the bottle is flagged so the lab can identify the organism and test which antibiotics work."],
+    specimen: ["A material sample", "A few milligrams are heated at a controlled rate. Its atoms vibrate more as it warms, until its ordered structure gives way."],
+    glass: ["Softening", "A step in the curve: the material changes from rigid to rubbery without melting. Where that happens shapes how it can be used."],
+    melt: ["Melting", "The peak is where the ordered structure breaks down and the material absorbs extra heat. Its position and size help characterise it."],
     peak: ["A peak", "Each peak is one separated component. When it appears (retention time) helps identify it; its area relates to how much is present."],
   };
   function splitWords(el) {
@@ -1282,10 +1354,10 @@
   opEls.lines.forEach(splitWords);
 
   function scaleExp(p) {
-    if (p < 0.112) return 7;
-    if (p < 0.145) return Math.round(lerp(7, -2, sm((p - 0.112) / 0.033)));
-    if (p < 0.525) return -2;
-    return Math.round(lerp(-2, -9, sm((p - 0.525) / 0.031)));
+    if (p < 0.08) return 7;
+    if (p < 0.1035) return Math.round(lerp(7, -2, sm((p - 0.08) / 0.0235)));
+    if (p < 0.375) return -2;
+    return Math.round(lerp(-2, -9, sm((p - 0.375) / 0.022)));
   }
 
   function openLayout() {
@@ -1442,6 +1514,68 @@
       const end = [(top[0] + mol[0]) * L.sx, top[1] + mol[1], mol[2]];
       return { w: bez([SEP.XD * L.sx + 0.12, SEP.Y0, 0], [end[0], SEP.Y0, 0], end, u), col: C[COMP[g]], size: 0.011, a: 1 };
     }
+    if (s === "bio") {
+      const T = localT(k);
+      if (i < FLOW_CELLS * FLOW_M) {
+        const c = i % FLOW_CELLS;
+        const m = (i - c) / FLOW_CELLS;
+        const x = flowCellX(c, T);
+        const pop = c % 3;
+        const ang = (m / 12) * TAU + t * 0.6 + c;
+        const rr = m < 12 ? 0.068 : 0.022 + 0.012 * seed;
+        const ax = m < 12 ? ang : seed * TAU * 5 + t;
+        const vis = sm((x - FLOW.X0 - 0.05) / 0.2) * (1 - sm((x - FLOW.X1 + 0.25) / 0.2));
+        const read = x > FLOW.XL ? 1 : 0;
+        return {
+          w: [x * L.sx + Math.cos(ax) * rr, FLOW.Y0 + Math.sin(ax) * rr * 0.9, 0],
+          col: read ? C[FLOW_POPC[pop]] : mixC(C.ice, C[FLOW_POPC[pop]], 0.2),
+          size: m < 12 ? 0.011 : 0.013,
+          a: vis * (read ? 1.25 : 0.8),
+        };
+      }
+      const ev = FLOW_EVT[i];
+      const u = ease(clamp((T - ev.t) / 0.07, 0, 1));
+      const from = [FLOW.XL * L.sx, FLOW.Y0 - FLOW.R, 0];
+      const to = [lerp(FLOW.PX0, FLOW.PX1, ev.u) * L.sx, lerp(FLOW.PY0, FLOW.PY1, ev.v), 0];
+      return { w: bez(from, [lerp(from[0], to[0], 0.2), to[1] + 0.25, 0], to, u), col: C[FLOW_POPC[ev.pop]], size: 0.0105, a: T > ev.t ? sm(u * 3) : 0 };
+    }
+    if (s === "dx") {
+      const T = localT(k);
+      const b = i % CULT.n;
+      const m = (i - b) / CULT.n;
+      const count = 3 + (CULT.n - 3) * cultGrow(T);
+      const vis = clamp(count - b, 0, 1);
+      const B = CULT_BUG[b];
+      const P0 = CULT_BUG[b >> 1];
+      const grown = ease(clamp((count - b) / 5, 0, 1));
+      const bx = lerp(P0.x, B.x, grown) + Math.sin(t * 0.3 + B.ph) * 0.02;
+      const by = lerp(P0.y, B.y, grown) + Math.cos(t * 0.25 + B.ph) * 0.015;
+      const ang = B.ang + Math.sin(t * 0.2 + B.ph) * 0.3;
+      const off = (m / 5 - 0.5) * 0.07;
+      return {
+        w: [CULT.BX * L.sx + bx + Math.cos(ang) * off, CULT.BY + by + Math.sin(ang) * off, (seed - 0.5) * 0.1],
+        col: seed < 0.2 ? mixC(C.mint, C.cyan, 0.6) : C.mint,
+        size: 0.0125,
+        a: vis * (0.9 + 0.3 * Math.sin(t * 2 + B.ph)),
+      };
+    }
+    if (s === "mat") {
+      const T = localT(k);
+      const lat = THERM_LAT[i];
+      const amp = (0.003 + 0.02 * T) * live;
+      const jit = [Math.sin(t * 9 + seed * 90) * amp, Math.cos(t * 8 + seed * 70) * amp, Math.sin(t * 7 + seed * 50) * amp];
+      const melt = sm((T - THERM.tm + 0.06 - seed * 0.1) / 0.1);
+      const solid = add(rotX(rotY(lat.p, 0.62 + t * 0.05), 0.38), [0, 0.25, 0]);
+      const lq = THERM_LIQ[i];
+      const liquid = [lq[0] + Math.sin(t * 0.5 + seed * 20) * 0.03, lq[1], lq[2] + Math.cos(t * 0.4 + seed * 30) * 0.02];
+      const q = mix(solid, liquid, melt);
+      return {
+        w: [THERM.SX * L.sx + q[0] + jit[0], THERM.PAN + q[1] + jit[1], q[2] + jit[2]],
+        col: mixC(lat.odd ? C.violet : C.blue, C.ice, 0.15 + 0.25 * T),
+        size: 0.0115,
+        a: 1,
+      };
+    }
     if (s === "quad") {
       const c = add(L.lp[g], [0, Math.sin(t * 0.6 + g * 1.4) * 0.03, 0]);
       const ql = quadLocal(g, j, i);
@@ -1559,7 +1693,7 @@
       OP.v = 0;
     }
     OP.st = stageAt(OP.p);
-    OP.sep = sm((OP.p - 0.64) / 0.04);
+    OP.sep = sm((OP.p - 0.457) / 0.029);
     if (OP.pin && !hitById(OP.pin)) OP.pin = null;
     const focus = OP.hover || OP.pin;
     const kt = Math.min(1, dt * 6);
@@ -1862,6 +1996,311 @@
     ctx.stroke();
     const mid = P(0, (B + T) / 2);
     if (a > 0.5) OP.hits.push({ id: "vial", cx: mid.x, cy: mid.y, rx: rad * 1.25, ry: (bot.y + rad - tl.y) / 2 + 6, r: rad });
+  }
+
+  const sceneT = (k) => (OP.st.A === k || OP.st.B === k ? localT(k) : 0);
+
+  // Axes shared by the division diagrams: y label at the top of the axis, x label under its end.
+  function plotAxes(p0, p1, top, yl, xl, a, annot) {
+    ctx.strokeStyle = rgba(C.ice, 0.32 * a);
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(p0.x, top.y);
+    ctx.lineTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.stroke();
+    canvasLabel(xl, p1.x, p1.y + annot * 1.1, 0.75 * a, { sans: true, size: annot - 1, align: "end" });
+    canvasLabel(yl, p0.x + 10, top.y, 0.75 * a, { sans: true, size: annot - 1, align: "start" });
+  }
+
+  function leader(text, x, yText, yTo, a, annot, col = C.ice) {
+    canvasLabel(text, x, yText, 0.9 * a, { sans: true, size: annot, weight: 600, col });
+    ctx.strokeStyle = rgba(col, 0.35 * a);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, yText + annot * 0.75);
+    ctx.lineTo(x, yTo - 5);
+    ctx.stroke();
+  }
+
+  function drawFlow(L, a, annot, lit) {
+    if (a <= 0.01) return;
+    const T = sceneT(KI.bio);
+    const P = (x, y) => project([x * L.sx, y, 0]);
+    const c0 = P(FLOW.X0, FLOW.Y0 + FLOW.R);
+    const c1 = P(FLOW.X1, FLOW.Y0 - FLOW.R);
+    const rr = (c1.y - c0.y) / 2;
+    const tube = () => {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(c0.x, c0.y, c1.x - c0.x, c1.y - c0.y, rr);
+      else ctx.rect(c0.x, c0.y, c1.x - c0.x, c1.y - c0.y);
+    };
+    ctx.globalCompositeOperation = "source-over";
+    tube();
+    ctx.fillStyle = `rgba(5, 10, 30, ${0.6 * a})`;
+    ctx.fill();
+    ctx.globalCompositeOperation = "lighter";
+    tube();
+    ctx.strokeStyle = rgba(C.ice, (0.4 + 0.4 * lit("cells")) * a);
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+
+    const labelY = c0.y - annot * 2.1;
+    const lz = P(FLOW.XL, FLOW.Y0);
+    const det0 = P(FLOW.XL - 0.17, FLOW.Y0 - FLOW.R - 0.07);
+    const det1 = P(FLOW.XL + 0.17, FLOW.Y0 - FLOW.R - 0.2);
+    let hot = 0;
+    let hotPop = 0;
+    for (let c = 0; c < FLOW_CELLS; c += 1) {
+      const h = Math.max(0, 1 - Math.abs(flowCellX(c, T) - FLOW.XL) / 0.09);
+      if (h > hot) {
+        hot = h;
+        hotPop = c % 3;
+      }
+    }
+    const beam = ctx.createLinearGradient(0, labelY, 0, det0.y);
+    beam.addColorStop(0, rgba(C.violet, 0.15 * a));
+    beam.addColorStop(0.6, rgba(C.violet, (0.75 + 0.25 * lit("laser")) * a));
+    beam.addColorStop(1, rgba(C.violet, 0.3 * a));
+    ctx.strokeStyle = beam;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(lz.x, labelY + annot * 0.75);
+    ctx.lineTo(lz.x, det0.y);
+    ctx.stroke();
+    glow(lz.x, lz.y, rr * 1.6, C.violet, 0.35 * a);
+    if (hot > 0) glow(lz.x, lz.y, rr * (1.6 + hot * 2.2), C[FLOW_POPC[hotPop]], 0.85 * hot * a);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = `rgba(5, 10, 30, ${0.6 * a})`;
+    ctx.fillRect(det0.x, det0.y, det1.x - det0.x, det1.y - det0.y);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = rgba(C.cyan, (0.45 + 0.5 * hot) * a);
+    ctx.lineWidth = 1.6;
+    ctx.strokeRect(det0.x, det0.y, det1.x - det0.x, det1.y - det0.y);
+    canvasLabel("Detectors", det1.x + 12, (det0.y + det1.y) / 2, 0.8 * a, { sans: true, size: annot - 1, align: "start", col: C.cyan });
+    canvasLabel("Laser", lz.x, labelY, 0.9 * a, { sans: true, size: annot, weight: 600, col: mixC(C.ice, C.violet, 0.5) });
+    leader("Cells, in single file", P(FLOW.X0 + 0.75, 0).x, labelY, c0.y, a, annot);
+    canvasLabel("Fluid flow →", c0.x + rr, c0.y - annot * 0.75, 0.5 * a, { size: Math.max(11, annot - 5), align: "start" });
+
+    const p0 = P(FLOW.PX0, FLOW.PY0);
+    const p1 = P(FLOW.PX1, FLOW.PY0);
+    const top = P(FLOW.PX0, FLOW.PY1);
+    plotAxes(p0, p1, top, "Marker 2", "Marker 1 →", a, annot);
+    const n = Math.round(25000 * clamp((T - 0.08) / 0.8, 0, 1));
+    canvasLabel(`${n.toLocaleString("en-GB")} cells measured`, p1.x, top.y, 0.8 * a, { size: Math.max(11, annot - 4), align: "end", col: C.cyan });
+    const gw = sm((T - 0.55) / 0.2) * a;
+    if (gw > 0.01) {
+      FLOW_POP.forEach((pop, g) => {
+        const c = P(lerp(FLOW.PX0, FLOW.PX1, pop.u), lerp(FLOW.PY0, FLOW.PY1, pop.v));
+        const rx = pop.su * 2.4 * (p1.x - p0.x);
+        const ry = pop.sv * 2.4 * (p0.y - top.y);
+        ctx.strokeStyle = rgba(C[FLOW_POPC[g]], (0.55 + 0.3 * lit("plot")) * gw);
+        ctx.setLineDash([3, 5]);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.ellipse(c.x, c.y, rx, ry, 0, 0, TAU);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        canvasLabel(pop.name, c.x + rx + 10, c.y - ry * 0.7, 0.9 * gw, { sans: true, size: annot - 1, weight: 600, align: "start", col: mixC(C.ice, C[FLOW_POPC[g]], 0.5) });
+      });
+    }
+    OP.hits.push(
+      { id: "cells", cx: (c0.x + lz.x) / 2 - rr, cy: lz.y, rx: (lz.x - c0.x) / 2 - rr, ry: rr * 1.6, r: rr, slot: "tr" },
+      { id: "laser", cx: lz.x, cy: (lz.y + det1.y) / 2, rx: Math.max(30, det1.x - det0.x), ry: (det1.y - lz.y) / 2 + rr, r: rr, slot: "tr" },
+      { id: "plot", cx: (p0.x + p1.x) / 2, cy: (p0.y + top.y) / 2, rx: (p1.x - p0.x) / 2, ry: (p0.y - top.y) / 2, r: 40, slot: "tr" }
+    );
+  }
+
+  function drawCulture(L, a, annot, lit) {
+    if (a <= 0.01) return;
+    const T = sceneT(KI.dx);
+    const g = cultGrow(T);
+    const bx = CULT.BX * L.sx;
+    const Q = (x, y) => project([bx + x, CULT.BY + y, 0]);
+    const outline = () => {
+      const pts = [
+        [-0.11, 0.56],
+        [-0.11, 0.44],
+        [-0.34, 0.28],
+        [-0.34, -0.44],
+        [-0.28, -0.5],
+        [0.28, -0.5],
+        [0.34, -0.44],
+        [0.34, 0.28],
+        [0.11, 0.44],
+        [0.11, 0.56],
+      ].map(([x, y]) => Q(x, y));
+      ctx.beginPath();
+      pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+    };
+    ctx.globalCompositeOperation = "source-over";
+    outline();
+    ctx.closePath();
+    ctx.fillStyle = `rgba(5, 10, 30, ${0.55 * a})`;
+    ctx.fill();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.save();
+    outline();
+    ctx.closePath();
+    ctx.clip();
+    const lq = Q(0, CULT.LIQ);
+    const bot = Q(0, -0.5);
+    const liq = ctx.createLinearGradient(0, lq.y, 0, bot.y);
+    liq.addColorStop(0, rgba(C.blue, (0.14 + 0.12 * g) * a));
+    liq.addColorStop(1, rgba(C.mint, (0.06 + 0.16 * g) * a));
+    ctx.fillStyle = liq;
+    const l0 = Q(-0.4, CULT.LIQ);
+    const l1 = Q(0.4, -0.52);
+    ctx.fillRect(l0.x, l0.y, l1.x - l0.x, l1.y - l0.y);
+    ctx.restore();
+    const s0 = Q(-0.34, CULT.LIQ);
+    const s1 = Q(0.34, CULT.LIQ);
+    ctx.strokeStyle = rgba(C.cyan, 0.55 * a);
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(s0.x, s0.y);
+    ctx.lineTo(s1.x, s1.y);
+    ctx.stroke();
+    outline();
+    ctx.strokeStyle = rgba(C.ice, (0.5 + 0.35 * lit("bottle")) * a);
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    const k0 = Q(-0.14, 0.68);
+    const k1 = Q(0.14, 0.56);
+    ctx.strokeStyle = rgba(C.violet, 0.7 * a);
+    ctx.lineWidth = 1.6;
+    ctx.strokeRect(k0.x, k0.y, k1.x - k0.x, k1.y - k0.y);
+    canvasLabel("Patient sample, in culture", bot.x, bot.y + annot * 1.4, 0.85 * a, { sans: true, size: annot, weight: 600 });
+    const mid = Q(0, 0);
+    OP.hits.push({ id: "bottle", cx: mid.x, cy: mid.y, rx: (s1.x - s0.x) / 2 + 8, ry: (bot.y - k0.y) / 2 + 8, r: 40, slot: "tr" });
+
+    const P = (x, y) => project([x * L.sx, y, 0]);
+    const yOf = (v) => lerp(CULT.GY0 + 0.04, CULT.GY1 - 0.08, v);
+    const p0 = P(CULT.GX0, CULT.GY0);
+    const p1 = P(CULT.GX1, CULT.GY0);
+    const top = P(CULT.GX0, CULT.GY1);
+    plotAxes(p0, p1, top, "Growth signal", "Time →", a, annot);
+    const t0 = P(CULT.GX0, yOf(CULT.thr));
+    const t1 = P(CULT.GX1, yOf(CULT.thr));
+    ctx.strokeStyle = rgba(C.violet, (0.55 + 0.3 * lit("positive")) * a);
+    ctx.setLineDash([5, 6]);
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(t0.x, t0.y);
+    ctx.lineTo(t1.x, t1.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    canvasLabel("Detection threshold", t1.x, t1.y - annot * 0.8, 0.7 * a, { sans: true, size: annot - 1, align: "end", col: mixC(C.ice, C.violet, 0.5) });
+    const trace = [];
+    for (let u = 0; u <= T + 1e-6; u += 1 / 200) trace.push(P(lerp(CULT.GX0, CULT.GX1, u), yOf(cultGrow(u))));
+    if (trace.length > 1) {
+      strokePts(trace, C.mint, 0.95 * a, 2.2);
+      const tip = trace[trace.length - 1];
+      if (T < 0.999) glow(tip.x, tip.y, 0.14 * tip.s, C.mint, 0.9 * a);
+    }
+    OP.hits.push({ id: "growth", cx: (p0.x + p1.x) / 2, cy: (p0.y + top.y) / 2 + 20, rx: (p1.x - p0.x) / 2, ry: (p0.y - top.y) / 2 - 20, r: 40, slot: "tr" });
+    const pw = sm((T - CULT_POS) / 0.06) * a;
+    if (pw > 0.01) {
+      const c = P(lerp(CULT.GX0, CULT.GX1, CULT_POS), yOf(CULT.thr));
+      const ring = 1 - clamp((T - CULT_POS) / 0.12, 0, 1);
+      glow(c.x, c.y, 0.2 * c.s * (1 + ring), C.violet, 0.9 * pw);
+      ctx.strokeStyle = rgba(C.ice, 0.8 * pw);
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 9 + ring * 18, 0, TAU);
+      ctx.stroke();
+      canvasLabel("Positive: microbes detected", c.x + 18, c.y + annot * 1.3, pw, { sans: true, size: annot, weight: 600, align: "start", col: C.ice });
+      OP.hits.push({ id: "positive", cx: c.x, cy: c.y, r: 28, slot: "tr" });
+    }
+    const iw = sm((T - 0.72) / 0.14) * a;
+    canvasLabel("Next: identify the organism and the antibiotics that work", p1.x, top.y - annot * 1.5, 0.8 * iw, { sans: true, size: annot - 1, align: "end", col: C.cyan });
+  }
+
+  function drawThermal(L, a, annot, lit) {
+    if (a <= 0.01) return;
+    const T = sceneT(KI.mat);
+    const sx = THERM.SX * L.sx;
+    const Q = (x, y) => project([sx + x, THERM.PAN + y, 0]);
+    const heat = 0.15 + 0.6 * T;
+    const h0 = Q(-0.58, -0.12);
+    const h1 = Q(0.58, -0.2);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = `rgba(5, 10, 30, ${0.6 * a})`;
+    ctx.fillRect(h0.x, h0.y, h1.x - h0.x, h1.y - h0.y);
+    ctx.globalCompositeOperation = "lighter";
+    const hg = ctx.createLinearGradient(h0.x, 0, h1.x, 0);
+    hg.addColorStop(0, rgba(C.violet, 0.1 * a));
+    hg.addColorStop(0.5, rgba(C.violet, heat * a));
+    hg.addColorStop(1, rgba(C.violet, 0.1 * a));
+    ctx.strokeStyle = hg;
+    ctx.lineWidth = 1.6;
+    ctx.strokeRect(h0.x, h0.y, h1.x - h0.x, h1.y - h0.y);
+    const hc = Q(0, -0.16);
+    glow(hc.x, hc.y, 0.7 * hc.s, C.violet, heat * 0.45 * a);
+    const pan = [
+      [-0.56, 0.02],
+      [-0.5, -0.06],
+      [0.5, -0.06],
+      [0.56, 0.02],
+    ].map(([x, y]) => Q(x, y));
+    ctx.strokeStyle = rgba(C.ice, 0.6 * a);
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    pan.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+    ctx.stroke();
+    canvasLabel("Heated at a steady rate", hc.x, h1.y + annot * 1.3, 0.85 * a, { sans: true, size: annot, weight: 600 });
+    const tb0 = Q(0.78, 0.04);
+    const tb1 = Q(0.78, 0.66);
+    ctx.strokeStyle = rgba(C.ice, 0.3 * a);
+    ctx.lineWidth = 6;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(tb0.x, tb0.y);
+    ctx.lineTo(tb1.x, tb1.y);
+    ctx.stroke();
+    ctx.strokeStyle = rgba(C.violet, 0.9 * a);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(tb0.x, tb0.y);
+    ctx.lineTo(tb0.x, lerp(tb0.y, tb1.y, 0.08 + 0.92 * T));
+    ctx.stroke();
+    ctx.lineCap = "butt";
+    canvasLabel("Temperature", tb1.x, tb1.y - annot * 0.9, 0.7 * a, { sans: true, size: annot - 2 });
+    const sc = Q(0, 0.25);
+    OP.hits.push({ id: "specimen", cx: sc.x, cy: sc.y, r: 0.5 * sc.s, rx: 0.55 * sc.s, ry: 0.35 * sc.s, slot: "tr" });
+
+    const P = (x, y) => project([x * L.sx, y, 0]);
+    const lo = thermFlow(0);
+    const hi = thermFlow(THERM.tm);
+    const yOf = (v) => lerp(THERM.GY0 + 0.06, THERM.GY1 - 0.1, (v - lo) / (hi - lo));
+    const p0 = P(THERM.GX0, THERM.GY0);
+    const p1 = P(THERM.GX1, THERM.GY0);
+    const top = P(THERM.GX0, THERM.GY1);
+    plotAxes(p0, p1, top, "Heat flow", "Temperature →", a, annot);
+    const trace = [];
+    for (let u = 0; u <= T + 1e-6; u += 1 / 240) trace.push(P(lerp(THERM.GX0, THERM.GX1, u), yOf(thermFlow(u))));
+    if (trace.length > 1) {
+      strokePts(trace, C.violet, 0.95 * a, 2.2);
+      const tip = trace[trace.length - 1];
+      if (T < 0.999) glow(tip.x, tip.y, 0.14 * tip.s, C.violet, 0.9 * a);
+    }
+    const mark = (id, at, v, text) => {
+      const w = sm((T - at - 0.03) / 0.06) * a;
+      if (w <= 0.01) return;
+      const q = P(lerp(THERM.GX0, THERM.GX1, at), yOf(v));
+      ctx.strokeStyle = rgba(C.ice, (0.35 + 0.4 * lit(id)) * w);
+      ctx.setLineDash([3, 4]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(q.x, q.y - 12);
+      ctx.lineTo(q.x, p0.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      canvasLabel(text, q.x, q.y - 12 - annot * 0.8, 0.9 * w, { sans: true, size: annot - 1, weight: 600, col: C.ice });
+      OP.hits.push({ id, cx: q.x, cy: (q.y + p0.y) / 2, rx: 34, ry: (p0.y - q.y) / 2 + 14, r: 30, slot: "tr" });
+    };
+    mark("glass", THERM.tg, thermFlow(THERM.tg + 0.06), "Softens");
+    mark("melt", THERM.tm, hi, "Melts");
   }
 
   function drawOpening() {
@@ -2282,6 +2721,10 @@
       });
     }
 
+    drawFlow(L, weightOf(KI.bio) ** 2.5, annot, lit);
+    drawCulture(L, weightOf(KI.dx) ** 2.5, annot, lit);
+    drawThermal(L, weightOf(KI.mat) ** 2.5, annot, lit);
+
     const qw = weightOf(KI.quad) ** 2;
     if (qw > 0.01) {
       DIVISIONS.forEach((name, g) => {
@@ -2386,7 +2829,7 @@
         if (mark) em.textContent = mark;
         em.classList.toggle("is-on", !!mark);
       }
-      setOpenK(opEls.scale, ready * (1 - sm((p - 0.55) / 0.03)));
+      setOpenK(opEls.scale, ready * (1 - sm((p - 0.393) / 0.021)));
     }
     setOpenK(opEls.cue, clamp((OP.age - 2.4) / 1, 0, 1) * (1 - sm(p / 0.04)));
     opEls.bar.style.setProperty("--p", p.toFixed(4));
@@ -2492,7 +2935,7 @@
     S.shift = lerp(S.shift, ct.shift, kc);
     S.shiftY = lerp(S.shiftY, ct.shiftY, kc);
     // Diagrams read best square-on, so the opening's parallax tilt relaxes while the separation is on screen.
-    const flat = S.opening ? 1 - 0.85 * weightOf(KI.separation) : 1;
+    const flat = S.opening ? 1 - 0.85 * Math.min(1, weightOf(KI.separation) + weightOf(KI.bio) + weightOf(KI.dx) + weightOf(KI.mat)) : 1;
     const idleYaw = S.active ? 0 : Math.sin(S.t * 0.11) * (S.opening ? 0.12 : 0.3);
     S.yaw = lerp(S.yaw, (idleYaw + S.smx * (S.active ? 0.14 : S.opening ? 0.22 : 0.38)) * flat, kc);
     S.pitch = lerp(S.pitch, (0.16 + S.smy * (S.active ? 0.06 : S.opening ? 0.1 : 0.16)) * flat, kc);

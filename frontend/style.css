@@ -4268,7 +4268,7 @@ body.wm-lock { overflow: hidden; }
 }
 .wm-open-scroll::-webkit-scrollbar { display: none; }
 .wm.is-opening.is-dragging .wm-open-scroll { cursor: grabbing; }
-.wm-open-track { height: 1000vh; }
+.wm-open-track { height: 1300vh; }
 
 .wm-open-line {
   --k: 0; --r: 0; --x: 0;
